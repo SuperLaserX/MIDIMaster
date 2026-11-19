@@ -1,0 +1,46 @@
+# ---------------------------------------------------------------------------
+# Ghidra: every file Ghidra produces, matched by pattern so new ones are ignored
+# automatically wherever a project is created.
+# ---------------------------------------------------------------------------
+*.gpr
+*.rep/
+*.rep
+*.lock
+*.lock~
+*.ulock
+*.gzf
+*.gdt
+*.gbf
+*.prp
+*.ghidra
+ghidra_*.log
+application.log
+# Exports (XML + bytes, C header, HTML/ASCII listings) written by Ghidra
+*.ghidra.xml
+*.bytes
+# Ghidra server repositories and per-user tool settings
+repositories/
+.ghidra/
+# Scripts the Ghidra MCP bridge writes when running inline code
+McpInline_*.java
+
+# ---------------------------------------------------------------------------
+# Reverse-engineering work area: unpacked firmware (copyrighted ROMs), Ghidra
+# projects and scratch files. Only tools/ and docs/ hold the results.
+# ---------------------------------------------------------------------------
+re/
+
+# ---------------------------------------------------------------------------
+# General
+# ---------------------------------------------------------------------------
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+*.tmp
+
+# Python bytecode from the tools
+__pycache__/
+*.pyc

@@ -1,0 +1,12 @@
+{
+  "name": "midimaster",
+  "version": "0.2.0",
+  "description": "Editors and librarians for MIDI instruments and effects, entirely over MIDI",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node serve.js",
+    "test": "node --test tests/"
+  },
+  "license": "MIT"
+}
