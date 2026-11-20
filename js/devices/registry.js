@@ -14,6 +14,8 @@ const MODULES = {
 const DEFS = {
   'oberheim-matrix1000': () => import('./defs/oberheim-matrix1000.js'),
   'roland-jv2080': () => import('./defs/roland-jv2080.js'),
+  'korg-m1': () => import('./defs/korg-m1.js'),
+  'korg-m1r': () => import('./defs/korg-m1.js'),
 };
 
 /** Hand-picked logo styles; the rest are assigned in catalog order without repeats. */

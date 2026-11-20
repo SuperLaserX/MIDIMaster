@@ -14,6 +14,7 @@ import { dt1, dt1Chunks, rq1, parseDt1, readBlock, intToAddr, addrToInt } from '
 import { JV2080_BLOCKS as FW } from './roland-jv2080-fw.js';
 import { LISTS, EFX_TYPES } from './roland-jv2080-ui.js';
 import { PRESET_PATCHES, PRESET_PERFORMANCES } from './roland-jv2080-presets.js';
+import { SRJV80_BOARDS } from './roland-srjv80.js';
 
 const MODEL = [0x6a];
 const A = (s) => addrToInt(s.split(' ').map((x) => parseInt(x, 16)));
@@ -77,14 +78,74 @@ const O = {
   preview: L(100),
   muteGroup: named(['OFF', ...Array.from({ length: 31 }, (_, i) => String(i + 1))]),
   envMode: L(44),
+  sysCtlSrc: Array.from({ length: 97 }, (_, i) => [i + 1, sysCtl(i + 1)]),
 };
 
 // Patch groups: [group type, group ID] as the JV-2080 reports them (checked on a unit).
 const INT_GROUPS = { 1: 'USER', 2: 'CARD', 3: 'PR-A', 4: 'PR-B', 5: 'PR-C', 6: 'PR-D (GM)', 7: 'PR-E' };
-const BOARDS = { 1: 'Pop', 2: 'Orchestral', 3: 'Piano', 4: 'Vintage Synth', 5: 'World', 6: 'Dance', 7: 'Super Sound Set', 8: "Keyboards of the 60s & 70s", 9: 'Session', 10: 'Bass & Drum', 11: 'Techno', 12: 'Hip Hop', 13: 'Vocal', 14: 'Asia', 15: 'Special FX', 16: 'Orchestral II', 17: 'Country', 18: 'Latin', 19: 'House' };
+const BOARDS = { 1: 'Pop', 2: 'Orchestral', 3: 'Piano', 4: 'Vintage Synth', 5: 'World', 6: 'Dance', 7: 'Super Sound Set', 8: "Keyboards of the 60s & 70s", 9: 'Session', 10: 'Bass & Drum', 11: 'Techno', 12: 'Hip Hop', 13: 'Vocal', 14: 'Asia', 15: 'Special FX', 16: 'Orchestral II', 17: 'Country', 18: 'Latin', 19: 'House', 97: 'Experience III', 98: 'Experience II', 99: 'Experience' };
 const boardName = (id) => `SR-JV80-${String(id).padStart(2, '0')}${BOARDS[id] ? ` ${BOARDS[id]}` : ''}`;
 const groupName = (type, id) => (type === 0 ? INT_GROUPS[id] ?? `INT ${id}` : type === 2 ? boardName(id) : `PCM ${id}`);
 const waveGroupName = (type, id) => (type === 0 ? (id === 1 ? 'INT-A' : id === 2 ? 'INT-B' : `INT ${id}`) : type === 2 ? boardName(id) : `PCM ${id}`);
+const SLOTS = 'ABCDEFGH';
+const num3 = (i) => String(i + 1).padStart(3, '0');
+const boardsOf = (ctx) => ctx?.settings?.jvBoards || null;
+
+// Expansion board contents from the board ROMs (roland-srjv80.js): wave and patch names in
+// number order. Patch names not on a board (SR-JV80-97) are read from the unit once and kept
+// in the device settings (jvBoardNames).
+const boardWaveNames = (id) => SRJV80_BOARDS[id]?.waves || null;
+function boardPatchNames(id, ctx) {
+  const rom = SRJV80_BOARDS[id]?.patches;
+  if (rom) return rom;
+  const read = ctx?.settings?.jvBoardNames?.[id];
+  return read?.length ? read : null;
+}
+
+/** Boards to choose from: every known board, installed ones marked with their slot. */
+function boardOptions(ctx) {
+  const installed = boardsOf(ctx) || [];
+  const ids = [...new Set([...Object.keys(BOARDS).map(Number), ...installed.filter(Boolean)])].sort((a, b) => a - b);
+  return ids.map((id) => {
+    const slots = installed.map((x, k) => (x === id ? SLOTS[k] : null)).filter(Boolean);
+    return [id, `${boardName(id)}${slots.length ? ` (slot ${slots.join(', ')})` : ''}`];
+  });
+}
+const numbered = (count, nameOf = () => '') => Array.from({ length: count }, (_, i) => { const n = nameOf(i); return [i, n ? `${num3(i)} ${n}` : num3(i)]; });
+const pcmGroups = () => Array.from({ length: 127 }, (_, i) => [i + 1, `PCM ${i + 1}`]);
+
+/** Wave group IDs for a group type: INT-A/B, expansion boards, PCM cards. */
+const waveGroupOptions = (type, ctx) => (type === 0 ? [[1, 'INT-A'], [2, 'INT-B']] : type === 2 ? boardOptions(ctx) : pcmGroups());
+/** Wave numbers, named for expansion boards (the internal wave names are not in the flash). */
+function waveNumberOptions(type, id) {
+  const names = type === 2 ? boardWaveNames(id) : null;
+  return names ? numbered(names.length, (i) => names[i]) : numbered(256);
+}
+
+/** Patch group IDs for a group type (performance parts, system selection). */
+const patchGroupOptions = (type, ctx) => (type === 0 ? Object.entries(INT_GROUPS).map(([k, v]) => [Number(k), v]) : type === 2 ? boardOptions(ctx) : pcmGroups());
+/** Name of patch n of a group, if known (presets, user patches read so far, board ROMs). */
+function patchName(type, id, n, ctx) {
+  if (type === 0 && id >= 3 && id <= 7) return PRESET_PATCHES[['PR-A', 'PR-B', 'PR-C', 'PR-D', 'PR-E'][id - 3]]?.[n] ?? '';
+  if (type === 0 && id === 1) return ctx?.names?.patch?.get(`0:${n}`) ?? '';
+  if (type === 2) return boardPatchNames(id, ctx)?.[n] ?? '';
+  return '';
+}
+function patchNumberOptions(type, id, ctx) {
+  if (type === 0) return numbered(128, (n) => patchName(type, id, n, ctx));
+  if (type === 2) return numbered(boardPatchCount(id, ctx) ?? 256, (n) => patchName(type, id, n, ctx) || '');
+  return numbered(256);
+}
+
+/** Performance numbers as system byte 01 holds them: USER 0-31, CARD 32-63, PR-A 64-95, PR-B 96-127. */
+function performanceOptions(ctx) {
+  return Array.from({ length: 128 }, (_, v) => {
+    const bank = ['USER', 'CARD', 'PR-A', 'PR-B'][v >> 5];
+    const i = v & 31;
+    const name = bank === 'USER' ? ctx?.names?.performance?.get(`0:${i}`) : PRESET_PERFORMANCES[bank]?.[i];
+    return [v, `${bank} ${String(i + 1).padStart(2, '0')}${name ? ` ${name}` : ''}`];
+  });
+}
 
 const t = {
   name: (label) => ({ label, kind: 'char' }),
@@ -102,12 +163,30 @@ const t = {
 // ------------------------------------------------------------------ block layouts (by byte offset)
 const NAME12 = Array.from({ length: 12 }, (_, i) => ({ ...t.name(`Name ${i + 1}`), hidden: true }));
 
-// Wave group and number (tones and rhythm notes): the group ID and the number read as names.
-const waveGroupId = () => ({ label: 'Wave group ID', dynamic: (data, _ctx, p) => ({ format: (v) => waveGroupName(data[p.offset - 1], v) }) });
+// Bytes the firmware keeps but no JV-2080 screen shows: the block format is shared with
+// Roland's XP keyboards. Shown as typed values in a table (groupInfo below), with the
+// probable XP use where the ranges and defaults identify it.
+const hexByte = (o) => `${o.toString(16).toUpperCase().padStart(2, '0')}h`;
+const unusedByte = (o, use, extra = {}) => ({ label: hexByte(o), help: use, input: 'number', ...extra });
+const UNUSED_GROUP = 'Unused bytes (XP keyboard format)';
+const UNUSED_NOTE = 'The JV-2080 stores these bytes but has no screen for them and does not use them: Roland shares this data format with its XP keyboards, where they hold keyboard, pedal and controller settings. "Probable use" comes from that layout and the firmware\'s ranges and defaults. Changing them has no audible effect; they are here so a backup restores exactly.';
+
+// Wave group and number (tones and rhythm notes): lists, so an exact wave is easy to pick.
+// The group ID list follows the group type; the wave list follows the group (board waves by name).
+const waveGroupId = () => ({
+  label: 'Wave group ID', relayout: true,
+  dynamic: (data, ctx, p) => ({ options: waveGroupOptions(data[p.offset - 1], ctx), format: (v) => waveGroupName(data[p.offset - 1], v) }),
+});
+const waveNumber = () => ({
+  label: 'Wave number', nibbles: 2,
+  dynamic: (data, _ctx, p) => {
+    const opts = waveNumberOptions(data[p.offset - 2], data[p.offset - 1]);
+    return { options: opts, format: (v) => opts.find(([x]) => x === v)?.[1] ?? num3(v) };
+  },
+});
 
 const TONE = [
-  t.opt('Tone switch', O.onoff), t.opt('Wave group type', O.groupType, { relayout: true }), waveGroupId(),
-  { label: 'Wave number', nibbles: 2, format: (v) => String(v + 1) }, null,
+  t.opt('Tone switch', O.onoff), t.opt('Wave group type', O.groupType, { relayout: true }), waveGroupId(), waveNumber(), null,
   t.opt('Wave gain', O.waveGain), t.opt('FXM switch', O.onoff), t.opt('FXM color', O.fxmColor), t.plus1('FXM depth'),
   t.opt('Delay mode', O.delayMode), t.plain('Delay time'), t.plain('Velocity cross fade'),
   t.plain('Velocity range lower'), t.plain('Velocity range upper'), t.note('Key range lower'), t.note('Key range upper'),
@@ -178,48 +257,84 @@ const PERFORM_COMMON = [
   ...NAME12, t.opt('EFX-A source', O.efxSrc), ...EFX_BLOCK,
   t.opt('Key range switch', O.onoff),
   ...Array.from({ length: 16 }, (_, i) => t.plain(`Voice reserve part ${i + 1}`)),
-  { ...t.plain('Byte 40h'), help: 'Used by the firmware but on no JV-2080 screen' }, t.opt('Clock source', O.perfClock),
+  unusedByte(0x40, 'Unknown (XP keyboards; on/off)'), t.opt('Clock source', O.perfClock),
   t.opt('EFX-B source', O.efxSrc), t.opt('EFX-C source', O.efxSrc),
 ];
 
-// Part patch: group ID and number read as names (presets, user patches read so far).
-function partPatchName(type, id, n, ctx) {
-  if (type === 0 && id >= 3 && id <= 7) return PRESET_PATCHES[['PR-A', 'PR-B', 'PR-C', 'PR-D', 'PR-E'][id - 3]]?.[n] ?? '';
-  if (type === 0 && id === 1) return ctx?.names?.patch?.get(`0:${n}`) ?? '';
-  return '';
-}
+// Patch group ID and number (performance parts, system selection) as lists, named where the
+// names are known: presets, user patches read so far, expansion boards.
+const patchGroupParam = (label) => ({
+  label, relayout: true,
+  dynamic: (data, ctx, p) => ({ options: patchGroupOptions(data[p.offset - 1], ctx), format: (v) => groupName(data[p.offset - 1], v) }),
+});
+const patchNumberParam = (label) => ({
+  label, nibbles: 2,
+  dynamic: (data, ctx, p) => {
+    const opts = patchNumberOptions(data[p.offset - 2], data[p.offset - 1], ctx);
+    return { options: opts, format: (v) => opts.find(([x]) => x === v)?.[1] ?? num3(v) };
+  },
+});
 const PART = [
   t.opt('Receive switch', O.onoff), t.opt('Receive channel', O.channel), t.opt('Patch group type', O.groupType, { relayout: true }),
-  { label: 'Patch group ID', relayout: true, dynamic: (data, _ctx, p) => ({ format: (v) => groupName(data[p.offset - 1], v) }) },
-  { label: 'Patch number', nibbles: 2, dynamic: (data, ctx, p) => ({ format: (v) => { const nm = partPatchName(data[p.offset - 2], data[p.offset - 1], v, ctx); return `${v + 1}${nm ? ` ${nm}` : ''}`; } }) }, null,
+  patchGroupParam('Patch group ID'), patchNumberParam('Patch number'), null,
   t.plain('Part level'), t.pan('Part pan'), { label: 'Coarse tune', ...signed(48) }, { label: 'Fine tune', ...signed(50) },
   t.opt('Output assign', O.partOut), t.plain('Mix/EFX send level'), t.plain('Chorus send level'), t.plain('Reverb send level'),
   t.opt('Rx program change', O.onoff), t.opt('Rx volume', O.onoff), t.opt('Rx hold-1', O.onoff), t.note('Key range lower'), t.note('Key range upper'),
   t.opt('Octave shift', O.octave),
-  ...[0x14, 0x15, 0x16, 0x17, 0x18, 0x19].map((o) => ({ ...t.plain(`Byte ${o.toString(16).toUpperCase()}h`), help: 'Used by the firmware but on no JV-2080 screen' })),
+  ...[[0x14, 'on/off'], [0x15, 'on/off'], [0x16, '0-7'], [0x17, '0-15'], [0x18, '0-15'], [0x19, '0-2']]
+    .map(([o, r]) => unusedByte(o, `Unknown (XP keyboards: part keyboard or transmit setting, ${r})`)),
 ];
 
 const SYSTEM = [
-  t.opt('Panel mode', O.panelMode), t.plus1('Performance number'), t.opt('Patch group type', O.groupType),
-  { label: 'Patch group ID', dynamic: (data, _ctx, p) => ({ format: (v) => groupName(data[p.offset - 1], v) }) },
-  { label: 'Patch number', nibbles: 2, format: (v) => String(v + 1) }, null,
+  t.opt('Panel mode', O.panelMode, { help: 'PERFORM, PATCH or GM: what the JV-2080 is playing. Changing it switches the mode.' }),
+  { label: 'Current performance', help: 'The performance selected for performance mode (system byte 01: USER 0-31, CARD 32-63, PR-A 64-95, PR-B 96-127).',
+    dynamic: (_data, ctx) => ({ options: performanceOptions(ctx) }) },
+  t.opt('Current patch group type', O.groupType, { relayout: true, help: 'The patch selected for patch mode: INT (user, card, presets), PCM or EXP (expansion board).' }),
+  patchGroupParam('Current patch group'), patchNumberParam('Current patch number'), null,
   { label: 'Master tune', format: (v) => `${(427.4 + v * 0.2).toFixed(1)} Hz` }, t.opt('Scale tune switch', O.onoff),
   t.opt('EFX switch', O.onoff), t.opt('Chorus switch', O.onoff), t.opt('Reverb switch', O.onoff), t.opt('Patch remain', O.onoff),
   t.opt('Clock source', O.sysClock), t.opt('Tap control', O.ctlSw), t.opt('Hold control', O.ctlSw), t.opt('Peak control', O.ctlSw),
-  t.opt('Volume control', O.volSrc), t.opt('Aftertouch control', O.atSrc), { label: 'System control 1 source', format: sysCtl }, { label: 'System control 2 source', format: sysCtl },
+  t.opt('Volume control', O.volSrc), t.opt('Aftertouch control', O.atSrc), t.opt('System control 1 source', O.sysCtlSrc), t.opt('System control 2 source', O.sysCtlSrc),
   t.opt('Rx program change', O.onoff), t.opt('Rx bank select', O.onoff), t.opt('Rx control change', O.onoff), t.opt('Rx modulation', O.onoff),
   t.opt('Rx volume', O.onoff), t.opt('Rx hold-1', O.onoff), t.opt('Rx pitch bend', O.onoff), t.opt('Rx aftertouch', O.onoff),
   t.opt('Control channel', O.ctrlCh), t.opt('Patch receive channel', O.channel), t.opt('Rhythm edit source', O.rhythmEdit), t.opt('Preview mode', O.preview),
   ...[1, 2, 3, 4].flatMap((n) => [t.note(`Preview key ${n}`), t.plain(`Preview velocity ${n}`)]),
 ];
-// 28h-61h: kept in the data (the format is shared with Roland's XP keyboards) but on no JV-2080 screen.
-while (SYSTEM.length < FW.system.size) SYSTEM.push({ ...t.plain(`Byte ${SYSTEM.length.toString(16).toUpperCase()}h`), help: 'Used by the firmware but on no JV-2080 screen' });
+// 28h-61h: kept in the data but on no JV-2080 screen. The layout matches the XP keyboards'
+// system block: transmit settings, two pedals (assign 1-104, output mode, polarity),
+// controllers C1/C2 (assign 1-97 like the system control sources), the hold pedal, and seven
+// bank-select switch/MSB/LSB triplets whose defaults are the JV's own banks.
+const OUT_MODE = (v) => ['OFF', 'INT', 'MIDI', 'INT+MIDI'][v] ?? String(v);
+const POLARITY = (v) => ['STANDARD', 'REVERSE'][v] ?? String(v);
+const ONOFF = (v) => (v ? 'ON' : 'OFF');
+const XP_CHANNEL = (v) => (v < 16 ? `Ch ${v + 1}` : v === 16 ? 'Rx channel' : 'OFF');
+const XP_BANKS = ['USER (80/0)', 'PR-A (81/0)', 'PR-B (81/1)', 'PR-C (81/2)', 'PR-D (81/3)', 'XP-A 1-128 (84/0)', 'XP-A 129-256 (84/1)'];
+const pedalAssign = (v) => (v <= 97 ? sysCtl(v) : `Function ${v}`);
+const pedal = (o, name, dflt) => [
+  unusedByte(o, `${name} assign (1-95 = CC; ${dflt})`, { format: pedalAssign }),
+  unusedByte(o + 1, `${name} output mode`, { format: OUT_MODE }), unusedByte(o + 2, `${name} polarity`, { format: POLARITY })];
+SYSTEM.push(
+  unusedByte(0x28, 'Transmit program change', { format: ONOFF }), unusedByte(0x29, 'Transmit bank select', { format: ONOFF }),
+  unusedByte(0x2a, 'Patch transmit channel (1-16, Rx channel, OFF)', { format: XP_CHANNEL }),
+  unusedByte(0x2b, 'Unknown (on/off)'), unusedByte(0x2c, 'Unknown (keyboard setting, 0-11)'), unusedByte(0x2d, 'Unknown (keyboard setting, 0-6)'),
+  unusedByte(0x2e, 'Unknown (keyboard velocity?, 0-127)'), unusedByte(0x2f, 'Unknown (0-2)'), unusedByte(0x30, 'Unknown (0-100)'),
+  ...pedal(0x31, 'Pedal 1', 'default CC07 volume'), ...pedal(0x34, 'Pedal 2', 'default CC11 expression'),
+  unusedByte(0x37, 'Controller C1 assign (like system control sources)', { format: sysCtl }), unusedByte(0x38, 'Controller C1 output mode', { format: OUT_MODE }),
+  unusedByte(0x39, 'Controller C2 assign (like system control sources)', { format: sysCtl }), unusedByte(0x3a, 'Controller C2 output mode', { format: OUT_MODE }),
+  unusedByte(0x3b, 'Hold pedal output mode', { format: OUT_MODE }), unusedByte(0x3c, 'Hold pedal polarity', { format: POLARITY }),
+  ...XP_BANKS.flatMap((b, k) => [
+    unusedByte(0x3d + k * 3, `Bank select ${k + 1} switch (default ${b})`, { format: ONOFF }),
+    unusedByte(0x3e + k * 3, `Bank select ${k + 1} MSB`), unusedByte(0x3f + k * 3, `Bank select ${k + 1} LSB`)]),
+  ...pedal(0x52, 'Pedal or switch 3?', 'default 100'), ...pedal(0x55, 'Pedal or switch 4?', 'default 101'),
+  ...[[0x58, '0-32'], [0x59, '0-33'], [0x5a, '0-60'], [0x5b, '0-100'], [0x5c, '50-90'], [0x5d, '0-127'], [0x5e, '0-6'], [0x5f, '0-15'], [0x60, '0-15'], [0x61, '0-15']]
+    .map(([o, r]) => unusedByte(o, `Unknown (${r})`)),
+);
+if (SYSTEM.length !== FW.system.size) throw new Error('JV-2080 system layout');
 
 const SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].map((n) => ({ label: n, ...signed(64, ' ct') }));
 
 const RHYTHM_NOTE = [
-  t.opt('Tone switch', O.onoff), t.opt('Wave group type', O.groupType, { relayout: true }), waveGroupId(),
-  { label: 'Wave number', nibbles: 2, format: (v) => String(v + 1) }, null,
+  t.opt('Tone switch', O.onoff), t.opt('Wave group type', O.groupType, { relayout: true }), waveGroupId(), waveNumber(), null,
   t.opt('Wave gain', O.waveGain), t.plain('Bend range'), t.opt('Mute group', O.muteGroup), t.opt('Envelope mode', O.envMode),
   t.opt('Volume control', O.onoff), t.opt('Hold-1 control', O.onoff), t.opt('Pan control', O.panSw),
   t.note('Source key'), { label: 'Fine tune', ...signed(50) }, t.plain('Random pitch depth'), { label: 'P-env depth', ...signed(12) },
@@ -365,13 +480,13 @@ const perfBuilt = build([
   { key: 'c', fw: 'performCommon', names: PERFORM_COMMON, address: PERF_BASE, section: 'common',
     group: (i) => (i < 12 ? 'Name' : i < 0x22 ? 'EFX' : i < 0x2f ? 'Chorus, reverb and tempo' : i < 0x40 ? 'Key range and voice reserve' : 'Clock and EFX sources') },
   ...Array.from({ length: 16 }, (_, n) => ({ key: `p${n}`, fw: 'performPart', names: PART, address: PERF_BASE + A('00 00 10 00') + n * A('00 00 01 00'), section: `p${n}`,
-    group: (i) => (i < 6 ? 'Patch' : i < 14 ? 'Level and output' : i < 0x14 ? 'MIDI and range' : 'Other bytes') })),
+    group: (i) => (i < 6 ? 'Patch' : i < 14 ? 'Level and output' : i < 0x14 ? 'MIDI and range' : UNUSED_GROUP) })),
 ]);
 
 // System: common at 00 00 00 00, patch-mode scale tune at 00 00 20 00, per-part scale tune at 00 00 1p 00.
 const sysBuilt = build([
   { key: 's', fw: 'system', names: SYSTEM, address: 0, section: 'common',
-    group: (i) => (i < 6 ? 'Mode and selection' : i < 0x14 ? 'Tuning, effects and controls' : i < 0x20 ? 'MIDI' : i < 0x28 ? 'Preview' : 'Other bytes') },
+    group: (i) => (i < 6 ? 'Current mode and selection' : i < 0x14 ? 'Tuning, effects and controls' : i < 0x20 ? 'MIDI' : i < 0x28 ? 'Preview' : UNUSED_GROUP) },
   { key: 'sp', fw: 'systemScalePatch', names: SCALE, address: A('00 00 20 00'), section: 'scale', group: () => 'Scale tune (patch mode)' },
   ...Array.from({ length: 16 }, (_, n) => ({ key: `sc${n}`, fw: 'systemScalePerform', names: SCALE, address: A('00 00 10 00') + n * A('00 00 01 00'),
     section: 'scale', group: () => `Scale tune part ${n + 1}` })),
@@ -417,12 +532,41 @@ const panelMode = (ctx, mode) => {
   if (sys) sys[0] = mode;
   return dt1(MODEL, ctx.deviceId, [0, 0, 0, 0], [mode]);
 };
-const boardsOf = (ctx) => ctx?.settings?.jvBoards || null;
 
 function patchBankLabel(b, ctx) {
   if (b.slot === undefined) return b.label;
   const id = boardsOf(ctx)?.[b.slot];
   return id ? `${b.label} (${boardName(id)})` : id === 0 ? `${b.label} (empty)` : b.label;
+}
+
+/** Patches on a board: from its ROM, or the count found when its names were read from the unit. */
+const boardPatchCount = (id, ctx) => SRJV80_BOARDS[id]?.patches?.length ?? ctx?.settings?.jvBoardCounts?.[id] ?? null;
+const bankOffset = (b) => (b.lsb & 1 ? 128 : 0);
+
+/** Patches in a bank (expansion banks hold what the board has past the bank's first number). */
+function bankCount(bank, ctx) {
+  const b = PATCH_BANKS[bank];
+  if (b.slot === undefined) return 128;
+  const id = boardsOf(ctx)?.[b.slot];
+  const n = id ? boardPatchCount(id, ctx) : null;
+  return n === null ? 128 : Math.max(0, Math.min(128, n - bankOffset(b)));
+}
+
+/**
+ * Names of a whole bank when known without asking the unit: presets, and expansion banks of a
+ * board whose names are in its ROM or were read once (complete for that bank). Else null, and
+ * the bank's names are read from the unit.
+ */
+function bankPatchNames(bank, ctx) {
+  const b = PATCH_BANKS[bank];
+  if (b.preset) return PRESET_PATCHES[b.preset];
+  if (b.slot === undefined) return null;
+  const id = boardsOf(ctx)?.[b.slot];
+  const names = id ? boardPatchNames(id, ctx) : null;
+  if (!names) return null;
+  const want = bankCount(bank, ctx);
+  const part = names.slice(bankOffset(b), bankOffset(b) + want);
+  return part.length === want && part.every((x) => typeof x === 'string') ? part : null;
 }
 
 // Selecting on the JV-2080. A panel mode change takes it about half a second, and a program
@@ -522,44 +666,90 @@ async function restorePatch(api, before) {
 async function scanPatchBank(api, bank, onName, shouldStop) {
   const b = PATCH_BANKS[bank];
   const before = await readSystemHead(api);
+  const keep = await fetchParts(api, patchBuilt, PATCH_BASE);
+  const names = [];
+  let board = null;
+  let end = null;
   try {
     await ensureMode(api, 1);
     const ch = patchChannel(api.ctx);
     for (let i = 0; i < 128; i++) {
       if (shouldStop?.()) break;
       api.send(select(ch, b.msb, b.lsb, i));
-      if (!(await waitForSystem(api, showsPatch(b, i), 1500))) {
+      const s = await waitForSystem(api, showsPatch(b, i), api.g?.demo ? 300 : 1500);
+      if (!s) {
+        end = i;
         api.toast(i ? `${b.label} holds ${i} patches.` : `Nothing answers in ${b.label}: no board or card there.`, i ? 'info' : 'warn');
         break;
       }
-      onName(i, nameOf(await readBlock(api.g.client, MODEL, api.ctx.deviceId, intToAddr(PATCH_BASE), 12)));
+      if (b.slot !== undefined) board = s[3];
+      names[i] = nameOf(await readBlock(api.g.client, MODEL, api.ctx.deviceId, intToAddr(PATCH_BASE), 12));
+      onName(i, names[i]);
     }
-  } finally { await restorePatch(api, before); }
+  } finally {
+    await restorePatch(api, before);
+    api.send(writeParts(patchBuilt, keep, api.ctx.deviceId, PATCH_BASE));
+  }
+  // Names of a board read from the unit are kept, so the bank is not read again.
+  if (board && names.length && !SRJV80_BOARDS[board]?.patches) {
+    const s = api.ctx.settings || {};
+    const all = [...(s.jvBoardNames?.[board] || [])];
+    names.forEach((n, i) => { all[bankOffset(b) + i] = n; });
+    for (let i = 0; i < all.length; i++) all[i] ??= null;
+    api.g.host.device.update({
+      jvBoardNames: { [board]: all },
+      ...(end !== null && end > 0 ? { jvBoardCounts: { [board]: bankOffset(b) + end } } : {}),
+    });
+  }
 }
 
-/** Find which expansion board sits in each slot (selects patch 1 of each slot, then restores). */
-async function detectBoards(api) {
-  const ok = await api.confirm('Find expansion boards',
-    'This selects patch 1 of each expansion slot in turn and then the current patch again. Unsaved edits to the temporary patch are lost.', 'Find boards');
-  if (!ok) return;
+/**
+ * Board IDs in slots A-H, found by selecting patch 1 of each slot (an empty slot leaves the
+ * selection where it was, so each try starts from USER 001). Afterwards the previous patch,
+ * panel mode and the temporary patch with any edits are put back.
+ */
+async function findBoards(api) {
   const before = await readSystemHead(api);
+  const keep = await fetchParts(api, patchBuilt, PATCH_BASE);
+  const emptyMs = api.g?.demo ? 300 : 1200;
   const boards = [];
+  let atUser = false;
   try {
     for (let k = 0; k < 8; k++) {
-      api.g.setBusy?.(1, `Looking at expansion slot ${'ABCDEFGH'[k]}`);
-      // From USER 1, an empty slot leaves the selection where it was.
-      if (!(await selectPatch(api, PATCH_BANKS[0], 0))) throw new Error('The JV-2080 did not select USER 001. Check the patch receive channel (System page).');
-      const s = await selectPatch(api, PATCH_BANKS.find((x) => x.slot === k), 0, 1200);
+      api.g.setBusy?.(1, `Looking for an expansion board in slot ${SLOTS[k]}`);
+      if (!atUser && !(await selectPatch(api, PATCH_BANKS[0], 0))) throw new Error('The JV-2080 did not select USER 001. Check the patch receive channel (System page).');
+      const s = await selectPatch(api, PATCH_BANKS.find((x) => x.slot === k), 0, emptyMs);
       boards.push(s ? s[3] : 0);
+      atUser = !s;
     }
-  } finally { await restorePatch(api, before); api.g.setBusy?.(0); }
-  api.g.host.device.update({ jvBoards: boards });
-  const found = boards.map((id, k) => (id ? `XP-${'ABCDEFGH'[k]}: ${boardName(id)}` : null)).filter(Boolean);
-  api.toast(found.length ? found.join(', ') : 'No expansion boards found.', 'good', 6000);
+    api.g.host.device.update({ jvBoards: boards, jvBoardsFound: Date.now() });
+  } finally {
+    await restorePatch(api, before);
+    api.send(writeParts(patchBuilt, keep, api.ctx.deviceId, PATCH_BASE));
+  }
+  return boards;
+}
+
+const boardList = (boards) => boards.map((id, k) => (id ? `XP-${SLOTS[k]}: ${boardName(id)}` : null)).filter(Boolean).join(', ');
+
+/** Find boards: from the button (asks first) or when connecting (quiet; reports changes only). */
+async function detectBoards(api) {
+  if (!api.quiet && !(await api.confirm('Find expansion boards',
+    'This selects patch 1 of each expansion slot in turn, then the current patch again, and puts back the temporary patch with any edits. The result is remembered; it is also checked each time the JV-2080 connects (Connect page).', 'Find boards'))) return;
+  const old = boardsOf(api.ctx);
+  let boards;
+  try { boards = await findBoards(api); } finally { if (!api.quiet) api.g.setBusy?.(0); }
+  const changed = !old || old.join() !== boards.join();
+  if (!api.quiet || changed) api.toast(boards.some(Boolean) ? `Expansion boards: ${boardList(boards)}` : 'No expansion boards found.', 'good', 6000);
   api.refresh();
 }
 
 // ------------------------------------------------------------------ simulator (demo mode, tests)
+// Expansion boards in slots A-H: World and House (names from their ROMs) and an Experience III,
+// whose patches are not on the board, with 40 made-up names.
+const SIM_BOARDS = [5, 19, 97, 0, 0, 0, 0, 0];
+const simBoardPatches = (id) => SRJV80_BOARDS[id]?.patches || Array.from({ length: 40 }, (_, i) => `Exp III ${String(i + 1).padStart(3, '0')}`);
+
 function simulate() {
   const mem = new Map(); // 7-bit address int -> byte
   const put = (built, base, d) => { const first = built.parts[0].address; for (const p of built.parts) for (let i = 0; i < p.size; i++) mem.set(base + (p.address - first) + i, d[p.offset + i]); };
@@ -578,7 +768,15 @@ function simulate() {
   const copy = (from, to, size) => { for (let i = 0; i < size; i++) mem.set(to + i, mem.get(from + i) ?? 0); };
   function programChange(ch, pc) {
     const [msb, lsb] = bank[ch];
-    if (mem.get(0) === 1 && ch === mem.get(0x1d)) {
+    if (mem.get(0) === 1 && ch === mem.get(0x1d) && msb === 84) {
+      // An empty slot, or a number past the board's last patch, leaves the selection as it was.
+      const id = SIM_BOARDS[lsb >> 1];
+      const n = pc + (lsb & 1 ? 128 : 0);
+      const names = id ? simBoardPatches(id) : [];
+      if (n >= names.length) return;
+      put(patchBuilt, PATCH_BASE, pd); nm(PATCH_BASE, names[n]);
+      mem.set(2, 2); mem.set(3, id); mem.set(4, n >> 4); mem.set(5, n & 15);
+    } else if (mem.get(0) === 1 && ch === mem.get(0x1d)) {
       const b = PATCH_BANKS.find((x) => x.msb === msb && x.lsb === lsb && !x.card && x.slot === undefined);
       if (!b) return;
       if (b.user) for (const part of patchBuilt.parts) copy(userPatch(pc) + part.address - PATCH_BASE, part.address, part.size);
@@ -624,12 +822,66 @@ const TONE_SECTIONS = [{ key: 'common', label: 'Common' }, ...[0, 1, 2, 3].map((
 const PATCH_TARGETS = [['patch', 'Patch mode'], ...Array.from({ length: 16 }, (_, p) => p).filter((p) => p !== 9).map((p) => [`p${p}`, `Performance part ${p + 1}`])];
 const hex4 = (n) => intToAddr(n).map((b) => b.toString(16).padStart(2, '0')).join(' ');
 
+function expansionNote(bank, ctx) {
+  const b = PATCH_BANKS[bank];
+  if (b.slot === undefined) return '';
+  const id = boardsOf(ctx)?.[b.slot];
+  if (!id) return id === 0 ? ' No board was found in this slot (Find boards checks again).' : ' Press Find boards to see which board is in this slot.';
+  const src = SRJV80_BOARDS[id]?.patchSource;
+  const n = boardPatchCount(id, ctx);
+  return ` ${boardName(id)}${n !== null ? ` holds ${n} patches` : ''}${src === 'rom' ? '; the names come from the board ROM.' : src === 'list' ? '; the names come from its patch list.' : n !== null ? '; the names were read from the unit once.' : '.'}`;
+}
+
+/**
+ * Split a SysEx dump into the objects it holds (librarian): user patches, performances and
+ * rhythm sets, the temporary areas and the system block, by DT1 address. Each item has the
+ * page it can be opened in.
+ */
+function libraryItems(msgs) {
+  const items = [];
+  const byKey = new Map();
+  for (const m of msgs) {
+    const p = parseDt1(m, MODEL);
+    let key = 'other';
+    let label = 'Other messages';
+    let object = null;
+    let base = null;
+    if (p?.ok) {
+      const a = addrToInt(p.addr);
+      const [aa, bb] = [a >> 21, (a >> 14) & 127];
+      base = a & ~A('00 00 7f 7f');
+      if (aa === 0x11) { key = `up${bb}`; label = `User patch ${num3(bb)}`; object = 'patch'; }
+      else if (aa === 0x10 && bb < 0x20) { key = `uf${bb}`; label = `User performance ${String(bb + 1).padStart(2, '0')}`; object = 'performance'; }
+      else if (aa === 0x10 && bb >= 0x40 && bb < 0x42) { key = `ur${bb}`; label = `User rhythm set ${bb - 0x3f}`; object = 'rhythm'; }
+      else if (aa === 0x03) { key = 'tp'; label = 'Temporary patch (patch mode)'; object = 'patch'; }
+      else if (aa === 0x02 && bb === 9) { key = 'tr'; label = 'Temporary rhythm set (part 10)'; object = 'rhythm'; }
+      else if (aa === 0x02) { key = `pp${bb}`; label = `Patch of performance part ${bb + 1}`; object = 'patch'; }
+      else if (aa === 0x01) { key = 'tf'; label = 'Temporary performance'; object = 'performance'; }
+      else if (aa === 0x00) { key = 'sys'; label = 'System'; object = 'system'; base = 0; }
+      else { key = `x${hex4(base)}`; label = `Data at ${hex4(base)}`; }
+    } else if (m[1] === 0x41 && m[3] === 0x6a) { key = 'req'; label = 'Requests and other JV-2080 messages'; }
+    let item = byKey.get(key);
+    if (!item) { item = { key, label, object, name: '', msgs: [] }; byKey.set(key, item); items.push(item); }
+    item.msgs.push(m);
+    if (p?.ok && object && object !== 'system' && addrToInt(p.addr) === base && p.data.length >= 12) item.name = readText(p.data, 0, 12);
+  }
+  return items;
+}
+
 export default {
   coverage: 'Every patch, tone, performance, part, rhythm and system parameter with the ranges, defaults, labels and option lists stored in the v1.02 firmware (EFX parameters named per EFX type), read and written by address (DT1/RQ1). Patch, performance and rhythm memories, preset names, expansion boards and bank select. Checked on a JV-2080.',
   sysex: { manufacturer: [0x41], model: MODEL, deviceIdDefault: 0x10 },
   minGap: 25,
   describe,
   simulate,
+  // Which board sits in each expansion slot cannot be asked for by SysEx; it is found by
+  // selecting patch 1 of each slot when the JV-2080 connects, and remembered.
+  connectTasks: [{ label: 'Finding expansion boards', enabled: (ctx) => ctx.settings?.jvScanBoards !== false, run: detectBoards }],
+  connectOptions: [{
+    key: 'jvScanBoards', label: 'Find expansion boards when connecting', default: true,
+    help: 'Selects patch 1 of each expansion slot, then puts back the current patch and its edits (about 10 seconds). Board patch and wave names come from the board ROMs, so they need no reading. The last result is kept either way.',
+  }],
+  libraryItems,
   objects: [
     {
       key: 'system', page: 'System', icon: '⚙', label: 'System', size: sysBuilt.size, autoLoad: true,
@@ -638,6 +890,10 @@ export default {
       params: sysBuilt.params,
       receive: receiver(sysBuilt),
       sections: [{ key: 'common', label: 'System' }, { key: 'scale', label: 'Scale tune' }], cols: 3,
+      groupInfo: {
+        'Current mode and selection': { note: 'What the JV-2080 has selected right now: the panel mode, the performance used in performance mode and the patch used in patch mode.' },
+        [UNUSED_GROUP]: { note: UNUSED_NOTE, table: true, wide: true },
+      },
       note: 'Read when the JV-2080 connects; the patch and performance pages use its receive and control channels. Bytes 28h-61h belong to the data format Roland shares with its XP keyboards and have no JV-2080 screen.',
       sendAll: { label: 'Send to JV-2080', build: (data, ctx) => writeParts(sysBuilt, data, ctx.deviceId) },
       toSyx: (data, ctx) => writeParts(sysBuilt, data, ctx.deviceId).flat(),
@@ -682,10 +938,10 @@ export default {
       slots: {
         label: 'Patches',
         banks: (ctx) => PATCH_BANKS.map((b, i) => [i, patchBankLabel(b, ctx)]),
-        count: 128,
+        count: bankCount,
         slotLabel: (bank, i) => `${PATCH_BANKS[bank].label.split(' ')[0]} ${String(i + 1 + (PATCH_BANKS[bank].lsb & 1 && PATCH_BANKS[bank].slot !== undefined ? 128 : 0)).padStart(3, '0')}`,
         name: (d) => nameOf(d),
-        names: (bank) => (PATCH_BANKS[bank].preset ? PRESET_PATCHES[PATCH_BANKS[bank].preset] : null),
+        names: bankPatchNames,
         recall: (bank, i, ctx) => [...(sysData(ctx)?.[0] === 1 ? [] : [panelMode(ctx, 1)]), ...select(patchChannel(ctx), PATCH_BANKS[bank].msb, PATCH_BANKS[bank].lsb, i)],
         play: async (api, bank, i) => { if (!(await selectPatch(api, PATCH_BANKS[bank], i))) api.toast(`The JV-2080 did not select ${PATCH_BANKS[bank].label} ${i + 1}.`, 'warn'); },
         fetch: (api, bank, i) => selectAndReadPatch(api, PATCH_BANKS[bank], i),
@@ -694,11 +950,11 @@ export default {
           ? (async () => { for (let i = 0; i < 128 && !stop?.(); i++) onName(i, nameOf(await readBlock(api.g.client, MODEL, api.ctx.deviceId, intToAddr(userPatch(i)), 12))); })()
           : scanPatchBank(api, bank, onName, stop)),
         scanNote: (bank) => (PATCH_BANKS[bank].user ? null
-          : `The JV-2080 can only show these names by selecting each patch, so reading ${PATCH_BANKS[bank].label} selects all 128 in turn and then the current patch again. Unsaved edits to the temporary patch are lost.`),
+          : `The JV-2080 can only show these names by selecting each patch, so reading ${PATCH_BANKS[bank].label} selects each in turn, then the current patch again, and puts back the temporary patch with any edits.${PATCH_BANKS[bank].slot !== undefined ? ' The names of an expansion board are remembered, so this is needed once per board.' : ''}`),
         store: (bank, i, ctx, data) => writeParts(patchBuilt, data, ctx.deviceId, userPatch(i)),
         writable: (bank) => !!PATCH_BANKS[bank].user,
         autoNames: [0],
-        note: (bank, ctx) => `Play selects the patch with bank select ${PATCH_BANKS[bank].msb}/${PATCH_BANKS[bank].lsb} and a program change on the patch receive channel (${patchChannel(ctx) + 1}); Edit also reads it into the editor.${PATCH_BANKS[bank].user ? ' Store writes the editor into user memory.' : ''}`,
+        note: (bank, ctx) => `Play selects the patch with bank select ${PATCH_BANKS[bank].msb}/${PATCH_BANKS[bank].lsb} and a program change on the patch receive channel (${patchChannel(ctx) + 1}); Edit also reads it into the editor.${PATCH_BANKS[bank].user ? ' Store writes the editor into user memory.' : ''}${expansionNote(bank, ctx)}`,
       },
     },
     {
@@ -709,6 +965,7 @@ export default {
       receive: receiver(perfBuilt),
       sections: [{ key: 'common', label: 'Common' }, ...Array.from({ length: 16 }, (_, n) => ({ key: `p${n}`, label: `Part ${n + 1}` }))],
       sectionLabel: 'Part', cols: 3,
+      groupInfo: { [UNUSED_GROUP]: { note: UNUSED_NOTE, table: true, wide: true } },
       name: (d) => nameOf(d),
       note: 'Edits the temporary performance (01 00 00 00). To edit the patch a part plays, choose that part under Edit on the Patch page.',
       sendAll: { label: 'Send to JV-2080', build: (data, ctx) => writeParts(perfBuilt, data, ctx.deviceId) },

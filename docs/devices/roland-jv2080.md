@@ -96,19 +96,57 @@ preset and reading the temporary name. Wave names are in the wave ROM too: the 6
 records in the flash (0x0E061FC8 and 0x0E066C30) are not in wave-number order (a preset
 using INT-A 4 plays "Ac Piano1 A", record 0), so tones show wave numbers only.
 
-Expansion boards cannot be listed by SysEx. **Find boards** selects patch 1 of each slot
-(starting from USER 1, so an empty slot leaves the selection unchanged), records the board
-numbers, and selects the previous patch again. **Read names** on an expansion bank selects
-each patch in turn; a board may hold fewer than 128 patches in a bank (an SR-JV80-98 holds
-100), and the first number the JV-2080 does not select ends the scan.
+Expansion boards cannot be listed by SysEx. When the JV-2080 connects (unless switched off on
+the Connect page) and with **Find boards**, the editor selects patch 1 of each slot (starting
+from USER 1, so an empty slot leaves the selection unchanged), records the board numbers in
+the device settings, selects the previous patch again and writes back the temporary patch it
+read first, so edits to it survive. **Read names** on an expansion bank is only needed for a
+board whose names are not in the board data below: it selects each patch in turn, the first
+number the JV-2080 does not select ends the scan, and the names and count are remembered per
+board.
+
+## SR-JV80 board ROMs
+
+`tools/roland/srjv80_rom.py` reads dumps of the boards' mask ROMs (8 MB; the Experience boards
+2 MB) and writes `js/devices/defs/roland-srjv80.js`: each board's ID text, date, wave names in
+wave-number order and patch names in patch-number order. The editor uses them for the
+expansion banks' names and sizes and for named wave lists in tones and rhythm notes, so nothing
+has to be read from the unit.
+
+The dumps are the chips as wired, so address and data lines are scrambled the way Roland's PCM
+chips expect (the Sound Canvas wiring from the Nuked-SC55 project): within each 1 MB, CPU
+address bit j is chip address bit `2 0 3 4 1 9 13 10 18 17 6 15 11 16 8 5 12 7 14 19`[j], data
+bit j is chip data bit `2 0 4 5 7 6 3 1`[j]. Unscrambled (big-endian):
+
+| Offset | Contents |
+|---|---|
+| 20 | Board ID text (POP100, ETH100, ...) |
+| 30 | Date |
+| 60 | u16 counts: samples, waves, 0, patches, rhythm sets |
+| 80 | u32 tables: samples, waves, 0, patches, rhythm sets |
+| waves | 60 bytes each: name[12], top key[16], sample number[16] (u16, FFFF unused) |
+| patches | 362 bytes each, JV-80 format: name[12], 14 common bytes, 4 tones of 84 bytes |
+| rhythm | 61 notes (C2-C7) of 44 bytes, no name |
+
+No board holds performances. The JV-2080 converts board patches from the JV-80 format when it
+selects one, so Edit still reads the converted patch from the unit. The Experience boards
+SR-JV80-97 and -98 hold waves only: the 98's 100 patches come from the patch list shipped with
+its dump (the ROM of the 99 confirms that a leading `*` is part of a name), and the 97's are
+read from the unit once. Board patch counts differ (SR-JV80-01 holds 145, -19 holds 156), so an
+expansion bank shows only the patches the board has.
 
 ## Bytes without a screen
 
 System 28h-61h, performance common 40h and part 14h-19h are kept and editable with their
 firmware ranges, but no JV-2080 screen shows them. The firmware is shared with Roland's XP
-keyboards (it contains disk and song messages), and these bytes look like their keyboard
-settings (system 31h/34h, range 1-104, hold CC 7 and 11; 3Dh-51h are seven
-switch/MSB/LSB triplets 80/0, 81/0-3, 84/0-1). They are labelled "Byte nnh".
+keyboards (it contains disk and song messages), and the ranges and defaults match the XP
+system block: transmit program change and bank select (28h-29h), patch transmit channel
+(2Ah, 1-16/Rx channel/OFF), two pedals as assign (1-104, defaults CC 7 and 11), output mode
+(OFF/INT/MIDI/INT+MIDI) and polarity (31h-36h), controllers C1/C2 (assign 1-97 like the
+system control sources, output mode; 37h-3Ah), hold pedal output and polarity (3Bh-3Ch), seven
+bank-select switch/MSB/LSB triplets defaulting to 80/0, 81/0-3, 84/0-1 (3Dh-51h) and two more
+assign/output/polarity triplets (52h-57h). The editor shows them as a table of typed values
+with this probable use; the rest are marked unknown.
 
 ## When the JV-2080 connects
 

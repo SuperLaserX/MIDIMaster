@@ -271,5 +271,172 @@ test('Generic module: standard information is read when the device connects', as
   assert.deepEqual([...g.loadedKeys], ['system', 'patch', 'performance']);
   assert.equal(g.slotNames.patch.get('0:127'), 'User 128');
   assert.equal(g.slotNames.performance.get('0:31'), 'Perform 32');
+  assert.deepEqual(host.device.value.jvBoards, [5, 19, 97, 0, 0, 0, 0, 0], 'expansion boards found when connecting');
   g.destroy();
+});
+
+test('JV-2080 expansion boards: ROM names, bank sizes, wave lists, detection and cached names', async () => {
+  const mod = await import('../js/devices/defs/roland-jv2080.js');
+  const { SRJV80_BOARDS: B } = await import('../js/devices/defs/roland-srjv80.js');
+  const { asList } = await import('../js/devices/generic/objects.js');
+  const jv = mod.default;
+  const T = mod._test;
+
+  // Data from the board ROMs (tools/roland/srjv80_rom.py).
+  assert.equal(B[5].code, 'ETH100');
+  assert.equal(B[5].waves[0], 'Sitar A');
+  assert.equal(B[5].patches[0], 'World Tour!');
+  assert.equal(B[1].patches.length, 145);
+  assert.equal(B[98].patchSource, 'list');
+  assert.equal(B[98].patches[0], '*Dy.Rhodes 1');
+  assert.equal(B[97].patches, null, 'Experience III patches are not on the board');
+
+  const t = new LoopbackTransport({ id: 'roland-jv2080', model: 'JV-2080', sysex: '41' }, jv);
+  const c = new DeviceClient(t, { minGap: 1, timeout: 400 });
+  const settings = {};
+  const ctx = { deviceId: 0x10, channel: 0, data: {}, loaded: new Set(), names: {}, settings };
+  const toasts = [];
+  const api = {
+    g: { client: c, demo: true, setBusy() {}, host: { device: { update(v) { for (const [k, x] of Object.entries(v)) settings[k] = x && typeof x === 'object' && !Array.isArray(x) ? { ...settings[k], ...x } : x; } } } },
+    ctx, quiet: true, send: (out) => { for (const b of asList(out)) c.send(Uint8Array.from(b)); }, toast: (m) => toasts.push(m), refresh() {}, confirm: async () => true,
+  };
+  const patch = jv.objects.find((o) => o.key === 'patch');
+  const bank = (label) => T.PATCH_BANKS.findIndex((b) => b.label === label);
+
+  // Detection keeps the temporary patch, edits included, and the previous selection.
+  t.sim.mem.set(T.PATCH_BASE, 'M'.charCodeAt(0)); // an unsaved edit: "Memo Patch"
+  await jv.connectTasks[0].run(api);
+  assert.deepEqual(settings.jvBoards, [5, 19, 97, 0, 0, 0, 0, 0]);
+  await c.drain();
+  assert.equal(patch.name(await patch.fetch({ ...api, ctx })), 'Memo Patch', 'temporary patch put back');
+  assert.deepEqual([1, 2, 3, 4, 5].map((a) => t.sim.mem.get(a) ?? 0).slice(1), [0, 1, 0, 0], 'USER 001 selected again');
+  assert.match(toasts[0], /XP-A: SR-JV80-05 World, XP-B: SR-JV80-19 House, XP-C: SR-JV80-97 Experience III/);
+
+  // Bank sizes and names come from the board data: no scan needed.
+  assert.equal(patch.slots.count(bank('XP-A 1-128'), ctx), 128);
+  assert.equal(patch.slots.count(bank('XP-B 129-256'), ctx), 156 - 128, 'House holds 156 patches');
+  assert.equal(patch.slots.names(bank('XP-A 1-128'), ctx)[0], 'World Tour!');
+  assert.equal(patch.slots.names(bank('XP-B 129-256'), ctx)[0], B[19].patches[128]);
+  assert.equal(patch.slots.names(bank('XP-C 1-128'), ctx), null, 'Experience III: names read from the unit');
+
+  // A board without ROM names is read once; the names and count are kept in the settings.
+  const read = [];
+  await patch.slots.scanBank(api, bank('XP-C 1-128'), (i, n) => { read[i] = n; });
+  assert.equal(read.length, 40);
+  assert.equal(settings.jvBoardCounts[97], 40);
+  assert.equal(patch.slots.count(bank('XP-C 1-128'), ctx), 40);
+  assert.equal(patch.slots.names(bank('XP-C 1-128'), ctx)[39], 'Exp III 040');
+  assert.equal(patch.slots.count(bank('XP-C 129-256'), ctx), 0);
+
+  // Wave and patch selections are lists, named from the boards.
+  const d = T.defaults(T.patchBuilt);
+  const tone = (label) => patch.params.find((p) => p.label === label && p.section === 't0');
+  d[tone('Wave group type').offset] = 2;
+  d[tone('Wave group ID').offset] = 5;
+  const groups = tone('Wave group ID').dynamic(d, ctx).options;
+  assert.deepEqual(groups.find(([v]) => v === 5), [5, 'SR-JV80-05 World (slot A)']);
+  const waves = tone('Wave number').dynamic(d, ctx).options;
+  assert.equal(waves.length, 255);
+  assert.deepEqual(waves[0], [0, '001 Sitar A']);
+  d[tone('Wave group type').offset] = 0;
+  d[tone('Wave group ID').offset] = 1;
+  assert.deepEqual(tone('Wave group ID').dynamic(d, ctx).options, [[1, 'INT-A'], [2, 'INT-B']]);
+  assert.equal(tone('Wave number').dynamic(d, ctx).options.length, 256);
+  const perf = jv.objects.find((o) => o.key === 'performance');
+  const pd = T.defaults(T.perfBuilt);
+  const part = (label) => perf.params.find((p) => p.label === label && p.section === 'p0');
+  pd[part('Patch group type').offset] = 2;
+  pd[part('Patch group ID').offset] = 19;
+  assert.equal(part('Patch number').dynamic(pd, ctx).options[0][1], `001 ${B[19].patches[0]}`);
+  const sys = jv.objects.find((o) => o.key === 'system');
+  const sysPerf = sys.params.find((p) => p.label === 'Current performance');
+  assert.equal(sysPerf.dynamic(T.defaults(T.sysBuilt), ctx).options[64][1].slice(0, 8), 'PR-A 01 ');
+  assert.equal(sys.params.filter((p) => p.input === 'number').length, 0x62 - 0x28, 'unused bytes are typed values');
+
+  // Library: a dump splits into the objects it holds.
+  'Lib Test'.split('').forEach((ch, i) => { d[i] = ch.charCodeAt(0); });
+  const dump = [...patch.slots.store(0, 2, ctx, d), ...patch.slots.store(0, 3, ctx, d)].map((m) => Uint8Array.from(m));
+  const items = jv.libraryItems(dump);
+  assert.deepEqual(items.map((x) => [x.label, x.object, x.name]), [['User patch 003', 'patch', 'Lib Test'], ['User patch 004', 'patch', 'Lib Test']]);
+  assert.equal(items[0].msgs.length + items[1].msgs.length, dump.length);
+  await c.drain();
+  c.dispose();
+});
+
+test('Korg M1: packing, program and combination dumps, store, bulk names, library and real dumps', async () => {
+  const mod = await import('../js/devices/defs/korg-m1.js');
+  const { asList } = await import('../js/devices/generic/objects.js');
+  const m1 = mod.default;
+  const { unpack, pack, msg, _test: T } = mod;
+  const bytes = Uint8Array.from({ length: 143 }, (_, i) => (i * 37) & 255);
+  assert.deepEqual(Array.from(unpack(pack(bytes))), Array.from(bytes), '7-in-8 packing round trip');
+  assert.equal(pack(bytes).length, 164);
+
+  const t = new LoopbackTransport({ id: 'korg-m1r', model: 'M1R', sysex: '42' }, m1);
+  const c = new DeviceClient(t, { minGap: 1, timeout: 400 });
+  const ctx = { deviceId: 0, channel: 0, names: {} };
+  const api = { g: { client: c }, ctx, send: (out) => { for (const b of asList(out)) c.send(Uint8Array.from(b)); }, request: () => { throw new Error('unused'); } };
+  api.request = async (b, match, decode) => decode((await c.request(Uint8Array.from(b), { match: (_m, r) => match(r) })).raw);
+  const prog = m1.objects.find((o) => o.key === 'program');
+  const combi = m1.objects.find((o) => o.key === 'combination');
+
+  // Program: read, edit (whole-program dump), store, read back through a slot.
+  const d = await prog.fetch(api);
+  assert.equal(prog.name(d), 'Program 00');
+  const cutoff = prog.params.find((p) => p.label === 'Cutoff' && p.section === 'osc1');
+  assert.equal(cutoff.offset, 71);
+  writeParam(d, cutoff, 42);
+  for (const m of asList(prog.sendParam(cutoff, 42, d, ctx))) await c.send(Uint8Array.from(m));
+  for (const m of prog.slots.store(0, 7, ctx, d)) await c.send(Uint8Array.from(m));
+  await c.drain();
+  assert.equal(t.sim.programs[7][71], 42, 'stored into I07');
+  const back = await prog.slots.fetch(api, 0, 7);
+  assert.equal(back[71], 42);
+  const names = [];
+  await prog.slots.scanBank(api, 0, (i, n) => { names[i] = n; });
+  assert.equal(names.length, 100);
+  assert.equal(names[99], 'Program 99');
+
+  // Bit fields and the oscillator 2 block at +40.
+  const mg = prog.params.find((p) => p.group === 'Pitch MG' && p.label === 'OSC select');
+  const x = new Uint8Array(143);
+  x[19] = 0b11100011;
+  assert.equal(readParam(x, mg), 3);
+  assert.equal(readParam(x, prog.params.find((p) => p.group === 'Pitch MG' && p.label === 'Key sync')), 1);
+  assert.equal(prog.params.find((p) => p.label === 'Cutoff' && p.section === 'osc2').offset, 111);
+
+  // Combination: needs combination mode, which the fetch switches to.
+  const cd = await combi.fetch(api);
+  assert.equal(combi.name(cd), 'Combi 00');
+  assert.equal(t.sim.state.mode, 0);
+  assert.equal(combi.params.filter((p) => p.label === 'MIDI channel').length, 8);
+
+  // Library: an all-programs dump splits into programs that each write their own slot.
+  const all = Uint8Array.from(msg.allProgramsRequest(ctx));
+  assert.deepEqual(Array.from(all), [0xf0, 0x42, 0x30, 0x19, 0x1c, 0, 0xf7]);
+  const dump = (await c.request(all, { match: (_m, r) => r[4] === 0x4c, timeout: 3000 })).raw;
+  const items = m1.libraryItems([dump], ctx);
+  assert.equal(items.length, 100);
+  assert.deepEqual([items[3].label, items[3].name, items[3].object], ['Program I03', 'Program 03', 'program']);
+  assert.deepEqual(Array.from(items[3].msgs[2]), [0xf0, 0x42, 0x30, 0x19, 0x11, 0, 3, 0xf7], 'write request for I03');
+  assert.equal(T.nameOf(prog.fromSyx([dump])), 'Program 00');
+  await c.drain();
+  c.dispose();
+});
+
+test('Korg M1: dumps from an M1R decode (skipped when absent)', async (tt) => {
+  const fs = await import('node:fs');
+  const path = new URL('../re/m1/live_allprog.syx', import.meta.url);
+  if (!fs.existsSync(path)) { tt.skip('re/m1/live_allprog.syx not present'); return; }
+  const mod = await import('../js/devices/defs/korg-m1.js');
+  const prog = mod.default.objects.find((o) => o.key === 'program');
+  const raw = fs.readFileSync(path);
+  const all = mod.unpack(raw.subarray(6, raw.length - 1));
+  const p = (n) => all.subarray(n * 143, (n + 1) * 143);
+  const val = (d, label) => { const q = prog.params.find((x) => x.label === label); return formatParam({ ...q, ...(q.dynamic?.(d, {}) || {}) }, readParam(d, q)); };
+  assert.equal(prog.name(p(2)), 'Brass 1');
+  assert.equal(val(p(2), 'OSC1 Multisound'), '32 Brass  1');
+  assert.equal(val(p(9), 'OSC mode'), 'DRUMS');
+  assert.equal(val(p(9), 'OSC1 Multisound'), 'Drum Kit 1');
+  assert.equal(val(p(16), 'OSC1 Octave'), "16'");
 });

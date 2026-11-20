@@ -63,7 +63,14 @@ export function introView(root, g) {
           h('label.field', 'SysEx device ID', devId),
           h('button.btn', { onclick: async () => { if (!g.connected) await g.connect(); showIdentity(await g.identify()); } }, 'Identity request')),
         idOut,
-        h('p.small.muted', 'The channel is used by the audition keyboard, the controllers page and messages that address a channel. The device ID is the number many instruments expect in their SysEx messages (often 0, 1 or 16; some call it the system channel).')),
+        h('p.small.muted', 'The channel is used by the audition keyboard, the controllers page and messages that address a channel. The device ID is the number many instruments expect in their SysEx messages (often 0, 1 or 16; some call it the system channel).'),
+        ...(def?.connectOptions || []).map((o) => {
+          const box = h('input', {
+            type: 'checkbox', checked: host.device.value[o.key] ?? o.default ?? false,
+            onchange: () => host.device.update({ [o.key]: box.checked }),
+          });
+          return h('label.row.check', { title: o.help || '' }, box, h('span', o.label, o.help ? h('div.small.muted', o.help) : null));
+        })),
       h('div.card.col',
         h('h2', 'From the firmware collection'),
         h('table.list.small', h('tbody', facts.map(([k, v]) => h('tr', h('td.muted', k), h('td', v))))),

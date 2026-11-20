@@ -14,7 +14,7 @@ import { samplesView } from './views/samples.js';
 import { consoleView } from './views/console.js';
 import { paramsView } from './views/params.js';
 import { editorView } from './views/editor.js';
-import { loadObject, readBankNames, canFetch } from './objects.js';
+import { loadObject, readBankNames, canFetch, objectApi } from './objects.js';
 
 export class GenericContext extends Emitter {
   constructor(host, entry, def) {
@@ -82,9 +82,13 @@ export class GenericContext extends Emitter {
 
   /**
    * Read what a definition marks as standard information when the device connects:
-   * objects with autoLoad (settings, edit buffers) and slot banks listed in
+   * objects with autoLoad (settings, edit buffers), then the definition's connectTasks
+   * (e.g. finding installed expansion boards), then slot banks listed in
    * slots.autoNames (memory names). Runs in the background; editor pages update as
    * results arrive.
+   *
+   * connectTasks: [{label, enabled?(ctx) -> bool, run(api)}]; api is objectApi() of the
+   * first object, with `quiet: true` so tasks skip their confirmations.
    */
   async loadStandard() {
     const objs = this.def?.objects || [];
@@ -99,6 +103,14 @@ export class GenericContext extends Emitter {
         this.loading.add(obj.key);
         this.setBusy(1, `Reading ${obj.label}`);
         try { await loadObject(this, obj); } catch { failed.push(obj.label); } finally { this.loading.delete(obj.key); }
+      }
+      for (const task of this.def.connectTasks || []) {
+        if (stop()) return;
+        if (task.enabled && !task.enabled(this.ctx)) continue;
+        this.setBusy(1, task.label);
+        try {
+          await task.run(objectApi(this, objs[0], { quiet: true, refresh: () => this.emit('refresh') }));
+        } catch (err) { failed.push(`${task.label} (${err.message})`); }
       }
       for (const obj of objs) {
         for (const bank of obj.slots?.autoNames || []) {

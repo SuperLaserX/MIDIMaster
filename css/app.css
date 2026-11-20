@@ -379,3 +379,20 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top
 .grid > .card.wide { grid-column: 1 / -1; }
 .card.wide .rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 0 18px; }
 .section-bar { gap: 6px; flex-wrap: wrap; margin: 4px 0 12px; align-items: center; }
+
+/* Librarian: contents of an opened dump */
+a.link { color: var(--accent); text-decoration: none; }
+a.link:hover { text-decoration: underline; }
+.lib-items { max-height: 50vh; }
+.lib-items tr { cursor: pointer; }
+.lib-open .card-head { display: flex; align-items: center; gap: 8px; }
+
+/* Device options on the Connect page */
+label.check { align-items: flex-start; gap: 8px; cursor: pointer; }
+label.check input { margin-top: 3px; }
+
+/* Raw or undocumented bytes: one typed value per row */
+.param-table input { width: 72px; font-size: 12px; padding: 3px 6px; }
+.param-table td { vertical-align: middle; }
+.card > p.small.muted { margin: 0 0 8px; }
+.params .pfield select { max-width: 260px; }

@@ -11,7 +11,11 @@
 //   sections: [{key, label}]             params with `section` are shown one section at a time
 //   params: [...]                        see core/model/memmap.js; plus send(v, ctx, data) -> message(s)
 //                                        and dynamic(data, ctx) -> {label, options, format, max, hidden}
-//                                        for parameters whose meaning depends on other values
+//                                        for parameters whose meaning depends on other values.
+//                                        Parameters with options show as a list; input: 'number' as a
+//                                        typed number; the rest as knobs (click the value to type it).
+//   groupInfo: {[group]: {note, table, wide}}  a note under a card's title; table: one row per
+//                                        parameter with a typed value (for raw or undocumented bytes)
 //   sendParam(p, v, data, ctx)           used when a parameter has no send()
 //   layout: [{group, rows?: [{label, keys}], wide?}]  optional card order, row layout, full-width cards
 //   sendAll: {label, build(data, ctx)}   sends the whole object (e.g. to the edit buffer)
@@ -27,7 +31,7 @@
 //           play(api, bank, slot) (async Play, instead of sending recall())}  (more in ../objects.js)
 
 import { h, clear, toast, confirmDialog, downloadBlob, pickFiles, safeFileName } from '../../../core/ui/dom.js';
-import { knob, selectField } from '../../../core/ui/controls.js';
+import { knob, selectField, numberField } from '../../../core/ui/controls.js';
 import { readParam, writeParam, paramRange, formatParam } from '../../../core/model/memmap.js';
 import { splitSysex } from '../../../core/midi/describe.js';
 import { sendOut, isEcho, objectApi, loadObject, canFetch, bankNames, canScan, readBankNames } from '../objects.js';
@@ -58,6 +62,7 @@ export function editorView(root, g, params = {}, obj) {
   const offs = [
     g.on('object', (key) => { if (key === obj.key) render(); }),
     g.on('names', (key) => { if (key === obj.key && obj.slots) renderSlots(); }),
+    g.on('refresh', () => render()),
   ];
   if (obj.receive) {
     const onMsg = (_msg, raw) => {
@@ -91,6 +96,11 @@ export function editorView(root, g, params = {}, obj) {
       const opts = p.options.map(([v, l]) => ({ value: v, label: l }));
       if (!opts.some((o) => o.value === value)) opts.push({ value, label: String(value) });
       el = selectField({ label: p.label, value, options: opts, onChange: (v) => change(p0, v, el) });
+      if (p.help) el.title = p.help;
+    } else if (p.input === 'number') {
+      const { min, max } = paramRange(p);
+      el = numberField({ label: p.label, value, min, max, format: p.format || p.unit ? (v) => formatParam(p, v) : null, onChange: (v) => change(p0, v, el) });
+      el.title = p.help || `${p.label}: ${min}-${max}`;
     } else {
       const { min, max } = paramRange(p);
       el = knob({ label: p.label, value, min, max, format: (v) => formatParam(p, v), onChange: (v) => change(p0, v, el), title: p.help || p.label });
@@ -98,14 +108,40 @@ export function editorView(root, g, params = {}, obj) {
     return el;
   }
 
+  /** A table row per parameter: label and description, a typed value, its reading and range. */
+  function paramTable(ps) {
+    return h('div.table-wrap', h('table.list.param-table',
+      h('thead', h('tr', h('th', 'Byte'), h('th', 'Probable use'), h('th', 'Value'), h('th', 'Reads as'), h('th', 'Range'))),
+      h('tbody', ps.map((p0) => {
+        const p = view(p0);
+        const { min, max } = paramRange(p);
+        const shown = h('td.small');
+        const show = (v) => { shown.textContent = p.format || p.options ? formatParam(p, v) : ''; };
+        const inp = h('input', {
+          type: 'number', min, max, value: readParam(data(), p),
+          onchange: () => {
+            const v = Math.max(min, Math.min(max, Math.round(Number(inp.value) || 0)));
+            inp.value = v;
+            show(v);
+            change(p0, v);
+          },
+        });
+        show(readParam(data(), p));
+        return h('tr', h('td.mono', p.label), h('td.small', p.help || ''), h('td', inp), shown, h('td.small.muted.mono', `${min}-${max}`));
+      }))));
+  }
+
   function groupCard(name, ps, rows, wide) {
     const byKey = new Map(ps.map((p) => [p.key, p]));
+    const info = obj.groupInfo?.[name];
     let content;
-    if (rows) {
+    if (info?.table) content = paramTable(ps);
+    else if (rows) {
       content = h('div.col.rows', rows.map((r) => h('div.row.param-row', h('div.row-label', r.label),
         h('div.params', r.keys.map((k) => byKey.get(k)).filter(Boolean).map(control)))));
     } else content = h('div.params', ps.map(control));
-    return h('div.card' + (wide ? '.wide' : ''), h('div.card-head', h('h2', name)), content);
+    return h('div.card' + (wide || info?.wide ? '.wide' : ''), h('div.card-head', h('h2', name)),
+      info?.note ? h('p.small.muted', info.note) : null, content);
   }
 
   function targetSelect() {

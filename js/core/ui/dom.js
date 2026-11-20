@@ -58,7 +58,8 @@ export function svg(tag, attrs = {}, ...children) {
 
 // ------------------------------------------------------------ toasts
 export function toast(message, kind = 'info', ms = 4000) {
-  const box = document.getElementById('toasts');
+  const box = typeof document === 'undefined' ? null : document.getElementById('toasts');
+  if (!box) return null;
   const t = h('div.toast.' + kind, message);
   box.appendChild(t);
   setTimeout(() => t.remove(), ms);
