@@ -148,6 +148,14 @@ bank-select switch/MSB/LSB triplets defaulting to 80/0, 81/0-3, 84/0-1 (3Dh-51h)
 assign/output/polarity triplets (52h-57h). The editor shows them as a table of typed values
 with this probable use; the rest are marked unknown.
 
+## MIDI channels page
+
+The performance object has a `multi` hook, so the editor shows a MIDI channels page: one row
+per part with its receive switch, receive channel, patch (group type, group and number, with
+names), level, pan and key range, a list of the parts on each channel, and a Channels in order
+button (part n on channel n). Changes go to the temporary performance like those on the
+Performance page; the JV-2080 plays them in performance mode.
+
 ## When the JV-2080 connects
 
 The editor reads the system block first (it gives the patch receive and control channels),

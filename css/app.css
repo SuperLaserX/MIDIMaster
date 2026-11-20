@@ -396,3 +396,11 @@ label.check input { margin-top: 3px; }
 .param-table td { vertical-align: middle; }
 .card > p.small.muted { margin: 0 0 8px; }
 .params .pfield select { max-width: 260px; }
+
+/* MIDI channels page (views/multi.js) */
+.multi-table td { vertical-align: middle; }
+.multi-table select { max-width: 220px; font-size: 12px; }
+.multi-table input { width: 64px; font-size: 12px; padding: 3px 6px; }
+.multi-table tr.off td { opacity: .5; }
+.multi-cell { gap: 6px; flex-wrap: nowrap; }
+.multi-num { gap: 4px; align-items: center; }

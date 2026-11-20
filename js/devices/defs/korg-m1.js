@@ -24,7 +24,7 @@ import { named, readText } from '../../core/model/memmap.js';
 
 export const MULTISOUNDS = ["Piano", "E.Piano 1", "E.Piano 2", "Clav", "Harpsicord", "Organ  1", "Organ  2", "MagicOrgan", "Guitar  1", "Guitar  2", "E.Guitar", "Sitar  1", "Sitar  2", "A.Bass", "Pick Bass", "E.Bass", "Fretless", "SynthBass1", "SynthBass2", "Vibes", "Bell", "Tubular", "BellRing", "Karimba", "KarimbaNT", "SynMallet", "Flute", "Pan Flute", "Bottles", "Voices", "Choir", "Strings", "Brass  1", "Brass  2", "Tenor Sax", "Mute TP", "Trumpet", "TubaFlugel", "DoubleReed", "Koto Trem", "BambooTrem", "Rhythm", "Lore", "Lore NT", "FlexaTone", "WindBells", "Pole", "Pole NT", "Block", "Block NT", "FingerSnap", "Pop", "Drop", "Drop  NT", "Breath", "Breath NT", "Pluck", "Pluck NT", "Vibe Hit", "VibeHit NT", "Hammer", "Metal Hit", "MetalHitNT", "Pick", "Distortion", "Dist  NT", "Bass Thumb", "BasThumNT1", "BasThumNT2", "Wire", "PanWave", "PingWave", "Fv Wave", "Mv Wave", "Voice Wave", "VoiceWvNT1", "VoiceWvNT2", "DWGS E.P.1", "DWGS E.P.2", "DWGS E.P.3", "DWGS Piano", "DWGS Clav", "DWGS Vibe", "DWGS Bass1", "DWGS Bass2", "DWGS Bell", "DWGS Orgn1", "DWGS Orgn2", "DWGS Voice", "SquareWave", "Digital 1", "Saw Wave", "Digital 2", "25% Pulse", "10% Pulse", "Digital 3", "Digital 4", "Digital 5", "DWGS TRI", "DWGS Sine"];
 export const DRUM_SOUNDS = ["Kick 1", "Kick 2", "Kick 3", "Snare 1", "Snare 2", "Snare 3", "Snare 4", "Side Stick", "Tom 1", "Tom 2", "Closed HH1", "Open HH1", "Closed HH2", "Open HH2", "Crash", "Conga 1", "Conga 2", "Timbales 1", "Timbales 2", "Cowbell", "Claps", "Tambourine", "E.Tom", "Ride", "Rap", "Whip", "Shaker", "Pole", "Block", "FingerSnap", "Drop", "Vibe Hit", "Hammer", "Metal Hit", "Pluck", "FlexaTone", "Wind Bell", "Tubular 1", "Tubular 2", "Tubular 3", "Tubular 4", "Bell Ring", "Metronome1", "Metronome2"];
-export const EFFECTS = ["No effect", "Hall", "Ensemble Hall", "Concert Hall", "Room", "Large Room", "Live Stage", "Early Ref 1", "Early Ref 2", "Early Ref 3", "Stereo Delay", "Cross Delay", "Chorus 1", "Chorus 2", "Flanger", "Cross Flanger", "Phaser 1", "Phaser 2", "Tremolo 1", "Tremolo 2", "Equalizer", "Over Drive", "Distortion", "Exciter", "Symphonic Ens", "Rotary SP", "Delay/Hall", "Delay/Room", "Delay/E.Ref", "Delay/Delay", "Delay/Chorus", "Delay/Flanger", "Delay/Phaser", "Delay/Tremolo"];
+export const EFFECTS = ["Hall", "Ensemble Hall", "Concert Hall", "Room", "Large Room", "Live Stage", "Early Ref 1", "Early Ref 2", "Early Ref 3", "Stereo Delay", "Cross Delay", "Chorus 1", "Chorus 2", "Flanger", "Cross Flanger", "Phaser 1", "Phaser 2", "Tremolo 1", "Tremolo 2", "Equalizer", "Over Drive", "Distortion", "Exciter", "Symphonic Ens", "Rotary SP", "Delay/Hall", "Delay/Room", "Delay/E.Ref", "Delay/Delay", "Delay/Chorus", "Delay/Flanger", "Delay/Phaser", "Delay/Tremolo", "No Effect"];
 
 const MODEL = 0x19;
 export const PROGRAM_SIZE = 143;
@@ -97,11 +97,14 @@ const O = {
   wave: named(['TRIANGLE', 'SAW UP', 'SAW DOWN', 'SQUARE']),
   mgOsc: named(['OFF', 'OSC1', 'OSC2', 'BOTH']),
   mgVdf: named(['OFF', 'VDF1', 'VDF2', 'BOTH']),
-  egSw: [[0, '0'], [1, '+'], [2, '-'], [3, '3 (?)']],
-  effect: named(EFFECTS),
+  egSw: [[0, '-'], [1, '0'], [2, '+']],
+  disEna: named(['DIS', 'ENA']),
+  scale: named(['Equal Temp', 'Equal Temp2', 'Pure Major', 'Pure Minor', 'User Programable']),
+  pedal: named(['Program Up', 'Program Down', 'Seq Start/Stop', 'Effect 1 ON/OFF', 'Effect 2 ON/OFF', 'Volume', 'VDF Cutoff', 'Effect 1 Cntl', 'Effect 2 Cntl', 'Data Entry']),
   combiType: named(['SINGLE', 'LAYER', 'SPLIT', 'VEL.SW', 'MULTI']),
   channel: named(Array.from({ length: 16 }, (_, i) => `Ch ${i + 1}`)),
-  drum: named(DRUM_SOUNDS.map((n, i) => `${String(i).padStart(2, '0')} ${n}`)),
+  // drum kit sounds: 0 No Assign, 1-44 the ROM sounds, 45 and up the PCM card's (C00...)
+  drum: [[0, 'No Assign'], ...DRUM_SOUNDS.map((n, i) => [i + 1, `${String(i).padStart(2, '0')} ${n}`]), ...Array.from({ length: 32 }, (_, i) => [45 + i, `C${String(i).padStart(2, '0')} (card drum sound)`])],
 };
 
 const P = (offset, label, extra = {}) => ({ offset, label, ...extra });
@@ -113,10 +116,16 @@ const key = (o, l) => P(o, l, { min: 0, max: 127, format: NOTE });
 function voiceBlock(n) {
   const b = n === 1 ? 0 : 40;
   const g = (s) => `OSC${n} ${s}`;
-  const sw = (o, what) => ['AT', 'DT', 'ST', 'RT'].map((s, i) => P(o + b, `${what} ${s}`, { shift: i * 2, bits: 2, options: O.egSw, group: g('EG time switches') }));
+  // EG time switches (E000:3C63): segment n is on with bit n, negative with bit n + 4.
+  const sw = (o, what) => ['AT', 'DT', 'ST', 'RT'].map((s, n) => P(o + b, `${what} ${s}`, {
+    options: O.egSw, group: g('EG time switches'),
+    help: `${what} EG time: whether it shortens (+), lengthens (-) or leaves (0) the ${['attack', 'decay', 'slope', 'release'][n]} time`,
+    get: (d) => ((d[o + b] >> n) & 1 ? ((d[o + b] >> (n + 4)) & 1 ? 0 : 2) : 1),
+    set: (d, v) => { const lo = 1 << n; const hi = lo << 4; d[o + b] = v === 1 ? d[o + b] & ~(lo | hi) : v === 0 ? d[o + b] | lo | hi : (d[o + b] | lo) & ~hi; },
+  }));
   return [
     ...[[63, 'Start level', s99], [64, 'Attack time', u99], [65, 'Attack level', s99], [66, 'Decay time', u99], [67, 'Release time', u99],
-      [68, 'Release level', s99], [69, 'Level velocity sens', s99], [70, 'Time velocity sens', s99]].map(([o, l, f]) => ({ ...f(o + b, l), group: g('pitch EG') })),
+      [68, 'Release level', s99], [69, 'Time velocity sens', s99], [70, 'Level velocity sens', s99]].map(([o, l, f]) => ({ ...f(o + b, l), group: g('pitch EG') })),
     { ...u99(71 + b, 'Cutoff'), group: g('VDF') }, { ...u99(74 + b, 'EG intensity'), group: g('VDF') },
     { ...key(72 + b, 'Kbd track center key'), group: g('VDF') }, { ...s99(73 + b, 'Kbd track cutoff'), group: g('VDF') },
     { ...s99(75 + b, 'Kbd track EG time'), group: g('VDF') }, { ...s99(76 + b, 'Velocity EG time'), group: g('VDF') },
@@ -132,21 +141,191 @@ function voiceBlock(n) {
   ].map((p) => ({ ...p, section: `osc${n}` }));
 }
 
-// Effect block: the same 25 bytes in programs (38-62) and combinations (11-35). The two
-// types are mapped; the rest of the block is shown as typed values.
-const UNMAPPED_NOTE = 'Effect parameters, placement and output pans: the M1 edits these on effect pages whose field tables address the data indirectly, so their meaning per effect type is not mapped yet. Values are typed exactly; the type lists above are from the firmware.';
+/// Effect block: the same 25 bytes in programs (38-62) and combinations (11-35).
+//   0, 1   effect 1 / 2 type          2, 3 effect 1 DRY:EFF balance   4, 5 effect 2 balance
+//   6, 7   Out 3 / Out 4 panpot       8    bits 0-1 effect 1 on, 2-3 effect 2 on, 4 placement
+//   9-16   effect 1 parameters        17-24 effect 2 parameters
+// The firmware picks a page for each type through the table at DS:2A4C (image 1A63C); each
+// page lists field records [layout, descriptor, address, handlers]. The handlers address
+// [C34D] (the block) + 9 or 17 (effect 1 / 2) + (address - C04D) and read a signed byte,
+// an unsigned byte, a little-endian word (delay and reverb times) or bit 0 (Waveform).
+// The balances address byte 2 or 4 (single effects write both bytes of the pair, the
+// Delay/... doubles keep one per part).
+const pct = (v) => `${v}%`;
+const ms = (v) => `${v} ms`;
+const db = (v) => `${plus(v)} dB`;
+const pm = (v) => `${v < 0 ? '-' : '+'}${Math.abs(v)}%`;
+/** Mod Speed display (E000:9C92): 0.03-3.00 Hz, 3.1-13.0 Hz, then 14-30 Hz. */
+const modHz = (v) => `${v < 100 ? ((v + 1) * 0.03).toFixed(2) : v < 200 ? (3 + (v - 99) / 10).toFixed(1) : `${v - 186}.0`} Hz`;
+/** Reverb Time display (E000:9D68): (value + 2) / 10 seconds. */
+const revSec = (v) => `${((v + 2) / 10).toFixed(1)} s`;
+/** E/R Time display (E000:9DAE): (value + 10) x 10 ms. */
+const erMs = (v) => `${(v + 10) * 10} ms`;
+const S8 = { signed: true };
+const WORD = { word: true };
+// Firmware labels (DS:7A58-7C3D) with their descriptor ranges.
+const FXF = {
+  depth: ['Mod Depth', { min: 0, max: 99, ...S8 }],
+  speed: ['Mod Speed', { min: 0, max: 216, format: modHz }],
+  wave: ['Waveform', { bit0: true, options: named(['SIN', 'TRI']) }],
+  eqL: ['EQ Low', { min: -12, max: 12, format: db, ...S8 }],
+  eqH: ['EQ High', { min: -12, max: 12, format: db, ...S8 }],
+  dly: ['Delay Time', { min: 0, max: 500, format: ms, ...WORD }],
+  timeL: ['Time L', { min: 0, max: 500, format: ms, ...WORD }],
+  timeR: ['Time R', { min: 0, max: 500, format: ms, ...WORD }],
+  time200: ['Time', { min: 0, max: 200, format: ms }],
+  time50: ['Time', { min: 0, max: 50, format: ms }],
+  fb: ['Feedback', { min: -99, max: 99, format: pm, ...S8 }],
+  fbL: ['Feedback L', { min: -99, max: 99, format: pm, ...S8 }],
+  fbR: ['Feedback R', { min: -99, max: 99, format: pm, ...S8 }],
+  hd: ['High Damp', { min: 0, max: 99, format: pct, ...S8 }],
+  hdL: ['High Damp L', { min: 0, max: 99, format: pct, ...S8 }],
+  hdR: ['High Damp R', { min: 0, max: 99, format: pct, ...S8 }],
+  rev97: ['Reverb Time', { min: 0, max: 97, format: revSec, ...WORD }],
+  rev47: ['Reverb Time', { min: 0, max: 47, format: revSec, ...WORD }],
+  pre200: ['Pre Delay', { min: 0, max: 200, format: ms }],
+  pre150: ['Pre Delay', { min: 0, max: 150, format: ms }],
+  pre100: ['Pre Delay', { min: 0, max: 100, format: ms }],
+  erLevel: ['E/R Level', { min: 0, max: 99, ...S8 }],
+  er70: ['E/R Time', { min: 0, max: 70, format: erMs }],
+  er30: ['E/R Time', { min: 0, max: 30, format: erMs }],
+  shape: ['Shape', { min: -99, max: 99, format: plus, ...S8 }],
+  manual: ['Manual', { min: 0, max: 99, ...S8 }],
+  lowGain: ['Low Gain', { min: -12, max: 12, format: db, ...S8 }],
+  highGain: ['High Gain', { min: -12, max: 12, format: db, ...S8 }],
+  lowFreq: ['Low Freq', { options: named(['250 Hz', '500 Hz', '1 kHz']) }],
+  highFreq: ['High Freq', { options: named(['1 kHz', '2 kHz', '4 kHz']) }],
+  dist: ['Distortion', { min: 0, max: 100 }],
+  drive: ['Drive', { min: 0, max: 100 }],
+  level: ['Level', { min: 0, max: 100 }],
+  blend: ['Blend', { min: -99, max: 99, format: plus, ...S8 }],
+  ep: ['Emphatic Point', { min: 1, max: 10, ...S8 }],
+  ratio: ['Speed Ratio', { min: -10, max: 10, format: plus, ...S8 }],
+};
+// Pages in on-screen order: [parameter byte, field].
+const EQS = [[7, 'eqL'], [6, 'eqH']];
+const DLY = [[0, 'dly'], [2, 'fb'], [3, 'hd']];
+const PAGES = {
+  hall: [[0, 'rev97'], [3, 'pre200'], [4, 'erLevel'], [2, 'hd'], ...EQS],
+  room: [[0, 'rev47'], [3, 'pre200'], [4, 'erLevel'], [2, 'hd'], ...EQS],
+  er: [[0, 'er70'], [1, 'pre200'], ...EQS],
+  delay: [[0, 'timeL'], [4, 'timeR'], [2, 'fb'], [3, 'hd'], ...EQS],
+  chorus: [[0, 'depth'], [1, 'speed'], [4, 'time200'], [2, 'wave'], ...EQS],
+  flanger: [[0, 'depth'], [1, 'speed'], [4, 'time50'], [3, 'fb'], [2, 'wave'], ...EQS],
+  phaser: [[4, 'manual'], [1, 'speed'], [0, 'depth'], [3, 'fb'], [2, 'wave']],
+  tremolo: [[0, 'depth'], [1, 'speed'], [2, 'wave'], [3, 'shape'], ...EQS],
+  eq: [[7, 'lowGain'], [5, 'lowFreq'], [6, 'highGain'], [4, 'highFreq']],
+  overdrive: [[2, 'drive'], [3, 'level'], ...EQS],
+  distortion: [[2, 'dist'], [3, 'level'], [7, 'eqL']],
+  exciter: [[0, 'blend'], [1, 'ep'], ...EQS],
+  symphonic: [[0, 'depth'], ...EQS],
+  rotary: [[0, 'depth'], [2, 'ratio']],
+  dHall: [...DLY, [4, 'rev97'], [7, 'pre150'], [6, 'hd']],
+  dRoom: [...DLY, [4, 'rev47'], [7, 'pre150'], [6, 'hd']],
+  dEr: [...DLY, [4, 'er30'], [5, 'pre100']],
+  dDelay: [[0, 'timeL'], [2, 'fbL'], [3, 'hdL'], [4, 'timeR'], [6, 'fbR'], [7, 'hdR']],
+  dChorus: [...DLY, [4, 'depth'], [5, 'speed'], [6, 'wave']],
+  dFlanger: [...DLY, [4, 'depth'], [5, 'speed'], [7, 'fb']],
+  dPhaser: [...DLY, [4, 'depth'], [5, 'speed'], [6, 'fb']],
+  dTremolo: [...DLY, [4, 'depth'], [5, 'speed'], [7, 'shape']],
+};
+/** The page each effect type uses (DS:2A4C), indexed by the type byte. */
+const TYPE_PAGE = ['hall', 'hall', 'hall', 'room', 'room', 'room', 'er', 'er', 'er', 'delay', 'delay', 'chorus', 'chorus',
+  'flanger', 'flanger', 'phaser', 'phaser', 'tremolo', 'tremolo', 'eq', 'overdrive', 'distortion', 'exciter', 'symphonic',
+  'rotary', 'dHall', 'dRoom', 'dEr', 'dDelay', 'dChorus', 'dFlanger', 'dPhaser', 'dTremolo', null];
+/** Parameter bytes the M1 loads when an effect type is selected (image 1EB80, 8 per type). */
+const FX_DEFAULTS = [[33, 0, 40, 55, 46, 0, 0, 251], [26, 0, 40, 30, 46, 0, 0, 253], [36, 0, 40, 120, 46, 0, 254, 0],
+  [3, 0, 10, 22, 76, 0, 0, 1], [13, 0, 30, 30, 76, 0, 4, 2], [18, 0, 20, 20, 60, 0, 0, 3], [7, 30, 0, 0, 0, 0, 0, 0],
+  [10, 20, 0, 0, 0, 0, 0, 0], [9, 10, 0, 0, 0, 0, 0, 0], [250, 0, 50, 10, 4, 1, 0, 0], [180, 0, 80, 10, 104, 1, 0, 0],
+  [60, 9, 3, 0, 10, 0, 0, 0], [20, 79, 0, 0, 5, 0, 0, 0], [70, 5, 6, 181, 0, 0, 0, 0], [37, 6, 4, 80, 25, 0, 0, 0],
+  [60, 22, 2, 181, 99, 0, 0, 0], [69, 18, 1, 87, 99, 0, 0, 0], [80, 52, 2, 99, 0, 0, 0, 0], [63, 109, 1, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 1, 1, 0, 0], [0, 0, 80, 15, 0, 0, 0, 0], [0, 0, 80, 20, 0, 0, 0, 0], [99, 5, 0, 0, 0, 0, 0, 0],
+  [80, 0, 0, 0, 0, 0, 0, 0], [62, 0, 5, 0, 0, 0, 0, 0], [250, 0, 50, 10, 33, 0, 40, 55], [250, 0, 50, 10, 13, 0, 30, 30],
+  [250, 0, 50, 10, 10, 30, 0, 0], [250, 0, 50, 10, 4, 1, 50, 10], [250, 0, 50, 10, 60, 9, 1, 0], [250, 0, 50, 10, 70, 5, 4, 181],
+  [250, 0, 50, 10, 60, 22, 181, 0], [250, 0, 50, 10, 80, 52, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]];
+export const NO_EFFECT = 33;
+const fxField = (type, slot) => {
+  const f = (PAGES[TYPE_PAGE[type]] || []).find(([s]) => s === slot);
+  return f ? FXF[f[1]] : null;
+};
+const isDouble = (type) => type >= 25 && type <= 32;
+
+/** One of an effect's 8 parameter bytes: label, range and display follow the effect type. */
+function fxParam(at, n, slot, section) {
+  const o = at + 9 + (n - 1) * 8 + slot;
+  const field = (data) => fxField(data[at + n - 1], slot);
+  const s8 = (b) => (b > 127 ? b - 256 : b);
+  return P(o, `Effect ${n} parameter ${slot + 1}`, {
+    size: 2, min: -128, max: 511, group: `Effect ${n}`, section,
+    get: (data) => {
+      const k = field(data)?.[1] || {};
+      if (k.word) return data[o] | (data[o + 1] << 8);
+      if (k.bit0) return data[o] & 1;
+      return k.signed ? s8(data[o]) : data[o];
+    },
+    set: (data, v) => {
+      const k = field(data)?.[1] || {};
+      if (k.word) { data[o] = v & 255; data[o + 1] = (v >> 8) & 255; } else if (k.bit0) data[o] = (data[o] & 0xfe) | (v & 1);
+      else data[o] = v & 255;
+    },
+    dynamic: (data) => {
+      const f = field(data);
+      if (!f) return { hidden: true };
+      const { word, bit0, signed, ...shown } = f[1];
+      return { label: f[0], ...shown };
+    },
+  });
+}
+
+/** Selecting a type loads that type's parameter defaults, as the M1 does. */
+const fxType = (at, n, section) => P(at + n - 1, `Effect ${n} type`, {
+  options: named(EFFECTS), relayout: true, group: `Effect ${n}`, section,
+  get: (data) => data[at + n - 1],
+  set: (data, v) => {
+    if (data[at + n - 1] === v) return;
+    data[at + n - 1] = v;
+    FX_DEFAULTS[v]?.forEach((b, i) => { data[at + 9 + (n - 1) * 8 + i] = b; });
+  },
+});
+
+const fxBalance = (v) => (v === 0 ? 'DRY' : v === 100 ? 'EFF' : `${100 - v}:${v}`);
+const outPan = (v) => (v === 0 ? 'OFF' : v === 1 ? 'L' : v === 101 ? 'R' : `${101 - v}:${v - 1}`);
 function effectBlock(at, section) {
+  const bal = (n, part) => {
+    const o = at + 2 + (n - 1) * 2 + part;
+    return P(o, `Effect ${n} balance`, {
+      min: 0, max: 100, format: fxBalance, group: `Effect ${n}`, section,
+      // a single effect keeps one balance in both bytes
+      set: (data, v) => { data[o] = v; if (!part && !isDouble(data[at + n - 1])) data[o + 1] = v; },
+      get: (data) => data[o],
+      dynamic: (data) => {
+        const type = data[at + n - 1];
+        if (type >= NO_EFFECT || (part && !isDouble(type))) return { hidden: true };
+        return { label: isDouble(type) ? `DRY:EFF Balance (${part ? EFFECTS[type].split('/')[1] : 'Delay'})` : 'DRY:EFF Balance' };
+      },
+    });
+  };
   return [
-    P(at, 'Effect 1 type', { options: O.effect, group: 'Effects', section }), P(at + 1, 'Effect 2 type', { options: O.effect, group: 'Effects', section }),
-    ...Array.from({ length: 23 }, (_, i) => P(at + 2 + i, `${(at + 2 + i).toString(16).toUpperCase().padStart(2, '0')}h`, {
-      input: 'number', help: `Effect block byte ${i + 2}`, min: 0, max: 255, group: 'Effect data (not mapped)', section,
-    })),
+    fxType(at, 1, section),
+    P(at + 8, 'Effect 1 on', { bits: 2, options: [[0, 'OFF'], [3, 'ON']], group: 'Effect 1', section }),
+    bal(1, 0), bal(1, 1),
+    ...Array.from({ length: 8 }, (_, s) => fxParam(at, 1, s, section)),
+    fxType(at, 2, section),
+    P(at + 8, 'Effect 2 on', { shift: 2, bits: 2, options: [[0, 'OFF'], [3, 'ON']], group: 'Effect 2', section }),
+    bal(2, 0), bal(2, 1),
+    ...Array.from({ length: 8 }, (_, s) => fxParam(at, 2, s, section)),
+    P(at + 8, 'Effect placement', { shift: 4, bits: 1, options: named(['PARALLEL', 'SERIAL']), group: 'Effect placement and outputs', section }),
+    P(at + 6, 'Out 3 panpot', { min: 0, max: 101, format: outPan, group: 'Effect placement and outputs', section }),
+    P(at + 7, 'Out 4 panpot', { min: 0, max: 101, format: outPan, group: 'Effect placement and outputs', section }),
   ];
 }
 
+// Multisound 0-99 are internal (%02d), 100 and up the PCM card's (C%d, names from the card).
+const MS_OPTIONS = [...MULTISOUNDS.map((n, i) => [i, `${String(i).padStart(2, '0')} ${n}`]),
+  ...Array.from({ length: 28 }, (_, i) => [100 + i, `C${i} (card multisound)`])];
 const multisound = (o, label) => P(o, label, {
-  min: 0, max: 99, group: 'Oscillators', section: 'common',
-  dynamic: (data) => (data[10] === 2 ? { label: label.replace('Multisound', 'Drum kit'), options: O.kit } : { options: O.ms }),
+  min: 0, max: 127, group: 'Oscillators', section: 'common',
+  dynamic: (data) => (data[10] === 2 ? { label: label.replace('Multisound', 'Drum kit'), options: O.kit } : { options: MS_OPTIONS }),
 });
 
 const PROGRAM = [
@@ -176,43 +355,97 @@ const PROGRAM = [
   ...voiceBlock(1), ...voiceBlock(2),
 ];
 
+// Combination timbres: 11 bytes each from byte 36. The timbre pages address them through a
+// base of DS:98EB (E000:325A adds 36 + timbre x 11): +9 holds the MIDI filters (bits 0-3,
+// masks 1/2/4/8 on the MIDI FILTERING page), +10 the MIDI channel (bits 0-3) and bit 4,
+// which the Program field shows as OFF (timbre off). Panpot bit 7 is set by the M1 itself
+// (E000:3187) when the timbre plays a DRUMS program; it then shows SND.
+const PAN13 = [[0, 'A'], ...Array.from({ length: 9 }, (_, i) => [i + 1, `${9 - i}:${i + 1}`]), [10, 'B'], [11, 'C'], [12, 'C+D'], [13, 'D']];
+/** The timbre the M1 builds for each new timbre slot (DS:062C) when the combination type changes. */
+const INIT_TIMBRE = [0, 99, 0, 0, 5, 127, 0, 127, 1, 255, 16];
+/** Changing the combination type rebuilds the timbres as the M1 does (E000:327D). */
+function setCombiType(d, v) {
+  if (d[10] === v) return;
+  const old = Uint8Array.from(d);
+  const ch = unit.channel & 15;
+  d[10] = v;
+  if (v === 4) { for (let t = 1; t < 8; t++) d[36 + t * 11 + 7] = 127; return; }
+  for (let t = 0; t < 8; t++) d.set(INIT_TIMBRE, 36 + t * 11);
+  d[36] = old[36]; d[46] = ch; // timbre 1 keeps its program and plays on the global channel
+  if (v !== 0) { d[47] = old[47]; d[57] = ch; d[54] = 127; } // timbre 2 too for LAYER, SPLIT and VEL.SW
+  if (v === 2) { d[41] = 59; d[53] = 60; } // split at C4
+  if (v === 3) { d[43] = 62; d[55] = 63; } // velocity switch at 63
+}
+
 const COMBINATION = [
   ...Array.from({ length: 10 }, (_, i) => P(i, `Name ${i + 1}`, { hidden: true, section: 'common', group: 'Name' })),
-  P(10, 'Combination type', { options: O.combiType, group: 'Combination', section: 'common' }),
+  P(10, 'Combination type', { options: O.combiType, relayout: true, group: 'Combination', section: 'common', get: (d) => d[10], set: setCombiType,
+    help: 'Changing the type rebuilds the timbres the way the M1 does: timbre 1 (and 2 for LAYER, SPLIT and VEL.SW) keep their programs, the rest are switched off.' }),
+  P(53, 'Split point', { min: 1, max: 127, format: NOTE, group: 'Combination', section: 'common', get: (d) => d[53], set: (d, v) => { d[53] = v; d[41] = v - 1; },
+    dynamic: (d) => (d[10] === 2 ? {} : { hidden: true }), help: 'The lowest key of timbre 2; timbre 1 ends one key below.' }),
+  P(55, 'Velocity switch point', { min: 1, max: 127, group: 'Combination', section: 'common', get: (d) => d[55], set: (d, v) => { d[55] = v; d[43] = v - 1; },
+    dynamic: (d) => (d[10] === 3 ? {} : { hidden: true }), help: 'The lowest velocity of timbre 2; timbre 1 plays up to one below.' }),
   ...effectBlock(11, 'common'),
   ...Array.from({ length: 8 }, (_, t) => {
     const b = 36 + t * 11;
     const sec = `t${t}`;
     const g = 'Timbre';
     return [
-      P(b, 'Program', { min: 0, max: 99, group: g, section: sec, dynamic: (_d, ctx) => ({ options: programOptions(ctx) }) }),
+      P(b, 'Program', {
+        min: -1, max: 99, group: g, section: sec, relayout: true,
+        get: (d) => ((d[b + 10] & 0x10) ? -1 : d[b]),
+        set: (d, v) => { if (v < 0) d[b + 10] |= 0x10; else { d[b + 10] &= ~0x10; d[b] = v; } },
+        dynamic: (_d, ctx) => ({ options: [[-1, 'OFF'], ...programOptions(ctx)] }),
+      }),
       { ...u99(b + 1, 'Level'), group: g, section: sec },
       P(b + 2, 'Transpose', { signed: true, min: -24, max: 24, format: plus, group: g, section: sec }),
       P(b + 3, 'Detune', { signed: true, min: -50, max: 50, format: plus, group: g, section: sec }),
-      P(b + 4, 'Panpot', { min: 0, max: 15, input: 'number', help: 'Raw panpot value (A/B position or C/D outputs)', group: g, section: sec }),
+      P(b + 4, 'Panpot', {
+        min: 0, max: 14, group: g, section: sec,
+        get: (d) => ((d[b + 4] & 0x80) ? 14 : d[b + 4]),
+        set: (d, v) => { if (!(d[b + 4] & 0x80) && v <= 13) d[b + 4] = v; },
+        dynamic: (d) => ((d[b + 4] & 0x80)
+          ? { options: [[14, 'SND']], readOnly: true, help: 'The timbre plays a DRUMS program, so the drum kit pans apply (set by the M1).' }
+          : { options: PAN13, help: 'A and B are the stereo outputs (n:m mixes them); C and D are the individual outputs 3 and 4.' }),
+      }),
       { ...key(b + 5, 'Key window top'), group: 'Windows', section: sec }, { ...key(b + 6, 'Key window bottom'), group: 'Windows', section: sec },
       P(b + 7, 'Velocity window top', { min: 1, max: 127, group: 'Windows', section: sec }),
       P(b + 8, 'Velocity window bottom', { min: 1, max: 127, group: 'Windows', section: sec }),
-      P(b + 9, 'MIDI channel', { options: O.channel, group: 'MIDI', section: sec }),
-      ...['Program change', 'Damper', 'Aftertouch', 'Control change', 'Timbre off (probable)'].map((l, i) => P(b + 10, l, { shift: i, bits: 1, options: O.onoff, group: 'MIDI', section: sec })),
+      P(b + 10, 'MIDI channel', { bits: 4, options: O.channel, group: 'MIDI', section: sec }),
+      ...['Program change', 'Damper', 'Aftertouch', 'Control change'].map((l, i) => P(b + 9, l, { shift: i, bits: 1, options: O.disEna, group: 'MIDI filtering', section: sec })),
     ];
   }).flat(),
 ];
 
-// Global: 21 bytes of settings (not mapped yet), then 4 drum kits of 30 instruments x 7 bytes.
+// Global: the dump sends RAM 984E-9852 and 9858-9867 (E000:A446); the M1 loads the first 19
+// bytes back and ignores bytes 19-20 (F000:23B4-23F4). Then 4 drum kits of 30 instruments.
+const NOTES12 = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const readOnlyNow = (o, labels) => (d) => ({ options: [[d[o], labels[d[o]] ?? String(d[o])]], readOnly: true });
 const GLOBAL = [
-  ...Array.from({ length: 21 }, (_, i) => P(i, `${i.toString(16).toUpperCase().padStart(2, '0')}h`, {
-    input: 'number', min: 0, max: 255, help: 'Global setting (master tune, transpose, pedals, MIDI, scale): not mapped yet', group: 'Global bytes (not mapped)', section: 'global',
-  })),
+  P(0, 'Master tune', { signed: true, min: -50, max: 50, format: plus, group: 'Tuning', section: 'global' }),
+  P(1, 'Key transpose', { signed: true, min: -12, max: 12, format: plus, group: 'Tuning', section: 'global' }),
+  P(5, 'Scale type', { options: O.scale, relayout: true, group: 'Scale', section: 'global' }),
+  P(6, 'Key', { options: named(NOTES12), group: 'Scale', section: 'global', help: 'The key of the Pure Major and Pure Minor scales.' }),
+  ...NOTES12.map((n, i) => P(7 + i, n, { signed: true, min: -50, max: 50, format: plus, group: 'User scale', section: 'global', help: `Tuning of every ${n} in cents (User Programable scale)` })),
+  P(3, 'Pedal 1 assign', { options: O.pedal, group: 'Pedals', section: 'global' }),
+  P(4, 'Pedal 2 assign', { options: O.pedal, group: 'Pedals', section: 'global' }),
+  P(2, 'Damper switch polarity', { bits: 1, options: [[0, '+'], [1, '-']], group: 'Pedals', section: 'global',
+    help: 'Shown on the M1 keyboard (Damper Switch Polarity); the M1R keeps it without a page.' }),
+  P(19, 'Memory allocation', { group: 'Memory (read only)', section: 'global', dynamic: readOnlyNow(19, ['100PROG/100COMBI/4400SEQ', '50PROG/50COMBI/7700SEQ']),
+    help: 'Set on the M1 itself; a received global dump does not change it.' }),
+  P(20, 'Selected combination', { group: 'Memory (read only)', section: 'global', dynamic: readOnlyNow(20, Array.from({ length: 100 }, (_, i) => `I${String(i).padStart(2, '0')}`)),
+    help: 'The combination selected when the dump was made; a received global dump does not change it.' }),
   ...Array.from({ length: 4 }, (_, k) => Array.from({ length: 30 }, (_, i) => {
     const b = 21 + (k * 30 + i) * 7;
     const sec = `kit${k}`;
+    const g = `Instrument ${i + 1}`;
     return [
-      P(b, `${i + 1} Sound`, { options: O.drum, group: `Instrument ${i + 1}`, section: sec }),
-      P(b + 1, `${i + 1} Key`, { min: 0, max: 127, format: NOTE, group: `Instrument ${i + 1}`, section: sec }),
-      P(b + 2, `${i + 1} Byte 2`, { input: 'number', min: 0, max: 255, help: 'Probably pan', group: `Instrument ${i + 1}`, section: sec }),
-      P(b + 3, `${i + 1} Tune`, { signed: true, min: -128, max: 127, format: plus, input: 'number', group: `Instrument ${i + 1}`, section: sec }),
-      ...[4, 5, 6].map((o) => P(b + o, `${i + 1} Byte ${o}`, { input: 'number', min: 0, max: 255, help: 'Decay or level (not confirmed)', group: `Instrument ${i + 1}`, section: sec })),
+      P(b, `${i + 1} Sound`, { min: 0, max: 127, options: O.drum, group: g, section: sec }),
+      P(b + 1, `${i + 1} Key`, { min: 0, max: 127, format: NOTE, group: g, section: sec }),
+      P(b + 2, `${i + 1} Pan`, { options: PAN13, group: g, section: sec }),
+      P(b + 3, `${i + 1} Tune`, { signed: true, min: -120, max: 120, format: plus, group: g, section: sec }),
+      P(b + 4, `${i + 1} Level`, { signed: true, min: -99, max: 99, format: plus, group: g, section: sec }),
+      P(b + 5, `${i + 1} Decay`, { signed: true, min: -99, max: 99, format: plus, group: g, section: sec }),
     ];
   }).flat()).flat(),
 ];
@@ -228,8 +461,9 @@ function finish(list, prefix) {
 // ------------------------------------------------------------------ unit state and sending
 // The M1 takes program dumps in the program modes and combination dumps in the combination
 // modes. The definition remembers the mode it last set or read and switches when needed.
-const unit = { mode: null, programBank: 0, combiBank: 0 };
+const unit = { mode: null, programBank: 0, combiBank: 0, channel: 0 };
 function needMode(ctx, want, card = 0) {
+  unit.channel = (ctx?.deviceId ?? 0) & 15;
   const ok = want === 'program' ? unit.mode === 2 || unit.mode === 3 : unit.mode === 0 || unit.mode === 1;
   if (ok) return [];
   unit.mode = want === 'program' ? 2 : 0;
@@ -255,18 +489,25 @@ async function ask(api, bytes, want) {
   return dumpData(r);
 }
 
-async function fetchProgram(api) {
+// Reads switch the M1's mode, so one runs at a time (an open page and the connect-time
+// loader would otherwise ask for a program while the M1 sits in combination mode).
+let busy = Promise.resolve();
+const serial = (fn) => (...args) => { const run = busy.then(() => fn(...args)); busy = run.catch(() => {}); return run; };
+
+const fetchProgram = serial(async (api) => {
   await readMode(api);
   for (const m of needMode(api.ctx, 'program')) api.send(m);
   const d = await ask(api, msg.programRequest(api.ctx), 0x40);
   return d.slice(0, PROGRAM_SIZE);
-}
-async function fetchCombi(api) {
+});
+const fetchCombi = serial(async (api) => {
+  unit.channel = (api.ctx?.deviceId ?? 0) & 15;
   await readMode(api);
   for (const m of needMode(api.ctx, 'combination')) api.send(m);
   const d = await ask(api, msg.combiRequest(api.ctx), 0x49);
   return d.slice(0, COMBI_SIZE);
-}
+});
+const fetchGlobal = serial(async (api) => (await ask(api, msg.globalRequest(api.ctx), 0x51)).slice(0, GLOBAL_SIZE));
 
 const nameOf = (d) => readText(d, 0, 10, (b) => (b < 32 ? 32 : b));
 const pc = (ctx, n) => [0xc0 | ((ctx?.deviceId ?? 0) & 15), n];
@@ -331,8 +572,8 @@ function fromSyx(single, bulk, size) {
 
 // ------------------------------------------------------------------ simulator (demo mode, tests)
 function simulate() {
-  const prog = () => { const d = new Uint8Array(PROGRAM_SIZE); d.set([...'Init Prog '].map((c) => c.charCodeAt(0))); d[12] = 0; d[86] = 99; d[126] = 99; d[71] = 99; d[111] = 99; return d; };
-  const combi = () => { const d = new Uint8Array(COMBI_SIZE); d.set([...'Init Combi'].map((c) => c.charCodeAt(0))); return d; };
+  const prog = initProgram;
+  const combi = initCombi;
   const named10 = (d, s) => { for (let i = 0; i < 10; i++) d[i] = s.charCodeAt(i) || 32; return d; };
   const programs = Array.from({ length: 100 }, (_, i) => named10(prog(), `Program ${String(i).padStart(2, '0')}`));
   const combis = Array.from({ length: 100 }, (_, i) => named10(combi(), `Combi ${String(i).padStart(2, '0')}`));
@@ -376,8 +617,15 @@ const programParams = finish(PROGRAM, 'p').map((p) => ({ ...p, sendKey: 'program
 const combiParams = finish(COMBINATION, 'c').map((p) => ({ ...p, sendKey: 'combination' }));
 const globalParams = finish(GLOBAL, 'g').map((p) => ({ ...p, sendKey: 'global' }));
 
-const initProgram = () => { const d = new Uint8Array(PROGRAM_SIZE); d.set([...'Init Prog '].map((c) => c.charCodeAt(0))); d[86] = 99; d[126] = 99; d[71] = 99; d[111] = 99; return d; };
-const initCombi = () => { const d = new Uint8Array(COMBI_SIZE); d.set([...'Init Combi'].map((c) => c.charCodeAt(0))); return d; };
+const initProgram = () => { const d = new Uint8Array(PROGRAM_SIZE); d.set([...'Init Prog '].map((c) => c.charCodeAt(0))); d[86] = 99; d[126] = 99; d[71] = 99; d[111] = 99; d[38] = NO_EFFECT; d[39] = NO_EFFECT; return d; };
+function initCombi() {
+  const d = new Uint8Array(COMBI_SIZE);
+  d.set([...'Init Combi'].map((c) => c.charCodeAt(0)));
+  d[11] = NO_EFFECT; d[12] = NO_EFFECT;
+  for (let t = 0; t < 8; t++) d.set(INIT_TIMBRE, 36 + t * 11);
+  d[46] = 0; // timbre 1 on, channel 1
+  return d;
+}
 
 function renameAction(label, build) {
   return {
@@ -393,7 +641,7 @@ function renameAction(label, build) {
 }
 
 export default {
-  coverage: 'Programs (oscillators, pitch EG, VDF, VDA, MGs, aftertouch, joystick, effect types), combinations (type, effects, 8 timbres with windows and MIDI filters) and drum kits, read from and sent to the M1 by dump as found in the M1R v1.06 firmware and checked on an M1R. Program and combination memories with names from one bulk dump each, store, card banks, mode handling. Effect parameters and the global settings are shown as typed values but not named yet.',
+  coverage: 'Every byte of programs, combinations, global settings and drum kits, labelled, ranged and displayed as the M1R v1.06 firmware shows them (including the per-type effect pages and the M1 keyboard damper polarity), read from and sent to the M1 by dump and checked on an M1R. Program and combination memories with names from one bulk dump each, store, card banks, mode handling, and a MIDI channel page for MULTI combinations.',
   sysex: { manufacturer: [0x42], model: MODEL, deviceIdDefault: 0 },
   minGap: 30,
   describe,
@@ -404,7 +652,6 @@ export default {
       key: 'program', page: 'Program', icon: '◆', label: 'Program', size: PROGRAM_SIZE, autoLoad: true,
       init: initProgram, fetch: fetchProgram, params: programParams, name: nameOf, cols: 3,
       sections: [{ key: 'common', label: 'Common' }, { key: 'osc1', label: 'OSC1 / VDF1 / VDA1' }, { key: 'osc2', label: 'OSC2 / VDF2 / VDA2' }],
-      groupInfo: { 'Effect data (not mapped)': { note: UNMAPPED_NOTE, table: true, wide: true } },
       sendParam: (_p, _v, data, ctx) => [...needMode(ctx, 'program'), msg.program(ctx, data)],
       note: 'Every change sends the whole program (143 bytes) to the M1 edit buffer, so it is heard at once. Store writes it into a memory (turn off program memory protect on the M1 first).',
       sendAll: { label: 'Send to M1', title: 'Send the whole program to the edit buffer', build: (data, ctx) => [...needMode(ctx, 'program'), msg.program(ctx, data)] },
@@ -414,8 +661,8 @@ export default {
       slots: {
         label: 'Programs', banks: BANKS, count: 100, slotLabel, name: nameOf,
         recall: (bank, i, ctx) => { unit.mode = 2; return [msg.mode(ctx, 2, bank), pc(ctx, i)]; },
-        fetch: async (api, bank, i) => { api.send([msg.mode(api.ctx, 2, bank), pc(api.ctx, i)]); unit.mode = 2; await new Promise((r) => setTimeout(r, 150)); return (await ask(api, msg.programRequest(api.ctx), 0x40)).slice(0, PROGRAM_SIZE); },
-        scanBank: bulkNames(0x4c, PROGRAM_SIZE, msg.allProgramsRequest),
+        fetch: serial(async (api, bank, i) => { api.send([msg.mode(api.ctx, 2, bank), pc(api.ctx, i)]); unit.mode = 2; await new Promise((r) => setTimeout(r, 150)); return (await ask(api, msg.programRequest(api.ctx), 0x40)).slice(0, PROGRAM_SIZE); }),
+        scanBank: serial(bulkNames(0x4c, PROGRAM_SIZE, msg.allProgramsRequest)),
         store: (bank, i, ctx, data) => { unit.mode = 2; return [msg.mode(ctx, 2, bank), msg.program(ctx, data), msg.writeProgram(ctx, bank, i)]; },
         writable: () => true,
         autoNames: [0],
@@ -426,7 +673,23 @@ export default {
       key: 'combination', page: 'Combination', icon: '▦', label: 'Combination', size: COMBI_SIZE, autoLoad: false,
       init: initCombi, fetch: fetchCombi, params: combiParams, name: nameOf, cols: 3,
       sections: [{ key: 'common', label: 'Common' }, ...Array.from({ length: 8 }, (_, t) => ({ key: `t${t}`, label: `Timbre ${t + 1}` }))],
-      groupInfo: { 'Effect data (not mapped)': { note: UNMAPPED_NOTE, table: true, wide: true } },
+      multi: {
+        page: 'MIDI channels', label: 'Timbres', count: 8, section: (i) => `t${i}`, partLabel: (i) => `Timbre ${i + 1}`,
+        columns: [
+          { label: 'Program', params: ['Program'], role: 'patch' },
+          { label: 'MIDI channel', params: ['MIDI channel'], role: 'channel' },
+          { label: 'Level', params: ['Level'] },
+          { label: 'Panpot', params: ['Panpot'] },
+          { label: 'Transpose', params: ['Transpose'] },
+          { label: 'Key window', params: ['Key window bottom', 'Key window top'] },
+        ],
+        on: (i, d) => !(d[36 + i * 11 + 10] & 0x10),
+        mode: {
+          param: 'Combination type', value: 4, button: 'Make it a MULTI combination',
+          note: 'The SINGLE, LAYER, SPLIT and VEL.SW types put their timbres on the global channel; a MULTI combination gives each timbre its own channel and program.',
+        },
+        note: 'Each timbre plays its program on its MIDI channel (Program OFF switches a timbre off). Changes go to the combination edit buffer; store the combination on the Combination page to keep the setup.',
+      },
       sendParam: (_p, _v, data, ctx) => [...needMode(ctx, 'combination'), msg.combi(ctx, data)],
       note: 'Reading or editing switches the M1 to combination mode. Every change sends the whole combination (124 bytes).',
       sendAll: { label: 'Send to M1', build: (data, ctx) => [...needMode(ctx, 'combination'), msg.combi(ctx, data)] },
@@ -436,8 +699,8 @@ export default {
       slots: {
         label: 'Combinations', banks: BANKS, count: 100, slotLabel, name: nameOf,
         recall: (bank, i, ctx) => { unit.mode = 0; return [msg.mode(ctx, 0, bank), pc(ctx, i)]; },
-        fetch: async (api, bank, i) => { api.send([msg.mode(api.ctx, 0, bank), pc(api.ctx, i)]); unit.mode = 0; await new Promise((r) => setTimeout(r, 150)); return (await ask(api, msg.combiRequest(api.ctx), 0x49)).slice(0, COMBI_SIZE); },
-        scanBank: bulkNames(0x4d, COMBI_SIZE, msg.allCombisRequest),
+        fetch: serial(async (api, bank, i) => { api.send([msg.mode(api.ctx, 0, bank), pc(api.ctx, i)]); unit.mode = 0; await new Promise((r) => setTimeout(r, 150)); return (await ask(api, msg.combiRequest(api.ctx), 0x49)).slice(0, COMBI_SIZE); }),
+        scanBank: serial(bulkNames(0x4d, COMBI_SIZE, msg.allCombisRequest)),
         store: (bank, i, ctx, data) => { unit.mode = 0; return [msg.mode(ctx, 0, bank), msg.combi(ctx, data), msg.writeCombi(ctx, bank, i)]; },
         writable: () => true,
         autoNames: [0],
@@ -447,12 +710,15 @@ export default {
     {
       key: 'global', page: 'Global & drum kits', icon: '⚙', label: 'Global', size: GLOBAL_SIZE,
       init: () => new Uint8Array(GLOBAL_SIZE),
-      fetch: async (api) => (await ask(api, msg.globalRequest(api.ctx), 0x51)).slice(0, GLOBAL_SIZE),
+      fetch: fetchGlobal,
       params: globalParams, cols: 4,
       sections: [{ key: 'global', label: 'Global' }, ...[0, 1, 2, 3].map((k) => ({ key: `kit${k}`, label: `Drum kit ${k + 1}` }))],
-      groupInfo: { 'Global bytes (not mapped)': { note: 'The first 21 bytes hold the global settings (master tune, key transpose, pedals, memory protect, MIDI). Their order is not mapped yet, so they are typed values.', table: true, wide: true } },
+      groupInfo: {
+        'User scale': { note: 'Used when the scale type is User Programable: each note is tuned in cents.' },
+        'Memory (read only)': { note: 'The M1 reports these in its global dump but does not take them back from one.' },
+      },
       sendParam: (_p, _v, data, ctx) => msg.global(ctx, data),
-      note: 'Each drum kit holds 30 instruments: a drum sound, the key it plays on, and its tune and level settings. Every change sends the whole global block (861 bytes).',
+      note: 'Global settings (memory protect and the MIDI settings are not part of the global dump), and the 4 drum kits of 30 instruments: drum sound, key, pan, tune, level and decay. Every change sends the whole global block (861 bytes).',
       sendAll: { label: 'Send to M1', build: (data, ctx) => msg.global(ctx, data) },
       toSyx: (data, ctx) => msg.global(ctx, data),
       fromSyx: fromSyx(0x51, 0x51, GLOBAL_SIZE),

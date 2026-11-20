@@ -14,6 +14,7 @@
 //                                        for parameters whose meaning depends on other values.
 //                                        Parameters with options show as a list; input: 'number' as a
 //                                        typed number; the rest as knobs (click the value to type it).
+//                                        readOnly: true shows the value without letting it change.
 //   groupInfo: {[group]: {note, table, wide}}  a note under a card's title; table: one row per
 //                                        parameter with a typed value (for raw or undocumented bytes)
 //   sendParam(p, v, data, ctx)           used when a parameter has no send()
@@ -95,11 +96,11 @@ export function editorView(root, g, params = {}, obj) {
     if (p.options) {
       const opts = p.options.map(([v, l]) => ({ value: v, label: l }));
       if (!opts.some((o) => o.value === value)) opts.push({ value, label: String(value) });
-      el = selectField({ label: p.label, value, options: opts, onChange: (v) => change(p0, v, el) });
+      el = selectField({ label: p.label, value, options: opts, readOnly: p.readOnly, onChange: (v) => change(p0, v, el) });
       if (p.help) el.title = p.help;
-    } else if (p.input === 'number') {
+    } else if (p.input === 'number' || p.readOnly) {
       const { min, max } = paramRange(p);
-      el = numberField({ label: p.label, value, min, max, format: p.format || p.unit ? (v) => formatParam(p, v) : null, onChange: (v) => change(p0, v, el) });
+      el = numberField({ label: p.label, value, min, max, readOnly: p.readOnly, format: p.format || p.unit ? (v) => formatParam(p, v) : null, onChange: (v) => change(p0, v, el) });
       el.title = p.help || `${p.label}: ${min}-${max}`;
     } else {
       const { min, max } = paramRange(p);

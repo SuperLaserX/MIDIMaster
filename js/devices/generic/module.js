@@ -14,6 +14,7 @@ import { samplesView } from './views/samples.js';
 import { consoleView } from './views/console.js';
 import { paramsView } from './views/params.js';
 import { editorView } from './views/editor.js';
+import { multiView } from './views/multi.js';
 import { loadObject, readBankNames, canFetch, objectApi } from './objects.js';
 
 export class GenericContext extends Emitter {
@@ -180,9 +181,15 @@ export function createGenericModule(entry, def = null) {
         key: obj.key, label: obj.page || obj.label, icon: obj.icon || '◆',
         view: (root, ctx, params) => editorView(root, ctx, params, obj),
       }));
+      // Multitimbral objects also get a MIDI channels page (parts, patches and channels).
+      const multiPages = (def?.objects || []).filter((obj) => obj.multi).map((obj) => ({
+        key: `${obj.key}-channels`, label: obj.multi.page || 'MIDI channels', icon: '⇶',
+        view: (root, ctx, params) => multiView(root, ctx, params, obj),
+      }));
       const pages = [
         { key: 'intro', label: 'Connect', icon: '◉', view: introView },
         ...objectPages,
+        ...multiPages,
         def?.params?.length ? { key: 'params', label: def.paramsPage || 'Parameters', icon: '◇', view: paramsView } : null,
         { key: 'play', label: 'Controllers', icon: '♪', view: playView },
         { key: 'librarian', label: 'Librarian', icon: '☰', view: librarianView },

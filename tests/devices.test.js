@@ -411,6 +411,40 @@ test('Korg M1: packing, program and combination dumps, store, bulk names, librar
   assert.equal(t.sim.state.mode, 0);
   assert.equal(combi.params.filter((p) => p.label === 'MIDI channel').length, 8);
 
+  // Timbres: Program OFF is bit 4 of +10, the MIDI channel its low bits; changing the type to
+  // SPLIT rebuilds the timbres as the M1 does (split at C4), MULTI keeps them.
+  const cp = (sec, label) => combi.params.find((p) => p.section === sec && p.label === label);
+  const cx = Uint8Array.from(cd);
+  writeParam(cx, cp('t2', 'Program'), 17);
+  writeParam(cx, cp('t2', 'MIDI channel'), 5);
+  assert.deepEqual([cx[58], cx[68]], [17, 5], 'timbre 3 program and channel');
+  writeParam(cx, cp('t2', 'Program'), -1);
+  assert.equal(cx[68], 0x15, 'OFF sets bit 4 and keeps the channel');
+  assert.equal(readParam(cx, cp('t2', 'Program')), -1);
+  writeParam(cx, cp('common', 'Combination type'), 2);
+  assert.deepEqual([cx[41], cx[53], cx[57] & 0x10, cx[68] & 0x10], [59, 60, 0, 0x10], 'SPLIT: C4 split, timbre 2 on, timbre 3 off');
+  assert.equal(combi.multi.columns.find((c) => c.role === 'channel').params[0], 'MIDI channel');
+  assert.equal(combi.multi.on(2, cx), false);
+
+  // Effects: type 0 is Hall, 33 No Effect; choosing a type loads its defaults; Waveform is bit 0.
+  const fxType = prog.params.find((p) => p.label === 'Effect 1 type');
+  const pd = Uint8Array.from(d);
+  writeParam(pd, fxType, 11);
+  assert.deepEqual(Array.from(pd.subarray(47, 55)), [60, 9, 3, 0, 10, 0, 0, 0], 'Chorus 1 defaults');
+  const wave = prog.params.find((p) => p.offset === 49 && p.group === 'Effect 1');
+  assert.deepEqual([wave.dynamic(pd).label, readParam(pd, wave)], ['Waveform', 1]);
+  writeParam(pd, wave, 0);
+  assert.equal(pd[49], 2, 'only bit 0 changes');
+  assert.equal(fxType.options.find(([v]) => v === 33)[1], 'No Effect');
+
+  // EG time switches: bit n on, bit n+4 negative.
+  const at = prog.params.find((p) => p.section === 'osc1' && p.label === 'VDF kbd track AT');
+  const dt = prog.params.find((p) => p.section === 'osc1' && p.label === 'VDF kbd track DT');
+  const sw = new Uint8Array(143);
+  writeParam(sw, at, 0); writeParam(sw, dt, 2);
+  assert.equal(sw[99], 0b00010011);
+  assert.deepEqual([readParam(sw, at), readParam(sw, dt)], [0, 2]);
+
   // Library: an all-programs dump splits into programs that each write their own slot.
   const all = Uint8Array.from(msg.allProgramsRequest(ctx));
   assert.deepEqual(Array.from(all), [0xf0, 0x42, 0x30, 0x19, 0x1c, 0, 0xf7]);
@@ -439,4 +473,35 @@ test('Korg M1: dumps from an M1R decode (skipped when absent)', async (tt) => {
   assert.equal(val(p(9), 'OSC mode'), 'DRUMS');
   assert.equal(val(p(9), 'OSC1 Multisound'), 'Drum Kit 1');
   assert.equal(val(p(16), 'OSC1 Octave'), "16'");
+  const fx = (d, label) => { const q = prog.params.find((x) => x.label === label); return q.options.find(([v]) => v === readParam(d, q))[1]; };
+  assert.deepEqual([fx(p(2), 'Effect 1 type'), fx(p(2), 'Effect 2 type')], ['Ensemble Hall', 'Chorus 1'], 'Brass 1 effects');
+  assert.equal(fx(p(15), 'Effect 2 type'), 'Tremolo 1', 'Vibes');
+  const glob = mod.default.objects.find((o) => o.key === 'global');
+  const gpath = new URL('../re/m1/live_req0e.syx', import.meta.url);
+  if (fs.existsSync(gpath)) {
+    const graw = fs.readFileSync(gpath);
+    const g = mod.unpack(graw.subarray(6, graw.length - 1));
+    const gv = (label) => { const q = glob.params.find((x) => x.label === label); const v = { ...q, ...(q.dynamic?.(g, {}) || {}) }; return v.options ? v.options.find(([x]) => x === readParam(g, v))[1] : readParam(g, v); };
+    assert.equal(gv('Memory allocation'), '100PROG/100COMBI/4400SEQ');
+    assert.equal(gv('1 Sound'), '00 Kick 1', 'kit 1 instrument 1');
+    assert.equal(gv('Scale type'), 'Equal Temp');
+  }
+});
+
+test('MIDI channels pages: every column names parameters that exist in each part', async () => {
+  for (const id of ['korg-m1', 'roland-jv2080']) {
+    const def = (await import(`../js/devices/defs/${id}.js`)).default;
+    for (const obj of def.objects.filter((o) => o.multi)) {
+      const m = obj.multi;
+      const n = typeof m.count === 'function' ? m.count(obj.init(), {}) : m.count;
+      for (let i = 0; i < n; i++) {
+        for (const col of m.columns) {
+          for (const label of col.params) {
+            assert.ok(obj.params.some((p) => p.section === m.section(i) && p.label === label), `${id} ${obj.key} part ${i + 1}: ${label}`);
+          }
+        }
+      }
+      if (m.mode) assert.ok(obj.params.some((p) => p.label === m.mode.param), `${id} mode parameter`);
+    }
+  }
 });
