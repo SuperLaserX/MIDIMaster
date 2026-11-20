@@ -28,12 +28,31 @@ const SECTIONS = {
     ],
   },
 };
+// Two bars of 4/4 on the General MIDI drum notes (absolute note numbers): every standard
+// drum sound plays at least once, so a drum kit or rhythm set can be heard as a whole.
+const GM = { kick: 36, rim: 37, snare: 38, clap: 39, lowTom: 45, midTom: 47, highTom: 50, closedHat: 42, openHat: 46, crash: 49, ride: 51 };
+const hit = (t, n, v = 1) => ({ t, d: 0.25, n, v });
+SECTIONS.drums = {
+  label: 'Drum beat', beats: 8, abs: true,
+  notes: [
+    // bar 1: crash, kick, snare and clap, closed hi-hat eighths, open hi-hat, a rim shot
+    hit(0, GM.crash), hit(0, GM.kick), hit(2, GM.kick, 0.9), hit(2.5, GM.kick, 0.8),
+    hit(1, GM.snare), hit(3, GM.snare), hit(3, GM.clap, 0.8), hit(1.75, GM.rim, 0.5),
+    ...[0, 0.5, 1, 1.5, 2, 2.5, 3].map((t, i) => hit(t, GM.closedHat, i % 2 ? 0.6 : 0.9)), hit(3.5, GM.openHat, 0.8),
+    // bar 2: ride, kick, snare and rim shot, then a fill down the toms
+    ...[4, 4.5, 5, 5.5, 6, 6.5].map((t, i) => hit(t, GM.ride, i % 2 ? 0.7 : 0.9)),
+    hit(4, GM.kick), hit(5.5, GM.kick, 0.8), hit(6, GM.kick, 0.9), hit(5, GM.snare), hit(6.5, GM.rim, 0.7),
+    hit(7, GM.highTom), hit(7.25, GM.highTom, 0.8), hit(7.5, GM.midTom, 0.9), hit(7.75, GM.lowTom),
+  ],
+};
 const PATTERNS = {
   all: { label: 'Chord + run + glide', parts: ['chord', 'run', 'glide'] },
   chord: { label: 'Chord', parts: ['chord'] },
   run: { label: 'Note run', parts: ['run'] },
   glide: { label: 'Glide', parts: ['glide'] },
+  drums: { label: 'Drum beat (GM drums)', parts: ['drums'], drums: true },
 };
+export const DRUM_NOTES = GM;
 
 /** Flatten a pattern into note-on/off events sorted by beat. Exported for tests. */
 export function buildPattern(name = 'all') {
@@ -43,7 +62,7 @@ export function buildPattern(name = 'all') {
   for (const part of (PATTERNS[name] || PATTERNS.all).parts) {
     const sec = SECTIONS[part];
     for (const nt of sec.notes) {
-      events.push({ beat: offset + nt.t, on: true, id, n: nt.n, v: nt.v });
+      events.push({ beat: offset + nt.t, on: true, id, n: nt.n, v: nt.v, abs: !!sec.abs });
       events.push({ beat: offset + nt.t + nt.d, on: false, id, n: nt.n });
       id++;
     }
@@ -55,7 +74,7 @@ export function buildPattern(name = 'all') {
 }
 
 function loadPrefs(bpm = 120) {
-  const base = { bpm, pattern: 'all' };
+  const base = { bpm, pattern: 'all', drumChannel: 9 };
   try { return { ...base, ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') }; } catch { return base; }
 }
 
@@ -78,13 +97,20 @@ export function mountKeyboard(container, app, defaults = {}) {
   const msPerBeat = () => 60000 / prefs.bpm;
 
   const playBtn = h('button.icon-btn', {
-    title: 'Loop a test pattern on the audition channel: a chord, a run of notes and two glides. The glide bars play overlapping notes, so a mono program with portamento or legato slides between them.',
+    title: 'Loop a test pattern: a chord, a run of notes and two glides on the audition channel (the glide bars play overlapping notes, so a mono program with portamento or legato slides between them), or a drum beat on the General MIDI drum notes.',
     onclick: () => (player.playing ? stopPattern() : playPattern()),
   }, '▶ Pattern');
   const patSel = h('select', {
     title: 'Which part of the test pattern to loop',
-    onchange: () => { prefs.pattern = patSel.value; savePrefs(); if (player.playing) { stopPattern(); playPattern(); } },
+    onchange: () => { prefs.pattern = patSel.value; savePrefs(); showDrumCh(); if (player.playing) { stopPattern(); playPattern(); } },
   }, Object.entries(PATTERNS).map(([k, p]) => h('option', { value: k, selected: k === prefs.pattern }, p.label)));
+  // The drum beat plays on its own channel (10 by default), whatever the audition channel is.
+  const drumChSel = h('select', {
+    title: 'MIDI channel for the drum beat (General MIDI drums are on channel 10)',
+    onchange: () => { prefs.drumChannel = Number(drumChSel.value); savePrefs(); if (player.playing && PATTERNS[prefs.pattern]?.drums) player.channel = prefs.drumChannel; },
+  }, Array.from({ length: 16 }, (_, i) => h('option', { value: i, selected: i === prefs.drumChannel }, `Drums ch ${i + 1}`)));
+  const showDrumCh = () => { drumChSel.hidden = !PATTERNS[prefs.pattern]?.drums; };
+  showDrumCh();
   const bpmInp = h('input', {
     type: 'number', min: 30, max: 300, value: prefs.bpm, title: 'Tempo in beats per minute',
     onchange: () => {
@@ -106,9 +132,9 @@ export function mountKeyboard(container, app, defaults = {}) {
   }
 
   function fire(ev, at) {
-    const ch = state.channel;
+    const ch = player.channel;
     if (ev.on) {
-      const note = Math.max(0, Math.min(127, (state.octave + 1) * 12 + ev.n));
+      const note = Math.max(0, Math.min(127, ev.abs ? ev.n : (state.octave + 1) * 12 + ev.n));
       const velocity = Math.max(1, Math.min(127, Math.round(state.velocity * ev.v)));
       player.sounding.set(ev.id, { note, ch });
       app.client.sendAt([0x90 | ch, note, velocity], at);
@@ -138,11 +164,19 @@ export function mountKeyboard(container, app, defaults = {}) {
     }
   }
 
-  function playPattern() {
+  /** Start the pattern; `name` picks one (e.g. 'drums'), `opts.channel` the drum beat's channel. */
+  function playPattern(name, opts = {}) {
+    if (typeof name === 'string' && PATTERNS[name]) {
+      if (player.playing) stopPattern();
+      prefs.pattern = name; patSel.value = name;
+      if (PATTERNS[name].drums && opts.channel !== undefined) { prefs.drumChannel = opts.channel; drumChSel.value = String(opts.channel); }
+      savePrefs(); showDrumCh();
+    }
     if (player.playing) return;
     if (!app.connected) { app.error(new Error('Connect a MIDI output first'), 'Pattern'); return; }
     const { events, beats } = buildPattern(prefs.pattern);
-    Object.assign(player, { flat: events, beats, pos: 0, anchorTime: performance.now() + 60, anchorBeat: 0, lastAt: 0, playing: true });
+    const channel = PATTERNS[prefs.pattern]?.drums ? prefs.drumChannel : state.channel;
+    Object.assign(player, { flat: events, beats, channel, pos: 0, anchorTime: performance.now() + 60, anchorBeat: 0, lastAt: 0, playing: true });
     playBtn.textContent = '■ Stop';
     playBtn.classList.add('playing');
     tick();
@@ -175,7 +209,7 @@ export function mountKeyboard(container, app, defaults = {}) {
     h('strong', 'Audition'), chanSel,
     h('span', 'Vel'), vel, velOut,
     h('button.icon-btn', { onclick: () => shift(-1) }, 'Oct -'), octOut, h('button.icon-btn', { onclick: () => shift(1) }, 'Oct +'),
-    h('span.pat-ctl', playBtn, patSel, bpmInp, h('span', 'BPM')),
+    h('span.pat-ctl', playBtn, patSel, drumChSel, bpmInp, h('span', 'BPM')),
     h('span.grow'), h('span.small', 'Computer keys: Z-M, Q-U'), toggle);
   clear(container).append(bar, kbd);
 
@@ -252,6 +286,12 @@ export function mountKeyboard(container, app, defaults = {}) {
     allOff() { stopPattern(); for (const n of [...state.held.keys()]) noteOff(n); },
     playPattern,
     stopPattern,
+    /** Play the drum beat on `channel` (0-15); a second call with the same channel stops it. */
+    toggleDrums(channel) {
+      if (player.playing && PATTERNS[prefs.pattern]?.drums && player.channel === channel) { stopPattern(); return false; }
+      playPattern('drums', { channel });
+      return true;
+    },
     get playing() { return player.playing; },
   };
 }

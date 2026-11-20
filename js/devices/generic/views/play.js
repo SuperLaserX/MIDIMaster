@@ -5,6 +5,11 @@ import { h, clear } from '../../../core/ui/dom.js';
 import { CC_NAMES, ccName } from '../../../core/music.js';
 
 const COMMON = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13, 64, 65, 66, 67, 68, 71, 72, 73, 74, 75, 76, 77, 78, 84, 91, 92, 93, 94, 95];
+/** Controller values after a reset (General MIDI defaults); the rest go to 0. */
+const DEFAULTS = { 7: 100, 8: 64, 10: 64, 11: 127 };
+const defaultValue = (n) => DEFAULTS[n] ?? 0;
+/** Controllers a reset sends explicitly (after Reset All Controllers, CC 121), since devices differ in what 121 covers. */
+const RESET = [1, 2, 4, 7, 8, 10, 11, 64, 65, 66, 67, 68, 69, 84];
 const RPN_PRESETS = [
   { label: 'Pitch bend range', msb: 0, lsb: 0, nrpn: false, hint: 'MSB = semitones' },
   { label: 'Fine tuning', msb: 0, lsb: 1, nrpn: false, hint: '8192 = centre' },
@@ -30,9 +35,9 @@ export function playView(root, g) {
   const ccWrap = h('div.cc-grid');
   const values = new Map();
   function ccRow(n) {
-    const out = h('span.mono.small', String(values.get(n) ?? 0));
+    const out = h('span.mono.small', String(values.get(n) ?? defaultValue(n)));
     const slider = h('input', {
-      type: 'range', min: 0, max: 127, value: values.get(n) ?? 0,
+      type: 'range', min: 0, max: 127, value: values.get(n) ?? defaultValue(n),
       oninput: () => { values.set(n, Number(slider.value)); out.textContent = slider.value; send(() => c.cc(ch(), n, Number(slider.value))); },
     });
     return h('div.cc-row', h('span.mono.small.cc-num', String(n)), h('span.small.cc-name', { title: ccName(n) }, ccName(n)), slider, out);
@@ -42,6 +47,25 @@ export function playView(root, g) {
     clear(ccWrap).append(...list.map(ccRow));
   }
   const allBtn = h('button.btn.small.toggle', { onclick: () => { showAll = !showAll; allBtn.classList.toggle('on', showAll); renderCC(); } }, 'All controllers');
+
+  // Reset: Reset All Controllers, then each common controller to its default, pitch bend to
+  // the centre, pressure to 0 and the RPN/NRPN selection to null, on one or all channels.
+  function resetControllers(all) {
+    const chans = all ? Array.from({ length: 16 }, (_, i) => i) : [ch()];
+    send(() => {
+      for (const n of chans) {
+        c.cc(n, 121, 0);
+        for (const cc of RESET) c.cc(n, cc, defaultValue(cc));
+        c.pitchBend(n, 0);
+        c.channelPressure(n, 0);
+        c.cc(n, 101, 127); c.cc(n, 100, 127);
+      }
+    });
+    values.clear();
+    bend.value = 0;
+    press.value = 0;
+    renderCC();
+  }
 
   // Pitch bend and pressure
   const bend = h('input', {
@@ -96,12 +120,15 @@ export function playView(root, g) {
       h('div.card.col',
         h('h2', 'Channel mode and system'),
         h('div.row',
-          modeBtn('All sound off', 120, 0), modeBtn('Reset controllers', 121, 0), modeBtn('All notes off', 123, 0),
+          modeBtn('All sound off', 120, 0), modeBtn('CC 121 Reset', 121, 0), modeBtn('All notes off', 123, 0),
           modeBtn('Local on', 122, 127), modeBtn('Local off', 122, 0)),
         h('div.row', modeBtn('Omni off', 124, 0), modeBtn('Omni on', 125, 0), modeBtn('Mono', 126, 0), modeBtn('Poly', 127, 0)),
         h('div.row', ...sys.map(([label, bytes]) => h('button.btn.small', { onclick: () => send(() => g.client.sendNow(bytes)) }, label))))),
     h('div.card.col', { style: { marginTop: '12px' } },
-      h('div.row', h('h2.grow', 'Controllers'), allBtn),
+      h('div.row', h('h2.grow', 'Controllers'),
+        h('button.btn.small', { onclick: () => resetControllers(false), title: `Reset All Controllers (CC 121), then volume 100, pan, balance 64, expression 127, the other common controllers 0, pitch bend centre and pressure 0 on channel ${ch() + 1}` }, 'Reset controllers'),
+        h('button.btn.small', { onclick: () => resetControllers(true), title: 'The same on all 16 channels' }, 'Reset all channels'),
+        allBtn),
       ccWrap));
   renderCC();
   return null;
