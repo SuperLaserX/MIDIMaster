@@ -2,7 +2,8 @@
 // definitions that implement them. A device opens its dedicated module when there is
 // one, otherwise the generic MIDI module (with its definition when one exists).
 
-import { CATALOG } from './catalog-data.js';
+import { CATALOG as GENERATED } from './catalog-data.js';
+import { CATALOG_EXTRA } from './catalog-extra.js';
 import { renderLogo, logoText, styleCombo, comboKey, COMBO_COUNT } from '../core/ui/logo.js';
 
 /** Dedicated device modules (full editors). */
@@ -16,6 +17,9 @@ const DEFS = {
   'roland-jv2080': () => import('./defs/roland-jv2080.js'),
   'korg-m1': () => import('./defs/korg-m1.js'),
   'korg-m1r': () => import('./defs/korg-m1.js'),
+  'roland-jp8080': () => import('./defs/roland-jp8080.js'),
+  'roland-jp8000': () => import('./defs/roland-jp8000.js'),
+  'roland-vsynth-xt': () => import('./defs/roland-vsynthxt.js'),
 };
 
 /** Hand-picked logo styles; the rest are assigned in catalog order without repeats. */
@@ -29,6 +33,10 @@ const OPENABLE = new Set(['Y', 'R', '?', 'Y?']);
 export const MIDI_LABEL = {
   Y: 'MIDI', R: 'MIDI (some versions)', '?': 'MIDI unknown', 'Y?': 'MIDI likely', N: 'No MIDI', H: 'MIDI host', D: 'Sound data',
 };
+
+/** The generated catalog plus the devices added since (catalog-extra.js), by maker and model. */
+const CATALOG = [...GENERATED, ...CATALOG_EXTRA.filter((e) => !GENERATED.some((c) => c.id === e.id))]
+  .sort((a, b) => a.maker.localeCompare(b.maker) || a.model.localeCompare(b.model, undefined, { numeric: true }));
 
 function build() {
   const used = new Set(Object.values(RESERVED).map(comboKey));
@@ -73,6 +81,9 @@ export async function loadModule(id) {
   const { createGenericModule } = await import('./generic/module.js');
   return createGenericModule(entry, def);
 }
+
+/** The device definition (generic module) of a device, or null. */
+export async function loadDef(id) { return DEFS[id] ? (await DEFS[id]()).default : null; }
 
 export const MODULE_IDS = Object.keys(MODULES);
 export const DEF_IDS = Object.keys(DEFS);

@@ -17,7 +17,8 @@ export function introView(root, g) {
   const idOut = h('div.small.mono');
 
   function showIdentity(raw) {
-    clear(idOut).append(raw ? describeUniversal(Uint8Array.from(raw)) : 'No identity reply. Many instruments made before about 1995 do not answer identity requests; that is normal.');
+    const d = raw ? Uint8Array.from(raw) : null;
+    clear(idOut).append(d ? (def?.describeIdentity?.(d) || describeUniversal(d, entry.sysex || '')) :'No identity reply. Many instruments made before about 1995 do not answer identity requests; that is normal.');
   }
 
   const chSel = h('select', { onchange: () => { g.channel = Number(chSel.value); } },

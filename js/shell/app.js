@@ -8,11 +8,13 @@ import { applyTheme } from '../core/theme.js';
 import { h, clear, toast } from '../core/ui/dom.js';
 import { mountKeyboard } from '../core/ui/keyboard.js';
 import { Emitter } from '../core/emitter.js';
-import { library } from '../core/library.js';
+import { library, openDb } from '../core/library.js';
+import { MainLibrary, KvStore } from '../core/mainlib/store.js';
 import { getDevice, loadModule } from '../devices/registry.js';
 import { homeView } from './home.js';
 import { settingsView } from './settings-view.js';
 import { monitorView } from './monitor.js';
+import { mainLibraryView } from './mainlibrary.js';
 
 const LEGACY = { connect: 'intro', program: 'program', library: 'library', samples: 'samples', keymaps: 'keymaps', import: 'import', discover: 'program', remote: 'program' };
 
@@ -28,6 +30,16 @@ export class Shell extends Emitter {
     this.page = null; // 'home' | 'settings' | 'monitor' | device page key
     this.exclusive = false;
     this.online = false;
+    this._mainlib = null;
+  }
+
+  /** The Main Library (one per app; opened on first use). */
+  mainLibrary() {
+    // Without IndexedDB (some private windows) the cache lives in memory; the folder still works.
+    this._mainlib ??= openDb().catch(() => null).then((db) => new MainLibrary(new KvStore(db), {
+      pickFolder: (mode) => (window.showDirectoryPicker ? window.showDirectoryPicker({ mode, id: 'midimaster-library' }).catch(() => null) : Promise.reject(new Error('This browser cannot open folders. Use Chrome or Edge.'))),
+    }).load());
+    return this._mainlib;
   }
 
   // ------------------------------------------------------------ startup
@@ -101,6 +113,7 @@ export class Shell extends Emitter {
   route() {
     const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
     if (parts[0] === 'settings') return this.showShellPage('settings');
+    if (parts[0] === 'library') return this.showShellPage('library'); // keeps an open device, like Settings
     if (parts[0] === 'monitor') return this.device ? this.showDevicePage('monitor') : this.showShellPage('monitor');
     if (parts[0] === 'd' && parts[1]) return this.openDevice(parts[1], parts[2]);
     if (LEGACY[parts[0]]) return this.openDevice('kurzweil-k2000', LEGACY[parts[0]]); // old KEdit2000 bookmarks
@@ -113,7 +126,7 @@ export class Shell extends Emitter {
     this.page = name;
     const main = clear(this.el.view);
     main.scrollTop = 0;
-    const fn = { home: homeView, settings: settingsView, monitor: monitorView }[name] || homeView;
+    const fn = { home: homeView, settings: settingsView, monitor: monitorView, library: mainLibraryView }[name] || homeView;
     try { this.view = fn(main, this) || null; } catch (err) { this.view = null; main.append(h('div.notice.bad', `Failed to open: ${err.message}`)); console.error(err); }
     this.renderNav();
     this.renderTop();
@@ -269,11 +282,13 @@ export class Shell extends Emitter {
         h('div.nav-sep'),
         ...this.device.docks.map((d) => item(d.spec.label, d.spec.icon || '▣', d.api.isOpen, () => d.api.toggle(), { title: `Show or hide the ${d.spec.label} beside any page` })),
         item('MIDI Monitor', '≡', this.page === 'monitor', () => this.showDevicePage('monitor')),
+        item('Main Library', '❖', this.page === 'library', () => this.go('#/library')),
         item('Settings', '⚙', this.page === 'settings', () => this.go('#/settings')));
       return;
     }
     nav.append(
       item('Devices', '◫', this.page === 'home', () => this.go('#/')),
+      item('Main Library', '❖', this.page === 'library', () => this.go('#/library')),
       item('MIDI Monitor', '≡', this.page === 'monitor', () => this.go('#/monitor')),
       item('Settings', '⚙', this.page === 'settings', () => this.go('#/settings')));
     const recent = recentDevices().map(getDevice).filter(Boolean);

@@ -27,7 +27,7 @@ export function homeView(root, shell) {
   const statusSel = h('select', { onchange: () => { st.status = statusSel.value; save(); render(); } },
     [['midi', 'Devices with MIDI'], ['editors', 'Full editors only'], ['all', 'Everything in the collection']].map(([v, l]) => h('option', { value: v, selected: v === st.status }, l)));
   const count = h('span.small.muted');
-  const grid = h('div.dev-groups');
+  const grid = h('div.dev-sections');
 
   function card(d) {
     const badges = [
@@ -43,22 +43,37 @@ export function homeView(root, shell) {
     h('div.row.dev-badges', ...badges));
   }
 
+  const available = (d) => d.hasModule || d.hasDef;
+
   function row(d) {
     const tag = d.hasModule ? h('span.badge.live', 'Editor') : d.hasDef ? h('span.badge.ram', 'Mapped')
       : !['Y', 'R'].includes(d.midi) ? h('span.badge' + (d.openable ? '.warn' : ''), MIDI_LABEL[d.midi] || d.midi) : null;
-    return h('button.dev-row' + (d.openable ? '' : '.off'), {
+    const cls = d.openable ? (available(d) ? '' : '.pending') : '.off';
+    return h('button.dev-row' + cls, {
       title: `${d.title}
 ${TYPE_NAMES[d.type] || d.type}${d.cpu?.length ? `, CPU ${d.cpu[0]}` : ''}
-${MIDI_LABEL[d.midi] || d.midi}, ${d.archives.length} firmware file(s)`,
+${MIDI_LABEL[d.midi] || d.midi}, ${d.archives.length} firmware file(s)${d.openable && !available(d) ? '\nNo editor yet: opens the generic MIDI tools.' : ''}`,
       onclick: () => { if (d.openable) shell.go(`#/d/${d.id}`); },
     }, h('span.dev-model', d.model), h('span.dev-type', TYPE_NAMES[d.type] || d.type), tag);
   }
+
+  /** Devices grouped by maker, one card per maker. */
+  const byMaker = (list) => {
+    const groups = new Map();
+    for (const d of list) {
+      if (!groups.has(d.maker)) groups.set(d.maker, []);
+      groups.get(d.maker).push(d);
+    }
+    return [...groups].map(([maker, devs]) => h('section.card.dev-group',
+      h('h2', maker, h('span.small.muted', ` ${devs.length}`)),
+      h('div.dev-list', devs.map(row))));
+  };
 
   function render() {
     const words = st.q.toLowerCase().split(/\s+/).filter(Boolean);
     const showAll = st.status === 'all' || shell.settings.get('showNonMidi');
     const list = DEVICES.filter((d) => {
-      if (st.status === 'editors' && !d.hasModule && !d.hasDef) return false;
+      if (st.status === 'editors' && !available(d)) return false;
       if (!showAll && !d.openable) return false;
       if (st.maker && d.maker !== st.maker) return false;
       if (st.type && d.type !== st.type) return false;
@@ -66,14 +81,20 @@ ${MIDI_LABEL[d.midi] || d.midi}, ${d.archives.length} firmware file(s)`,
       return words.every((w) => hay.includes(w));
     });
     count.textContent = `${list.length} of ${DEVICES.length} devices`;
-    const groups = new Map();
-    for (const d of list) {
-      if (!groups.has(d.maker)) groups.set(d.maker, []);
-      groups.get(d.maker).push(d);
+    // Available editors first, then everything else greyed out below them.
+    const ready = list.filter(available);
+    const rest = list.filter((d) => !available(d));
+    clear(grid);
+    if (ready.length) {
+      grid.append(h('section.dev-section',
+        h('h2.dev-section-head', 'Available editors', h('span.small.muted', ` ${ready.length}`)),
+        h('div.dev-grid', ready.map(card))));
     }
-    clear(grid).append(...[...groups].map(([maker, devs]) => h('section.card.dev-group',
-      h('h2', maker, h('span.small.muted', ` ${devs.length}`)),
-      h('div.dev-list', devs.map(row)))));
+    if (rest.length) {
+      grid.append(h('section.dev-section.pending',
+        h('h2.dev-section-head', 'Not yet available', h('span.small.muted', ` ${rest.length}: open the generic MIDI tools (controllers, programs, SysEx librarian and console) until an editor is built`)),
+        h('div.dev-groups', byMaker(rest))));
+    }
     if (!list.length) grid.append(h('div.empty', 'No device matches.'));
   }
 

@@ -6,20 +6,26 @@ const STORE = 'library';
 let dbPromise = null;
 const memory = new Map(); // fallback when IndexedDB is unavailable
 
-function open() {
+/** The app's IndexedDB database. Version 2 adds 'mainlib' (Main Library cache and folder handles). */
+export function openDb() {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve) => {
     if (typeof indexedDB === 'undefined') { resolve(null); return; }
-    const req = indexedDB.open(DB, 1);
+    const req = indexedDB.open(DB, 2);
     req.onupgradeneeded = () => {
-      const s = req.result.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
-      s.createIndex('device', 'device');
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        const s = db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+        s.createIndex('device', 'device');
+      }
+      if (!db.objectStoreNames.contains('mainlib')) db.createObjectStore('mainlib');
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => resolve(null);
   });
   return dbPromise;
 }
+const open = openDb;
 
 async function tx(mode, fn) {
   const db = await open();

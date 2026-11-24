@@ -831,6 +831,8 @@ export default {
       fromSyx: globalFromSyx,
     },
   ],
+  // Librarian "Complete dump": the unit's Total data dump and the current edit buffers.
+  fullDump: ['Current performance (with its 8 programs)', 'Global data', { request: 'Total data', timeout: 15000 }],
   requests: [
     { label: 'Current program', bytes: (ctx) => msg.currentProgramRequest(ctx) },
     { label: 'Current performance (with its 8 programs)', bytes: (ctx) => msg.currentPerformanceRequest(ctx) },

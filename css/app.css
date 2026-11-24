@@ -299,6 +299,13 @@ pre.ascii-logo {
 .dev-row .dev-model { font-weight: 600; font-size: 13px; }
 .dev-row .dev-type { flex: 1; text-align: right; }
 .dev-row.off { opacity: .45; cursor: default; }
+/* Home page: available editors first, then devices without an editor yet, greyed out. */
+.dev-sections { display: flex; flex-direction: column; gap: 18px; }
+.dev-section-head { font-size: 16px; margin: 0 0 8px; }
+.dev-section.pending .dev-group { opacity: .6; }
+.dev-section.pending .dev-group:hover { opacity: 1; }
+.dev-row.pending { color: var(--muted, #888); }
+.dev-row.pending .dev-model { font-weight: 500; }
 .dev-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
 .dev-card { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; cursor: pointer; color: var(--text); display: flex; flex-direction: column; gap: 3px; min-height: 74px; }
 .dev-card:hover { border-color: var(--accent-dim); }
@@ -404,3 +411,38 @@ label.check input { margin-top: 3px; }
 .multi-table tr.off td { opacity: .5; }
 .multi-cell { gap: 6px; flex-wrap: nowrap; }
 .multi-num { gap: 4px; align-items: center; }
+
+/* Motion drawing canvas (JP-8080/JP-8000 Motion page) */
+.motion-draw { width: 100%; height: 256px; display: block; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; cursor: crosshair; touch-action: none; user-select: none; margin: 8px 0; }
+.motion-draw .grid-minor { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.motion-draw .grid-major { stroke: var(--muted); stroke-opacity: .5; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.motion-draw .curve-other { fill: none; stroke: var(--muted); stroke-opacity: .35; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.motion-draw .curve-mine { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.motion-draw .curve-dot { fill: var(--accent); }
+.motion-draw .curve-live { fill: none; stroke: var(--good); stroke-width: 2; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.motion-draw .curve-band { fill: var(--accent); fill-opacity: .15; }
+
+/* Main Library (js/shell/mainlibrary.js, js/core/ui/mainlib.js) */
+.c-warn { color: var(--warn); }
+.c-bad { color: var(--bad); }
+.c-good { color: var(--good); }
+.ml-filters { flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.ml-filters input[type="search"] { min-width: 220px; flex: 1; }
+.ml-bulk { gap: 6px; padding: 6px 8px; margin-bottom: 8px; border: 1px solid var(--accent-dim); border-radius: 8px; background: rgba(242,181,68,.06); }
+.ml-table { max-height: 62vh; }
+.ml-table tr { cursor: pointer; }
+.ml-report { max-height: 40vh; }
+.ml-detail { width: 420px; flex: 0 0 420px; position: sticky; top: 0; max-height: calc(100vh - 80px); overflow: auto; }
+.ml-detail textarea { width: 100%; box-sizing: border-box; resize: vertical; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px; font: inherit; }
+.ml-detail a.badge { text-decoration: none; }
+.ml-kv { display: grid; grid-template-columns: minmax(110px, max-content) 1fr; gap: 2px 12px; font-size: 13px; }
+.ml-kv > span { overflow-wrap: anywhere; }
+.ml-settings details { border-top: 1px solid var(--line); padding: 4px 0; }
+.ml-settings summary { cursor: pointer; font-weight: 500; padding: 2px 0; }
+.ml-settings .ml-kv { padding: 4px 0 4px 14px; }
+.ml-samples { max-height: 220px; overflow: auto; gap: 2px; }
+.ml-list { margin: 2px 0 6px; padding-left: 18px; }
+.ml-panel .ml-table { max-height: 46vh; }
+@media (max-width: 1100px) { .ml-detail { width: 100%; flex-basis: 100%; position: static; max-height: none; } }
+.ml-table tr.ml-group td { border-top: 2px solid var(--line); }
+.ml-filters select, .ml-into, select.ml-dev { max-width: 320px; }

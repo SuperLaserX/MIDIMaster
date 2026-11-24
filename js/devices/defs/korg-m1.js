@@ -645,6 +645,9 @@ export default {
   sysex: { manufacturer: [0x42], model: MODEL, deviceIdDefault: 0 },
   minGap: 30,
   describe,
+  // Main Library import: the M1/M1R messages this definition reads (both models share it).
+  recognise: (raw) => isM1(raw),
+  deviceIds: ['korg-m1', 'korg-m1r'],
   simulate,
   libraryItems,
   objects: [
@@ -724,6 +727,10 @@ export default {
       fromSyx: fromSyx(0x51, 0x51, GLOBAL_SIZE),
     },
   ],
+  // Librarian "Complete dump": the M1's own All Data dump (programs, combinations, global with drum
+  // kits, sequences) plus the program being edited. All Data is one long message, so the first
+  // reply can take half a minute to arrive.
+  fullDump: ['Current program', { request: 'All data (programs, combinations, global, sequences)', timeout: 60000 }],
   requests: [
     { label: 'Current program', bytes: (ctx) => msg.programRequest(ctx) },
     { label: 'All programs (internal)', bytes: (ctx) => msg.allProgramsRequest(ctx, 0) },

@@ -331,3 +331,51 @@ test('Real files from D:/midi (skipped when absent)', { skip: !fs.existsSync(REA
     assert.ok(first.objects.length > 0);
   }
 });
+
+test('Main Library: K2000 programs with samples go to the library and back through the import job', async () => {
+  const { importFiles } = await import('../js/core/mainlib/importers.js');
+  const { krzFromPatches, programFromK2000 } = await import('../js/devices/kurzweil-k2000/disk/mainlib.js');
+  const { getDevice } = await import('../js/devices/registry.js');
+  const audio = Int16Array.from({ length: 120 }, (_, i) => Math.round(Math.sin(i / 5) * 20000));
+  const file = krzFile([
+    { type: 132, id: 200, name: 'BA Imported', data: programData(200) },
+    { type: 133, id: 200, name: 'Map', data: keymapData([200]) },
+    { type: 134, id: 200, name: 'Wave', data: soundblockData(20, 100) },
+  ], audio);
+  const r = await importFiles([{ name: 'set.krz', bytes: file }]);
+  assert.equal(r.patches.length, 1);
+  const p = r.patches[0];
+  assert.equal(p.kind, 'program');
+  assert.equal(p.category.id, 'synth-bass');
+  assert.deepEqual(p.native.objects.map((o) => `${o.type}:${o.id}`), ['132:200', '133:200', '134:200']);
+  assert.deepEqual(p.samples.map((s) => s.words), [[20, 119]]);
+  const wav = new Map(r.samples.map((s) => [s.id, s]));
+
+  // back: a Kurzweil file in memory, sent by the normal import job
+  const krz = await krzFromPatches([p], async (id) => wav.get(id) || null, 'lib');
+  assert.deepEqual(Array.from(await readAudio(krz, 20, 100)), Array.from(audio.subarray(20, 120)), 'the sample area is rebuilt word for word');
+  const mock = new MockK2000();
+  seedDemo(mock);
+  const client = new K2Client(mock, { deviceId: 0, minGap: 0, timeout: 2000 });
+  const existing = new Map([[134, new Set([200, 201])], [133, new Set([200])], [132, new Set([200, 201])]]);
+  const plan = buildPlan(describeObjects(krz), ['132:200'], { mode: 'free', existing });
+  const res = await createImportJob(plan, { client, transport: mock, deviceId: 0, krz, existing, settleMs: 5 }).run();
+  assert.equal(res.failed.length, 0, res.failed.map((f) => f.error.message).join());
+  assert.equal(res.done.length, 3);
+  assert.deepEqual(mock.sdsLog[0].samples, audio.subarray(20, 120), 'the audio reached the K2000');
+  assert.equal(mock.get(132, 202).name, 'BA Imported');
+
+  // and from the K2000 into the library again, audio by Sample Dump (stubbed here)
+  const got = await programFromK2000(client, getDevice('kurzweil-k2000'), 202, {
+    receive: async (sid, index) => (sid === 202 && index === 0 ? { samples: mock.sdsLog[0].samples, sampleRate: 44100, loop: false } : null),
+  });
+  assert.deepEqual(got.patch.native.objects.map((o) => `${o.type}:${o.id}`), ['132:202', '133:201', '134:202']);
+  assert.equal(got.samples.length, 1);
+  const base = new Soundblock(mock.get(134, 202).data).headers[0].start;
+  assert.deepEqual(got.patch.samples[0].words, [base, base + 99], 'audio placed where the K2000 keeps it');
+  const krz2 = await krzFromPatches([got.patch], async (id) => got.samples.find((s) => s.id === id) || null);
+  assert.deepEqual(Array.from(await readAudio(krz2, base, 100)), Array.from(audio.subarray(20, 120)));
+  const plan2 = buildPlan(describeObjects(krz2), ['132:202'], { mode: 'free', existing: new Map() });
+  assert.equal(plan2.skipped.length, 0, plan2.skipped.map((s) => s.reason).join());
+  assert.equal(plan2.steps.length, 3);
+});

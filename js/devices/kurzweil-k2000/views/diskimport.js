@@ -30,7 +30,19 @@ const session = {
   job: null,
   jobState: null, // {total, index, fraction, text, log: [], result}
   nextId: 1,
+  openNext: null, // source id to open when the page is shown (Main Library hand-over)
 };
+
+/**
+ * Add a Kurzweil file built in memory (from Main Library patches, see disk/mainlib.js) to the
+ * sources; it opens when the Disk Import page is shown next.
+ */
+export function addMemorySource(name, krz) {
+  const s = { id: session.nextId++, kind: 'memory', status: 'ready', files: [], name, path: `Main Library: ${name}`, krz, size: krz.size + krz.objects.reduce((n, o) => n + o.data.length, 0) };
+  session.sources.push(s);
+  session.openNext = s.id;
+  return s;
+}
 
 const fmtBytes = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(n >= 104857600 ? 0 : 1)} MB` : n >= 1024 ? `${Math.round(n / 1024)} KB` : `${n} B`);
 const fmtTime = (s) => (s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min` : s >= 90 ? `${Math.round(s / 60)} min` : `${Math.max(1, Math.round(s))} s`);
@@ -127,7 +139,7 @@ export function diskImportView(root, app) {
   }
 
   function addSource(src) {
-    if (session.sources.some((s) => s.path === src.path && s.file.size === src.file.size)) return;
+    if (session.sources.some((s) => s.file && s.path === src.path && s.file.size === src.file.size)) return;
     const s = { id: session.nextId++, status: src.kind === 'image' ? 'scanning' : 'ready', files: [], expanded: true, ...src };
     session.sources.push(s);
     if (s.kind === 'image') scanImage(s);
@@ -163,6 +175,13 @@ export function diskImportView(root, app) {
         title: 'Remove from the list',
         onclick: (e) => { e.stopPropagation(); session.sources = session.sources.filter((x) => x !== s); if (session.current?.sourceId === s.id) session.current = null; renderSources(); renderDetail(); },
       }, '×');
+      if (s.kind === 'memory') {
+        if (!match(s.path)) continue;
+        rows.push(h('div.imp-src' + (session.current?.key === `m${s.id}` ? '.sel' : ''), { onclick: () => openKrz(`m${s.id}`, s.path, { parsed: s.krz }, s.id), title: `${s.path}
+From the Main Library` },
+          h('span.imp-ico', '❖'), h('span.grow.imp-name', s.name), h('span.small.muted', fmtBytes(s.size)), remove));
+        continue;
+      }
       if (s.kind === 'krz') {
         if (!match(s.path)) continue;
         rows.push(h('div.imp-src' + (session.current?.key === `k${s.id}` ? '.sel' : ''), { onclick: () => openKrz(`k${s.id}`, s.path, new BlobSource(s.file, s.name), s.id), title: s.path },
@@ -201,7 +220,7 @@ export function diskImportView(root, app) {
     renderSources();
     renderDetail();
     try {
-      const krz = await readKrz(src);
+      const krz = src.parsed || (await readKrz(src));
       const items = describeObjects(krz);
       // Start with everything that can be imported selected.
       const selected = new Set(items.filter((i) => i.status === 'ok').map((i) => i.key));
@@ -459,6 +478,11 @@ export function diskImportView(root, app) {
 
   renderSources();
   renderDetail();
+  if (session.openNext) {
+    const s = session.sources.find((x) => x.id === session.openNext);
+    session.openNext = null;
+    if (s && !session.job) openKrz(`m${s.id}`, s.path, { parsed: s.krz }, s.id);
+  }
   return {
     destroy() {
       alive = false;

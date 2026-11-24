@@ -300,6 +300,8 @@ export default {
   sysex: { manufacturer: [0x10], model: 0x06 },
   minGap: 20,
   describe,
+  // Main Library import: Matrix-6/1000 messages (maker 10h, model 06h).
+  recognise: (raw) => raw?.[0] === 0xf0 && raw[1] === HDR[1] && raw[2] === HDR[2],
   simulate,
   objects: [
     {
@@ -351,6 +353,9 @@ export default {
       fromSyx: (msgs) => { const m = msgs.find((r) => isOb(r) && r[3] === 0x03); return m ? unnibble(m, 5, MASTER_SIZE).data : null; },
     },
   ],
+  // Librarian "Complete dump": the edit buffer and all ten banks (each with the master settings).
+  // Selecting a bank locks it, so the dump ends by unlocking (no reply expected).
+  fullDump: ['Edit buffer', ...Array.from({ length: 10 }, (_, b) => ({ request: `Bank ${b} (100 patches) + master`, timeout: 8000 })), { label: 'Unlock bank', bytes: () => msg.unlockBank(), timeout: 300, quiet: 300 }],
   requests: [
     { label: 'Edit buffer', bytes: () => msg.request(4, 0) },
     { label: 'Current bank (100 patches) + master', bytes: () => msg.request(0, 0) },

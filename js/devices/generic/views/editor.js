@@ -34,7 +34,7 @@
 import { h, clear, toast, confirmDialog, downloadBlob, pickFiles, safeFileName } from '../../../core/ui/dom.js';
 import { knob, selectField, numberField } from '../../../core/ui/controls.js';
 import { readParam, writeParam, paramRange, formatParam } from '../../../core/model/memmap.js';
-import { splitSysex } from '../../../core/midi/describe.js';
+import { sysexMessages } from '../../../core/midi/smf.js';
 import { sendOut, isEcho, objectApi, loadObject, canFetch, bankNames, canScan, readBankNames } from '../objects.js';
 
 export function editorView(root, g, params = {}, obj) {
@@ -212,7 +212,7 @@ export function editorView(root, g, params = {}, obj) {
   async function importSyx() {
     const files = await pickFiles('.syx,.mid', false);
     if (!files?.length) return;
-    const msgs = splitSysex(new Uint8Array(await files[0].arrayBuffer()));
+    const msgs = sysexMessages(new Uint8Array(await files[0].arrayBuffer())); // .syx or a MIDI file
     const d = obj.fromSyx(msgs);
     if (!d) { toast(`No ${obj.label.toLowerCase()} found in that file.`, 'warn'); return; }
     g.setObjectData(obj.key, d);

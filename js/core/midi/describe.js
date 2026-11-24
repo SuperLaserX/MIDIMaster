@@ -41,12 +41,29 @@ const UNIVERSAL_NRT = {
 };
 const UNIVERSAL_RT = { 0x01: 'MIDI Time Code', 0x02: 'Show control', 0x03: 'Notation', 0x04: 'Device control', 0x05: 'Cueing', 0x06: 'MMC command', 0x07: 'MMC response', 0x08: 'MIDI tuning', 0x09: 'Controller destination', 0x0a: 'Key-based instrument control' };
 
-export function describeUniversal(d) {
+/**
+ * Fields of an identity reply (F0 7E dev 06 02 id family(2) model(2) version(4) F7).
+ * `expect` is the manufacturer the device should have (catalog ID such as '41'): some firmware
+ * leaves the ID out (the Roland JP-8000/JP-8080 send F0 7E dev 06 02 06 01 ...), which shows as a
+ * reply one byte short whose first byte is not the expected maker; it is then read without an ID.
+ */
+export function identityInfo(d, expect = '') {
+  let id = manufacturerId([0xf0, ...d.slice(5, 8)]);
+  let at = id.length > 2 ? 8 : 6;
+  let missingId = false;
+  const norm = (x) => x.toUpperCase().padStart(2, '0');
+  const want = expect ? norm(expect) : '';
+  // Without the ID the reply is F0 7E dev 06 02, family, model, version, F7: 14 bytes.
+  if (want && norm(id) !== want && d.length === 14) { id = want; at = 5; missingId = true; }
+  return { id, family: d.slice(at, at + 2), model: d.slice(at + 2, at + 4), version: d.slice(at + 4, Math.min(at + 8, d.length - 1)), missingId };
+}
+
+export function describeUniversal(d, expect = '') {
   if (d[1] === 0x7e) {
     if (d[3] === 0x06 && d[4] === 0x01) return `Identity request (device ${d[2]})`;
     if (d[3] === 0x06 && d[4] === 0x02) {
-      const id = manufacturerId([0xf0, ...d.slice(5, 8)]);
-      return `Identity reply: ${manufacturerName(id)}, family ${hex(d.slice(id.length > 2 ? 8 : 6, id.length > 2 ? 10 : 8))}, model ${hex(d.slice(id.length > 2 ? 10 : 8, id.length > 2 ? 12 : 10))}, version ${hex(d.slice(id.length > 2 ? 12 : 10, id.length > 2 ? 16 : 14))}`;
+      const i = identityInfo(d, expect);
+      return `Identity reply: ${manufacturerName(i.id)}${i.missingId ? ` (the reply leaves out the manufacturer ID ${i.id})` : ''}, family ${hex(i.family)}, model ${hex(i.model)}, version ${hex(i.version)}`;
     }
     if (d[3] === 0x09) return d[4] === 0x01 ? 'General MIDI System On' : d[4] === 0x02 ? 'General MIDI System Off' : 'General MIDI';
     const name = UNIVERSAL_NRT[d[3]] || 'Universal non-real-time';

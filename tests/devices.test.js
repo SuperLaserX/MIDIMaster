@@ -489,7 +489,7 @@ test('Korg M1: dumps from an M1R decode (skipped when absent)', async (tt) => {
 });
 
 test('MIDI channels pages: every column names parameters that exist in each part', async () => {
-  for (const id of ['korg-m1', 'roland-jv2080']) {
+  for (const id of ['korg-m1', 'roland-jv2080', 'roland-jp8080', 'roland-jp8000']) {
     const def = (await import(`../js/devices/defs/${id}.js`)).default;
     for (const obj of def.objects.filter((o) => o.multi)) {
       const m = obj.multi;

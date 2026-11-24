@@ -186,10 +186,13 @@ export function createGenericModule(entry, def = null) {
         key: `${obj.key}-channels`, label: obj.multi.page || 'MIDI channels', icon: '⇶',
         view: (root, ctx, params) => multiView(root, ctx, params, obj),
       }));
+      // Pages a definition adds itself: def.pages = [{key, label, icon, view(root, g, params)}].
+      const defPages = (def?.pages || []).map((p) => ({ ...p, icon: p.icon || '◇' }));
       const pages = [
         { key: 'intro', label: 'Connect', icon: '◉', view: introView },
         ...objectPages,
         ...multiPages,
+        ...defPages,
         def?.params?.length ? { key: 'params', label: def.paramsPage || 'Parameters', icon: '◇', view: paramsView } : null,
         { key: 'play', label: 'Controllers', icon: '♪', view: playView },
         { key: 'librarian', label: 'Librarian', icon: '☰', view: librarianView },

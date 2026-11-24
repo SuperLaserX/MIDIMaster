@@ -13,6 +13,7 @@ import { named, readText } from '../../core/model/memmap.js';
 import { dt1, dt1Chunks, rq1, parseDt1, readBlock, intToAddr, addrToInt } from '../../core/midi/roland.js';
 import { JV2080_BLOCKS as FW } from './roland-jv2080-fw.js';
 import { LISTS, EFX_TYPES } from './roland-jv2080-ui.js';
+import { categoryFromRoland } from '../../core/mainlib/categories.js';
 import { PRESET_PATCHES, PRESET_PERFORMANCES } from './roland-jv2080-presets.js';
 import { SRJV80_BOARDS } from './roland-srjv80.js';
 
@@ -873,6 +874,11 @@ export default {
   sysex: { manufacturer: [0x41], model: MODEL, deviceIdDefault: 0x10 },
   minGap: 25,
   describe,
+  // Main Library import: the messages this definition reads (DT1 for model 6A).
+  recognise: (raw) => !!parseDt1(raw, MODEL)?.ok,
+  // Roland model 6A messages, readable or not (a damaged DT1 is still this device's data)
+  isOwn: (raw) => raw?.[0] === 0xf0 && raw[1] === 0x41 && raw[3] === MODEL[0],
+  isRequest: (raw) => raw?.[1] === 0x41 && raw[3] === MODEL[0] && raw[4] === 0x11,
   simulate,
   // Which board sits in each expansion slot cannot be asked for by SysEx; it is found by
   // selecting patch 1 of each slot when the JV-2080 connects, and remembered.
@@ -882,6 +888,8 @@ export default {
     help: 'Selects patch 1 of each expansion slot, then puts back the current patch and its edits (about 10 seconds). Board patch and wave names come from the board ROMs, so they need no reading. The last result is kept either way.',
   }],
   libraryItems,
+  // Librarian "Complete dump": the system, the temporary areas and every user memory.
+  fullDump: ['System', 'Temporary patch (patch mode)', 'Temporary performance', 'All user patches', 'All user performances', 'User rhythm sets'],
   objects: [
     {
       key: 'system', page: 'System', icon: '⚙', label: 'System', size: sysBuilt.size, autoLoad: true,
@@ -901,6 +909,8 @@ export default {
     },
     {
       key: 'patch', page: 'Patch', icon: '◆', label: 'Patch', size: patchBuilt.size, autoLoad: true,
+      // Main Library: the patch's own Category (same 38 categories as the Main Library).
+      category: (d) => categoryFromRoland(readParam(d, patchBuilt.params.find((x) => x.label === 'Category'))),
       init: () => defaults(patchBuilt),
       fetch: (api) => fetchParts(api, patchBuilt),
       params: patchBuilt.params,
