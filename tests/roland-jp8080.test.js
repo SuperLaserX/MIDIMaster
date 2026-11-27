@@ -202,6 +202,51 @@ test('JP-8080: motion events: timeline, rebuild and data from the unit', async (
   }
 });
 
+test('JP-8080: motion length follows the loop length (MIDI clocks, 96 a measure, + the unit\'s empty tail)', async () => {
+  const jp = await import('../js/devices/defs/roland-jp.js');
+  assert.equal(jp.MOTION_TICKS, 10368);
+  assert.equal(jp.motionLength(4), 10368, 'loop length 4, the factory setting');
+  assert.equal(jp.motionLength(1), 96 + 192 + 9792);
+  assert.equal(jp.motionLength(8), 8 * 96 + 192 + 9792);
+  assert.equal(jp.motionLength(0), 10368, 'PLAY ONCE: as at the factory setting');
+  assert.equal(jp.motionLoopTicks(2), 192);
+  assert.equal(jp.motionLoopTicks(0), null);
+  // a new empty motion of loop length 2 builds to exactly that length
+  assert.equal(jp.buildMotion([], jp.motionLength(2)).reduce((n, e) => n + e[0], 0), 2 * 96 + 192 + 9792);
+  // the factory motions in the image and the motions recorded on the unit (when present), at loop
+  // length 4: knob events before tick 384 (4 measures of 96), the last one waiting until
+  // 384 + 192 = 576, then the unit's empty motion: its header event and 50 empty events of 192 ticks
+  const fs = await import('node:fs');
+  const tail = (ev, from) => ev.slice(from).every((e, i) => e[0] === 0xc0 && e[2] === 0x80 && (i === 0 ? e[3] === 2 && e[4] === 0x0e && e[5] === 0x2a : true));
+  const img = new URL('../re/jp8080/fw/jp8080_v1.04.bin', import.meta.url);
+  if (fs.existsSync(img)) {
+    const b = fs.readFileSync(img).subarray(0x8E6E0 - 0x10000, 0x8FFE2 - 0x10000); // four motions, each ending FF x 6
+    const all = [];
+    for (let i = 0; i < b.length; i += 6) all.push(Array.from(b.subarray(i, i + 6)));
+    const motions = [];
+    let cur = [];
+    for (const e of all) { if (e.every((x) => x === 0xff)) { motions.push(cur); cur = []; } else cur.push(e); }
+    if (cur.length) motions.push(cur); // the last one ends with the range
+    assert.equal(motions.length, 4);
+    for (const ev of motions) {
+      assert.equal(ev.reduce((n, e) => n + e[0], 0), 10368);
+      const k = ev.length - 51;
+      assert.equal(ev.slice(0, k).reduce((n, e) => n + e[0], 0), 4 * 96 + 192);
+      let t = 0;
+      for (const e of ev) { if (e[2] === 0x81) assert.ok(t < 4 * 96, 'knob events inside the loop'); t += e[0]; }
+      assert.ok(tail(ev, k), 'header event + 50 empty events');
+    }
+  }
+  for (const f of ['motion_a1', 'motion_b2']) { // recorded on the unit (not factory)
+    const file = new URL(`../re/jp8080/live/${f}.bin`, import.meta.url);
+    if (!fs.existsSync(file)) continue;
+    const ev = jp.unpack7(fs.readFileSync(file));
+    const k = ev.length - 51;
+    assert.equal(ev.slice(0, k).reduce((n, e) => n + e[0], 0), 576, f);
+    assert.ok(tail(ev, k), f);
+  }
+});
+
 test('JP-8080: a temporary patch read from the unit decodes', () => {
   // 01 00 40 00, first 78h bytes, read from a JP-8080 (preset performance "Den").
   const raw = hexs(`44 65 6e 20 55 20 20 20 20 20 20 20 20 20 20 20 00 20 00 46 00 01 56 40 02 40 4c 40 31 38 03 25

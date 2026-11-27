@@ -21,6 +21,7 @@
 // byte's label and range. Oscillator 2's pitch EG, VDF and VDA follow oscillator 1's at +40.
 
 import { named, readText } from '../../core/model/memmap.js';
+import { m1Translator, setM1Name } from './korg-m1-translate.js';
 
 export const MULTISOUNDS = ["Piano", "E.Piano 1", "E.Piano 2", "Clav", "Harpsicord", "Organ  1", "Organ  2", "MagicOrgan", "Guitar  1", "Guitar  2", "E.Guitar", "Sitar  1", "Sitar  2", "A.Bass", "Pick Bass", "E.Bass", "Fretless", "SynthBass1", "SynthBass2", "Vibes", "Bell", "Tubular", "BellRing", "Karimba", "KarimbaNT", "SynMallet", "Flute", "Pan Flute", "Bottles", "Voices", "Choir", "Strings", "Brass  1", "Brass  2", "Tenor Sax", "Mute TP", "Trumpet", "TubaFlugel", "DoubleReed", "Koto Trem", "BambooTrem", "Rhythm", "Lore", "Lore NT", "FlexaTone", "WindBells", "Pole", "Pole NT", "Block", "Block NT", "FingerSnap", "Pop", "Drop", "Drop  NT", "Breath", "Breath NT", "Pluck", "Pluck NT", "Vibe Hit", "VibeHit NT", "Hammer", "Metal Hit", "MetalHitNT", "Pick", "Distortion", "Dist  NT", "Bass Thumb", "BasThumNT1", "BasThumNT2", "Wire", "PanWave", "PingWave", "Fv Wave", "Mv Wave", "Voice Wave", "VoiceWvNT1", "VoiceWvNT2", "DWGS E.P.1", "DWGS E.P.2", "DWGS E.P.3", "DWGS Piano", "DWGS Clav", "DWGS Vibe", "DWGS Bass1", "DWGS Bass2", "DWGS Bell", "DWGS Orgn1", "DWGS Orgn2", "DWGS Voice", "SquareWave", "Digital 1", "Saw Wave", "Digital 2", "25% Pulse", "10% Pulse", "Digital 3", "Digital 4", "Digital 5", "DWGS TRI", "DWGS Sine"];
 export const DRUM_SOUNDS = ["Kick 1", "Kick 2", "Kick 3", "Snare 1", "Snare 2", "Snare 3", "Snare 4", "Side Stick", "Tom 1", "Tom 2", "Closed HH1", "Open HH1", "Closed HH2", "Open HH2", "Crash", "Conga 1", "Conga 2", "Timbales 1", "Timbales 2", "Cowbell", "Claps", "Tambourine", "E.Tom", "Ride", "Rap", "Whip", "Shaker", "Pole", "Block", "FingerSnap", "Drop", "Vibe Hit", "Hammer", "Metal Hit", "Pluck", "FlexaTone", "Wind Bell", "Tubular 1", "Tubular 2", "Tubular 3", "Tubular 4", "Bell Ring", "Metronome1", "Metronome2"];
@@ -531,7 +532,7 @@ function programOptions(ctx) {
 const BANKS = [[0, 'Internal'], [1, 'Card']];
 const slotLabel = (bank, i) => `${bank ? 'C' : 'I'}${String(i).padStart(2, '0')}`;
 
-// ------------------------------------------------------------------ librarian
+// ------------------------------------------------------------------ Branch Library
 /** Split a dump into programs, combinations and the rest; single items carry write requests. */
 function libraryItems(msgs, ctx) {
   const items = [];
@@ -616,6 +617,8 @@ function simulate() {
 const programParams = finish(PROGRAM, 'p').map((p) => ({ ...p, sendKey: 'program' }));
 const combiParams = finish(COMBINATION, 'c').map((p) => ({ ...p, sendKey: 'combination' }));
 const globalParams = finish(GLOBAL, 'g').map((p) => ({ ...p, sendKey: 'global' }));
+// Head Library: the shared synth model (korg-m1-translate.js)
+const TR = m1Translator({ programParams, combiParams, MULTISOUNDS, EFFECTS, NO_EFFECT });
 
 const initProgram = () => { const d = new Uint8Array(PROGRAM_SIZE); d.set([...'Init Prog '].map((c) => c.charCodeAt(0))); d[86] = 99; d[126] = 99; d[71] = 99; d[111] = 99; d[38] = NO_EFFECT; d[39] = NO_EFFECT; return d; };
 function initCombi() {
@@ -645,7 +648,7 @@ export default {
   sysex: { manufacturer: [0x42], model: MODEL, deviceIdDefault: 0 },
   minGap: 30,
   describe,
-  // Main Library import: the M1/M1R messages this definition reads (both models share it).
+  // Head Library import: the M1/M1R messages this definition reads (both models share it).
   recognise: (raw) => isM1(raw),
   deviceIds: ['korg-m1', 'korg-m1r'],
   simulate,
@@ -660,6 +663,10 @@ export default {
       sendAll: { label: 'Send to M1', title: 'Send the whole program to the edit buffer', build: (data, ctx) => [...needMode(ctx, 'program'), msg.program(ctx, data)] },
       toSyx: (data, ctx) => msg.program(ctx, data),
       fromSyx: fromSyx(0x40, 0x4c, PROGRAM_SIZE),
+      // Head Library: the shared synth model (any model's program or patch translates into it)
+      toCommon: (d) => TR.programToCommon(d),
+      fromCommon: (c, base) => TR.programFromCommon(c, base),
+      setName: setM1Name,
       actions: [renameAction('Program', (ctx, d) => [...needMode(ctx, 'program'), msg.program(ctx, d)])],
       slots: {
         label: 'Programs', banks: BANKS, count: 100, slotLabel, name: nameOf,
@@ -698,6 +705,10 @@ export default {
       sendAll: { label: 'Send to M1', build: (data, ctx) => [...needMode(ctx, 'combination'), msg.combi(ctx, data)] },
       toSyx: (data, ctx) => msg.combi(ctx, data),
       fromSyx: fromSyx(0x49, 0x4d, COMBI_SIZE),
+      // Head Library: the shared model (other models' performances translate into combinations)
+      toCommon: (d) => TR.combiToCommon(d),
+      fromCommon: (c, base) => TR.combiFromCommon(c, base),
+      setName: setM1Name,
       actions: [renameAction('Combination', (ctx, d) => [...needMode(ctx, 'combination'), msg.combi(ctx, d)])],
       slots: {
         label: 'Combinations', banks: BANKS, count: 100, slotLabel, name: nameOf,
@@ -727,7 +738,7 @@ export default {
       fromSyx: fromSyx(0x51, 0x51, GLOBAL_SIZE),
     },
   ],
-  // Librarian "Complete dump": the M1's own All Data dump (programs, combinations, global with drum
+  // Branch Library "Complete dump": the M1's own All Data dump (programs, combinations, global with drum
   // kits, sequences) plus the program being edited. All Data is one long message, so the first
   // reply can take half a minute to arrive.
   fullDump: ['Current program', { request: 'All data (programs, combinations, global, sequences)', timeout: 60000 }],

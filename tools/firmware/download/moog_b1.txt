@@ -1,0 +1,9 @@
+Minimoog Voyager|3.5|https://web.archive.org/web/20121103224924id_/http://www.moogmusic.com/sites/default/files/voyager_3_5_web.zip|
+Minimoog Voyager|3.5 (keyboard)|https://web.archive.org/web/20121103224204id_/http://www.moogmusic.com/sites/default/files/voyager_3_5_keyboard_web.zip|
+Minimoog Voyager|3.5 (RME)|https://web.archive.org/web/20121107222753id_/http://www.moogmusic.com/sites/default/files/voyager_3_5_rme_web.zip|
+Minitaur|2.1|https://web.archive.org/web/20150906123453id_/http://www.moogmusic.com/sites/default/files/Minitaur_v2_1_WIN.zip|
+Sub 37|1.0.6|https://web.archive.org/web/20141206152620id_/http://www.moogmusic.com/sites/default/files/sub37_1_0_6.zip|
+Little Phatty|3.12.680 (Stage/Stage II)|https://web.archive.org/web/20130227155941id_/http://www.moogmusic.com/sites/default/files/LP_Stage_StageII_v3_12_680_Update_WIN.zip|
+Little Phatty|3.12.680 (Tribute)|https://web.archive.org/web/20130227155847id_/http://www.moogmusic.com/sites/default/files/LP_Tribute_v3_12_680_Update_WIN.zip|
+Sub Phatty|2|https://web.archive.org/web/20150401073305id_/http://www.moogmusic.com/sites/default/files/Sub%20Phatty%20v2%20Update_WIN.zip|
+Taurus 3|2.0.2|https://web.archive.org/web/20121103203612id_/http://www.moogmusic.com/sites/default/files/TaurusFWUpdate_v2_0_2_5Jul12_WIN.zip|

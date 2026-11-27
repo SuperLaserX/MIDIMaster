@@ -1,4 +1,4 @@
-// Librarian: list, rename, copy, move, delete, export and import K2000 objects.
+// Branch Library: list, rename, copy, move, delete, export and import K2000 objects.
 
 import { h, clear, toast, formDialog, confirmDialog, dialog, downloadBlob, pickFiles, splitSysex, concatBytes, safeFileName } from '../../../core/ui/dom.js';
 import { sleep } from '../../../core/bits.js';
@@ -31,12 +31,12 @@ export function libraryView(root, app) {
       bankSel, ramToggle, filter,
       h('button.btn', { onclick: refresh }, 'Refresh'),
       h('span.grow'),
-      h('button.btn', { title: 'Send K2000 programs (with their keymaps and samples) from a Main Library sub-library, through the Disk Import page', onclick: loadFromMainLibrary }, 'Load from Main Library...'),
+      h('button.btn', { title: 'Send K2000 programs (with their keymaps and samples) from a Head Library sub-library, through the Disk Import page', onclick: loadFromMainLibrary }, 'Load from Head Library...'),
       h('button.btn', { onclick: importSyx }, 'Import .syx...'),
       h('button.btn', { onclick: () => backup(st.type) }, 'Export this type (RAM)'),
       h('button.btn.primary', { onclick: () => backup(0) }, 'Back up all RAM')),
     h('div.row', { style: { marginBottom: '8px' } }, info, h('span.grow'),
-      h('button.btn.small', { title: 'Save the selected objects (programs with the RAM keymaps and samples they use) in the Main Library', onclick: addToMainLibrary }, 'Add to Main Library'),
+      h('button.btn.small', { title: 'Save the selected objects (programs with the RAM keymaps and samples they use) in the Head Library', onclick: addToMainLibrary }, 'Add to Head Library'),
       h('button.btn.small', { onclick: bulkExport }, 'Export selected'),
       h('button.btn.small.danger', { onclick: bulkDelete }, 'Delete selected'),
       h('button.btn.small', { onclick: moveBankDialog }, 'Move bank...'),
@@ -101,7 +101,7 @@ export function libraryView(root, app) {
     } catch (err) { app.error(err, 'Export'); }
   }
 
-  // ------------------------------------------------------------ Main Library
+  // ------------------------------------------------------------ Head Library
   async function addToMainLibrary() {
     const ids = [...st.selected];
     if (!ids.length) { toast('Select objects first', 'warn'); return; }
@@ -111,11 +111,11 @@ export function libraryView(root, app) {
     const what = programs
       ? `${ids.length} program(s), each with the RAM keymaps and soundblocks it uses. ROM keymaps and samples are only referenced: every K2000 has them.`
       : `${ids.length} ${TYPE_BY_ID[st.type].name.toLowerCase()} object(s).`;
-    const go = await dialog('Add to Main Library', h('div.col', h('p', what),
+    const go = await dialog('Add to Head Library', h('div.col', h('p', what),
       programs || st.type === T.SOUNDBLOCK ? h('label.row', audio, 'Include RAM sample audio (Sample Dump: about 45 s per second of 44.1 kHz audio)') : null), [
       { label: 'Cancel', value: false }, { label: 'Next', value: true, primary: true }]);
     if (!go) return;
-    const sub = await chooseSub(lib, 'Add to the Main Library', { name: 'K2000 sounds', okLabel: 'Add', device: app.host.entry });
+    const sub = await chooseSub(lib, 'Add to the Head Library', { name: 'K2000 sounds', okLabel: 'Add', device: app.host.entry });
     if (!sub) return;
     const t = toast('Reading from the K2000...', 'info', 600000);
     const say = (x) => { if (t) t.textContent = x; };
@@ -160,19 +160,19 @@ export function libraryView(root, app) {
       say('Saving...');
       await lib.addPatches(sub, patches, files);
       t?.remove();
-      toast(`Added ${patches.length} item(s)${files.length ? ` with ${files.length} sample(s)` : ''} to the Main Library.`, 'good');
-    } catch (err) { t?.remove(); app.error(err, 'Add to Main Library'); }
+      toast(`Added ${patches.length} item(s)${files.length ? ` with ${files.length} sample(s)` : ''} to the Head Library.`, 'good');
+    } catch (err) { t?.remove(); app.error(err, 'Add to Head Library'); }
   }
 
   async function loadFromMainLibrary() {
     const lib = await app.host.shell.mainLibrary();
-    if (!lib.subs().length) { toast('The Main Library has no sub-libraries yet.', 'warn'); return; }
-    const sub = await chooseSub(lib, 'Load from the Main Library', { allowNew: false, okLabel: 'Next' });
+    if (!lib.subs().length) { toast('The Head Library has no sub-libraries yet.', 'warn'); return; }
+    const sub = await chooseSub(lib, 'Load from the Head Library', { allowNew: false, okLabel: 'Next' });
     if (!sub) return;
     const rows = (await lib.getSub(sub)).patches.filter((r) => r.device === 'kurzweil-k2000');
     if (!rows.length) { toast('That sub-library has no K2000 items.', 'warn'); return; }
     const boxes = rows.map((r) => h('input', { type: 'checkbox', checked: r.kind === 'program' }));
-    const ok = await dialog('Load from the Main Library', h('div.col',
+    const ok = await dialog('Load from the Head Library', h('div.col',
       h('p.small.muted', 'The chosen items open on the Disk Import page, where you choose the IDs and send them (samples go by Sample Dump).'),
       h('div.col.ml-samples', rows.map((r, i) => h('label.row', boxes[i], r.name, h('span.small.muted', `  ${r.kind}${r.samples ? `, ${r.samples} sample(s)` : ''}`))))), [
       { label: 'Cancel', value: false }, { label: 'Open in Disk Import', value: true, primary: true }]);
@@ -181,7 +181,7 @@ export function libraryView(root, app) {
     if (!chosen.length) return;
     const patches = [];
     for (const r of chosen) { const p = await lib.getPatch(sub, r.id); if (p?.native?.objects) patches.push(p); }
-    const name = `${lib.subs().find((x) => x.id === sub)?.name || 'Main Library'} (${patches.length})`;
+    const name = `${lib.subs().find((x) => x.id === sub)?.name || 'Head Library'} (${patches.length})`;
     const krz = await krzFromPatches(patches, (id) => lib.getSample(sub, id), name);
     for (const w of krz.warnings) toast(w, 'warn', 6000);
     addMemorySource(name, krz);

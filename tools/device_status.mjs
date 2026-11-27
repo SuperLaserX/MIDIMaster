@@ -1,11 +1,14 @@
 // Writes docs/devices/STATUS.md: every device in the catalog with the level of support
-// MIDIMaster has for it (full module, firmware-mapped definition, generic MIDI) and the
-// firmware evidence available for the next one to map.
+// MIDIMaster has for it (full editor, firmware-mapped, generic MIDI; js/devices/levels.js), what
+// each editor that is not full still lacks, and the firmware evidence for the next one to map.
 // usage: node tools/device_status.mjs
 import { writeFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { DEVICES, MIDI_LABEL } from '../js/devices/registry.js';
+import { editorLevel as level, CRITERIA, FULL, MISSING } from '../js/devices/levels.js';
 
-const level = (d) => (d.hasModule ? 'Full editor' : d.hasDef ? 'Mapped from firmware' : d.openable ? 'Generic MIDI' : 'No MIDI');
+// The level of each editor comes from js/devices/levels.js (the single source of truth).
+const doc = (d) => (existsSync(new URL(`../docs/devices/${d.id}.md`, import.meta.url)) ? `docs/devices/${d.id}.md` : '');
 const counts = {};
 for (const d of DEVICES) counts[level(d)] = (counts[level(d)] || 0) + 1;
 
@@ -24,9 +27,16 @@ const lines = [
   '',
   '## Full editors and firmware-mapped devices',
   '',
+  'An editor is a **Full editor** when:',
+  '',
+  ...CRITERIA.map((c, i) => `${i + 1}. ${c}`),
+  '',
   '| Device | Level | Notes |',
   '|---|---|---|',
-  ...DEVICES.filter((d) => d.hasModule || d.hasDef).map((d) => `| ${d.title} | ${level(d)} | ${d.hasDef ? `docs/devices/${d.id}.md` : ''} |`),
+  ...DEVICES.filter((d) => d.hasModule || d.hasDef).map((d) => {
+    const note = FULL[d.id] || (MISSING[d.id] ? `missing: ${MISSING[d.id].join('; ')}` : 'not reviewed yet (add it to js/devices/levels.js)');
+    return `| ${d.title} | ${level(d)} | ${[note, doc(d)].filter(Boolean).join('. ')} |`;
+  }),
   '',
   `## Next candidates (${next.length}): MIDI, code in the firmware, SysEx ID known`,
   '',

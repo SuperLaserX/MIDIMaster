@@ -3,9 +3,10 @@
 // pages, optional docks, a status area and a SysEx decoder.
 
 import { MidiTransport } from '../core/midi/transport.js';
+import { MidiInputs, slotsOf, effectiveMapping } from '../core/midi/inputs.js';
 import { Settings, rememberDevice, recentDevices } from '../core/settings.js';
 import { applyTheme } from '../core/theme.js';
-import { h, clear, toast } from '../core/ui/dom.js';
+import { h, clear, toast, confirmDialog } from '../core/ui/dom.js';
 import { mountKeyboard } from '../core/ui/keyboard.js';
 import { Emitter } from '../core/emitter.js';
 import { library, openDb } from '../core/library.js';
@@ -31,9 +32,60 @@ export class Shell extends Emitter {
     this.exclusive = false;
     this.online = false;
     this._mainlib = null;
+    this.inputs = new MidiInputs(this.settings, (slot, data) => this.routeInput(slot, data));
+    this.inputProgram = new Map(); // device id -> program number the inputs' next/previous actions are at
+    this.actionState = new Map(); // mapping id -> last value (buttons act on press)
   }
 
-  /** The Main Library (one per app; opened on first use). */
+  // ------------------------------------------------------------ MIDI inputs (controllers)
+  /** A message from controller input `slot`: a mapped controller, or thru to the open device. */
+  routeInput(slot, data) {
+    const s = slotsOf(this.settings.value.inputs)[slot];
+    const dev = this.device;
+    const st = data[0] & 0xf0;
+    const ch = data[0] & 15;
+    if (st === 0xb0) {
+      const m = effectiveMapping(dev?.host.device.value.inputMappings, this.settings.value.inputs?.mappings, slot, ch, data[1]);
+      if (m && this.applyMapping(m, data[2])) return;
+    }
+    if (!s.thru || !dev || !this.transport.output) return;
+    const b = Uint8Array.from(data);
+    if (s.toChannel && st >= 0x80 && st < 0xf0) b[0] = st | ((dev.host.device.value.channel ?? 0) & 15);
+    try { this.transport.send(b); } catch { /* no output */ }
+  }
+
+  /** Carry out mapping m with controller value v; false when nothing on the open device takes it. */
+  applyMapping(m, v) {
+    const t = m.target || {};
+    const dev = this.device;
+    const ch = (dev?.host.device.value.channel ?? 0) & 15;
+    const send = (b) => { try { this.transport.send(b); } catch { /* no output */ } };
+    switch (t.type) {
+      case 'none': return true;
+      case 'cc': if (dev && this.transport.output) send([0xb0 | ch, t.cc & 127, v & 127]); return true;
+      case 'action': {
+        // buttons send 127 when pressed and 0 when released: act once per press
+        const was = this.actionState.get(m.id) ?? 0;
+        this.actionState.set(m.id, v);
+        if (!(v >= 64 && was < 64)) return true;
+        if (t.action === 'panic') { this.panic(); return true; }
+        if (!dev || !this.transport.output) return true;
+        const id = dev.entry.id;
+        const p = ((this.inputProgram.get(id) ?? 0) + (t.action === 'program-next' ? 1 : -1) + 128) % 128;
+        this.inputProgram.set(id, p);
+        send([0xc0 | ch, p]);
+        toast(`Program ${p + 1}`, 'info', 1200);
+        return true;
+      }
+      case 'function': case 'param': {
+        const ctx = dev?.instance.context;
+        return !!ctx?.applyMapped?.(t, v);
+      }
+      default: return false;
+    }
+  }
+
+  /** The Head Library (one per app; opened on first use). */
   mainLibrary() {
     // Without IndexedDB (some private windows) the cache lives in memory; the folder still works.
     this._mainlib ??= openDb().catch(() => null).then((db) => new MainLibrary(new KvStore(db), {
@@ -59,12 +111,17 @@ export class Shell extends Emitter {
     };
     this.keyboard = mountKeyboard(this.el.keyboard, this.keyboardApp(), this.settings.value.keyboard);
     this.applyKeyboardVisibility();
-    this.settings.on('change', (v) => { applyTheme(v); this.applyKeyboardVisibility(); this.emit('settings', v); });
+    this.settings.on('change', (v, patch) => { applyTheme(v); this.applyKeyboardVisibility(); if (patch?.inputs) this.inputs.reopen(); this.emit('settings', v); });
+    this.real.on('ready', (access) => this.inputs.attach(access));
     document.getElementById('btn-panic').addEventListener('click', () => this.panic());
     document.getElementById('btn-settings').addEventListener('click', () => this.go('#/settings'));
+    // the busy line of a running dump leads to the Branch Library page, which shows it
+    this.el.busy.addEventListener('click', () => { if (this.deviceJob() && this.device.page !== 'librarian') this.go(`#/d/${encodeURIComponent(this.device.entry.id)}/librarian`); });
     document.getElementById('brand').addEventListener('click', () => this.go('#/'));
     this.real.on('connection', () => this.renderTop());
     window.addEventListener('hashchange', () => this.route());
+    // a background job (a complete dump) of the open device: closing the tab stops it
+    window.addEventListener('beforeunload', (ev) => { if (this.deviceJob()) { ev.preventDefault(); ev.returnValue = ''; } });
     this.route();
     // Reconnect silently if MIDI permission was granted before.
     if (!this.demo && navigator.permissions && this.real.supported && this.settings.get('midi.autoConnect')) {
@@ -110,8 +167,28 @@ export class Shell extends Emitter {
     if (location.hash === hash) this.route(); else location.hash = hash;
   }
 
-  route() {
+  /** The open device's running background job (generic/dumpjob.js), or null. */
+  deviceJob() { return this.device?.instance?.context?.job || null; }
+
+  async route() {
     const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
+    // Settings, the Head Library and the monitor keep the device open; anything else closes it, which
+    // stops a running dump: ask first (what arrived so far is kept)
+    const keeps = ['settings', 'library', 'monitor'].includes(parts[0]) || (parts[0] === 'd' && parts[1] === this.device?.entry.id);
+    const job = !keeps && this.deviceJob();
+    if (job && !this._leaving) {
+      const model = this.device.entry.title;
+      const back = this._lastHash ?? '#/';
+      history.replaceState(null, '', back); // stay until the answer
+      const ok = await confirmDialog('Leave the device?', `A ${job.title.toLowerCase()} of the ${model} is running (${job.count} messages so far). Leaving the ${model} stops it; what has arrived is saved in its Branch Library.`, 'Leave and stop it', true);
+      if (!ok) return;
+      const target = `#/${parts.map(encodeURIComponent).join('/')}`;
+      this._leaving = true; // the next route goes through
+      if (location.hash === target) this.route(); else location.hash = target;
+      return;
+    }
+    this._leaving = false;
+    this._lastHash = location.hash || '#/';
     if (parts[0] === 'settings') return this.showShellPage('settings');
     if (parts[0] === 'library') return this.showShellPage('library'); // keeps an open device, like Settings
     if (parts[0] === 'monitor') return this.device ? this.showDevicePage('monitor') : this.showShellPage('monitor');
@@ -227,6 +304,8 @@ export class Shell extends Emitter {
       setOnline(v) { shell.online = v; shell.renderTop(); },
       setBusy(n, text) {
         shell.el.busy.hidden = !n;
+        shell.el.busy.classList.toggle('link', !!shell.deviceJob());
+        shell.el.busy.title = shell.deviceJob() ? 'Show it on the Branch Library page' : '';
         shell.el.busyText.textContent = text || (n > 1 ? `${n} queued` : `Talking to the ${entry.model}`);
       },
       async ensureMidi() {
@@ -282,13 +361,13 @@ export class Shell extends Emitter {
         h('div.nav-sep'),
         ...this.device.docks.map((d) => item(d.spec.label, d.spec.icon || '▣', d.api.isOpen, () => d.api.toggle(), { title: `Show or hide the ${d.spec.label} beside any page` })),
         item('MIDI Monitor', '≡', this.page === 'monitor', () => this.showDevicePage('monitor')),
-        item('Main Library', '❖', this.page === 'library', () => this.go('#/library')),
+        item('Head Library', '❖', this.page === 'library', () => this.go('#/library')),
         item('Settings', '⚙', this.page === 'settings', () => this.go('#/settings')));
       return;
     }
     nav.append(
       item('Devices', '◫', this.page === 'home', () => this.go('#/')),
-      item('Main Library', '❖', this.page === 'library', () => this.go('#/library')),
+      item('Head Library', '❖', this.page === 'library', () => this.go('#/library')),
       item('MIDI Monitor', '≡', this.page === 'monitor', () => this.go('#/monitor')),
       item('Settings', '⚙', this.page === 'settings', () => this.go('#/settings')));
     const recent = recentDevices().map(getDevice).filter(Boolean);

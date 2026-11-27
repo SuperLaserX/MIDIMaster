@@ -174,6 +174,35 @@ Segments after a LAYER segment belong to that layer.
 | 40 | Calibration: keymaps and pitch | 32 |
 | 50-53 | DSP blocks F1, F2, F3, AMP | 16 |
 
+### The complete segment set (checked on the unit, OS 3.87J, 2026-11-25)
+
+The K2000 keeps every program with all its segments, in this order: program (08), the four
+program-level controls GASR2, GFUN2, GLFO2, GFUN4 (11, 19, 15, 1B; zeros in every ROM program),
+effect (0F), then per layer: layer, ASR1, ASR2, FUN1, FUN2, LFO1, LFO2, FUN3, FUN4, envelope
+control, AMPENV, ENV2, ENV3, calibration, F1-F4 (09 10 11 18 19 14 15 1A 1B 20 21 22 23 40 50-53).
+
+**A program written by SysEx without the complete set is not taken**: the K2000 answers DACK but
+stores an empty program (the header bytes, then every segment zeroed: algorithm 0, no keymap, no
+sound). Program files leave out the segments a program does not use: none of 1080 programs in 23
+.KRZ files had the complete set (K2KFARM, user files). The K2000's own disk loader fills them in.
+`completeProgram` (`disk/krz.js`) does the same before Disk Import (and Load from Head Library)
+writes a program: missing segments get the values the OS gives a new program (its default program,
+ROM 88548h, `DEFAULT_PROGRAM` in `fwparams.js`), the program-level controls zeros; nothing present
+changes. Checked: ROM program 2 copied to RAM by WRITE came back byte for byte; TR909-0 and
+Chick Lead 1 from .KRZ files came back empty before and byte for byte after completion.
+
+### Algorithms
+
+`model/algorithms.js` holds the signal flow of the 31 algorithms (which block feeds which, wires
+that bypass blocks under or over them, two-wire outputs, hard sync), read from the diagrams in the
+K2000 Reference Guide (chapter 26; drawn in a symbol font and decoded glyph by glyph), checked
+against the blocks and widths the OS offers per algorithm. The Program Editor's Algorithm card draws
+it with the layer's functions and describes it in words. Changing the algorithm sets each block the
+new algorithm has to a function it takes (kept when allowed, else the first of the block's list),
+so its pages appear (checked on the unit: algorithm 1 to 22 set F1 LOPASS, F2 x GAIN, F3 LOPASS,
+F4 x AMP, read back as sent). Algorithm 30 (HM-1-HS-MA) is the least certain reading: F3 drawn
+with two inputs (the slave and the master oscillator), F4 mixing F3 and the master.
+
 ### Parameter map from the OS
 
 The K2000 OS describes every front-panel parameter in ROM, and `tools/k2000/extract_params.py`

@@ -1,4 +1,4 @@
-// Main Library importers: files of any supported kind -> Main Library patches and samples.
+// Head Library importers: files of any supported kind -> Head Library patches and samples.
 //
 //   .syx              SysEx: each mapped device's definition picks its messages (def.recognise) and
 //                     splits them into objects (def.libraryItems); every object becomes a patch with
@@ -7,9 +7,10 @@
 //   .krz .k25 .k26    Kurzweil object files: each program with its keymaps and soundblocks; the
 //                     sample audio becomes WAV files
 //   .wav              a sample
-//   .json             Main Library patch files (one, or an array)
+//   .json             Head Library patch files (one, or an array)
 //   .j8k              SysEx (JP-8000/8080 plug-in banks), as .syx
-//   other formats     a definition's readFile(name, bytes) hook (e.g. the JP-8000's WinJPLib .pat/.pfm)
+//   other formats     a definition's readFile(name, bytes) hook (the JP-8000's WinJPLib .pat/.pfm, the
+//                     V-Synth XT's .p00 patch files, VC-2 .p02 patch files and VC-1 .P10 bank files)
 //   .iso .bin .img (+ .cue)  disk and CD images: every importable file inside is imported
 //   .zip              archives: every importable file inside (Mac resource forks skipped)
 //
@@ -28,10 +29,10 @@ import { parseWav } from '../wav.js';
 import { BlobSource, BytesSource } from '../disk/source.js';
 import { isZip } from '../disk/zip.js';
 
-export const IMPORTABLE = /\.(syx|mid|midi|krz|k25|k26|wav|json|j8k|pat|pfm|zip|iso|bin|img|ima|cue)$/i;
-const INSIDE_IMAGES = /\.(syx|mid|midi|krz|k25|k26|wav|json|j8k|pat|pfm|zip)$/i;
+export const IMPORTABLE = /\.(syx|mid|midi|krz|k25|k26|wav|json|j8k|pat|pfm|p00|p02|p10|zip|iso|bin|img|ima|cue)$/i;
+const INSIDE_IMAGES = /\.(syx|mid|midi|krz|k25|k26|wav|json|j8k|pat|pfm|p00|p02|p10|zip)$/i;
 // inside a ZIP: the same, disk images too (one level of archives inside archives)
-const INSIDE_ZIP = /\.(syx|mid|midi|krz|k25|k26|wav|json|j8k|pat|pfm|zip|iso|img|ima)$/i;
+const INSIDE_ZIP = /\.(syx|mid|midi|krz|k25|k26|wav|json|j8k|pat|pfm|p00|p02|p10|zip|iso|img|ima)$/i;
 
 // A File (or Blob) has a bytes() method in current browsers, so test for Blob first.
 const isBlob = (f) => typeof Blob !== 'undefined' && f instanceof Blob;
@@ -55,7 +56,7 @@ async function mappedDefs() {
 /**
  * Patches from a list of SysEx messages.
  * opts.hint: the device id to prefer when messages fit several models equally.
- * opts.device: the device the messages came from (a device's Librarian, or chosen on import): it is
+ * opts.device: the device the messages came from (a device's Branch Library, or chosen on import): it is
  * also the hint, and SysEx of its manufacturer that no definition reads is kept as its data.
  */
 export async function importSysex(msgs, { file = '', hint = null, device = null } = {}) {
@@ -64,7 +65,7 @@ export async function importSysex(msgs, { file = '', hint = null, device = null 
   const report = [];
   hint = hint || device;
   const reads = (d, m) => { try { return !!d.def.recognise(m); } catch { return false; } };
-  // messages cut out of a MIDI file as raw SysEx (older Librarian entries): F0 <length> <data> F7
+  // messages cut out of a MIDI file as raw SysEx (older Branch Library entries): F0 <length> <data> F7
   const repaired = repairSmfLengths(msgs, (m) => defs.some((d) => reads(d, m)));
   if (repaired !== msgs) { msgs = repaired; report.push({ file, note: 'the messages still carried MIDI-file length bytes (a .mid read as raw SysEx); removed' }); }
   // messages each definition reads; a message read by several (JP-8000 / JP-8080) goes to the best fit
@@ -86,7 +87,8 @@ export async function importSysex(msgs, { file = '', hint = null, device = null 
     if (cands.length > 1) {
       const scored = cands.map((d) => ({ d, s: d.def.prefer ? d.def.prefer(gm) : 1 })).sort((a, b) => b.s - a.s || (b.d.id === hint) - (a.d.id === hint));
       best = scored[0].d;
-      if (scored[0].s === scored[1].s) report.push({ file, note: `${gm.length} message(s) fit ${cands.map((d) => getDevice(d.id).model).join(' and ')} equally; read as ${getDevice(best.id).model}.` });
+      const tied = scored.filter((x) => x.s === scored[0].s).map((x) => x.d);
+      if (tied.length > 1 && best.id !== hint) report.push({ file, note: `${gm.length} message(s) fit ${tied.map((d) => getDevice(d.id).model).join(' and ')} equally; read as ${getDevice(best.id).model}.` });
     }
     if (!byDef.has(best.id)) byDef.set(best.id, []);
     byDef.get(best.id).push(...gm);
@@ -136,7 +138,7 @@ export async function importSysex(msgs, { file = '', hint = null, device = null 
     for (const [id, mm] of byMaker) {
       const maker = manufacturerName(id);
       if (dev?.sysex && dev.sysex.toUpperCase() === id.toUpperCase()) {
-        // from this device's Librarian (or chosen on import): its own SysEx, not read by an editor yet
+        // from this device's Branch Library (or chosen on import): its own SysEx, not read by an editor yet
         const p = dataPatch(dev, `${dev.model} SysEx (${mm.length} messages)`, mm, { source: { file } });
         p.notes = `${maker} SysEx from the ${dev.model} that no editor reads yet; kept exactly as found.`;
         patches.push(p);
@@ -259,10 +261,19 @@ function importWav(bytes, file) {
   const id = newId();
   const name = file.replace(/\.[^.]+$/, '');
   const info = { name, rate: w.sampleRate, channels: w.channels.length, frames: w.channels[0]?.length || 0, loop: w.loop || null, source: file };
+  // a V-Synth (XT) sample: its original key, tempo and play range travel with it
+  const vs = w.vsynth;
+  const NOTE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  if (vs?.originalKey !== undefined) Object.assign(info, { rootKey: vs.originalKey, tempo: vs.tempo, playRange: [vs.start, vs.end] });
+  const vsSettings = vs?.originalKey !== undefined ? {
+    'Original key': `${NOTE[vs.originalKey % 12]}${Math.floor(vs.originalKey / 12) - 1} (${vs.originalKey})`,
+    Tempo: `${vs.tempo.toFixed(2)} BPM`, Start: String(vs.start), End: String(vs.end),
+    Variphrase: vs.encoded ? `encoded (type A0${vs.encodeType}${vs.events ? `, ${vs.events} events` : ''})` : 'not encoded',
+  } : {};
   return {
     patches: [makePatch({
       name, kind: 'sample', device: { id: 'sample', maker: '', model: 'Sample', types: ['Sample'] }, category: categorize(name),
-      source: { file }, settings: { Sample: { Rate: `${w.sampleRate} Hz`, Channels: String(info.channels), Length: `${(info.frames / w.sampleRate).toFixed(2)} s`, Loop: w.loop ? `${w.loop.start}-${w.loop.end}` : 'none' } },
+      source: { file }, settings: { Sample: { Rate: `${w.sampleRate} Hz`, Channels: String(info.channels), Length: `${(info.frames / w.sampleRate).toFixed(2)} s`, Loop: w.loop ? `${w.loop.start}-${w.loop.end}` : 'none', ...vsSettings } },
       samples: [{ id, file: `samples/${id}.wav`, name, rate: w.sampleRate }],
     })],
     samples: [{ id, bytes, info }],
@@ -273,7 +284,7 @@ function importWav(bytes, file) {
 function importJson(bytes, file) {
   const j = JSON.parse(new TextDecoder().decode(bytes));
   const list = (Array.isArray(j) ? j : [j]).filter(isPatch);
-  return { patches: list, samples: [], report: [{ file, device: 'Main Library file', counts: { patch: list.length }, note: list.length ? undefined : 'no Main Library patches in it' }] };
+  return { patches: list, samples: [], report: [{ file, device: 'Head Library file', counts: { patch: list.length }, note: list.length ? undefined : 'no Head Library patches in it' }] };
 }
 
 // ------------------------------------------------------------------ one file, any kind
@@ -289,7 +300,7 @@ async function importOne(name, getBytes, src, opts) {
   if (bytes[0] !== 0xf0) {
     const own = await importByDefs(bytes, name);
     if (own) return own;
-    if (/\.(pat|pfm)$/.test(lower)) return { patches: [], samples: [], report: [{ file: name, error: 'not a file layout the Main Library knows' }] };
+    if (/\.(pat|pfm)$/.test(lower)) return { patches: [], samples: [], report: [{ file: name, error: 'not a file layout the Head Library knows' }] };
   }
   return importSysex(splitSysex(bytes), sx);
 }
@@ -357,7 +368,7 @@ export async function importFiles(files, opts = {}) {
       if (/\.(iso|img|ima)$/i.test(f.name) || (/\.bin$/i.test(f.name) && (f.blob?.size || 0) > 1 << 20)) merge(out, await importImage(f, null, opts));
       else if (/\.zip$/i.test(f.name)) merge(out, await importZip(f.blob ? f : { name: f.name, bytes: Uint8Array.from(f.bytes) }, opts));
       else if (IMPORTABLE.test(f.name)) merge(out, await importOne(f.name, () => bytesOf(f), f.blob ? new BlobSource(f.blob, f.name) : null, opts));
-      else out.report.push({ file: f.name, error: 'not a format the Main Library reads yet' });
+      else out.report.push({ file: f.name, error: 'not a format the Head Library reads yet' });
     } catch (err) { out.report.push({ file: f.name, error: err.message }); }
   }
   return out;

@@ -1,0 +1,134 @@
+{
+  "Roland/JD-08, JX-08": [
+    "JD-08",
+    "JX-08"
+  ],
+  "Roland/JP-08, JU-06, JX-03": [
+    "JP-08",
+    "JU-06",
+    "JX-03"
+  ],
+  "Roland/TR-09, VP-03": [
+    "TR-09",
+    "VP-03"
+  ],
+  "Roland/SH-01A": [
+    "SH-01A",
+    "TR-08"
+  ],
+  "Kurzweil/PC3": [
+    "PC3",
+    "PC361"
+  ],
+  "Tubbutec/Juno-66": {
+    "factory": false,
+    "devices": [
+      "Roland:Juno-6",
+      "Tubbutec:Retrofit MIDI kits"
+    ]
+  },
+  "Tubbutec/SH-1oh1": {
+    "factory": false,
+    "devices": [
+      "Roland:SH-101",
+      "Tubbutec:Retrofit MIDI kits"
+    ]
+  },
+  "Tubbutec/SH-1oh1 uTune edition": {
+    "factory": false,
+    "devices": [
+      "Roland:SH-101",
+      "Tubbutec:Retrofit MIDI kits"
+    ]
+  },
+  "Tubbutec/ModyPoly": {
+    "factory": false,
+    "devices": [
+      "Korg:Polysix",
+      "Korg:Poly-61",
+      "Korg:Mono/Poly",
+      "Tubbutec:Retrofit MIDI kits"
+    ]
+  },
+  "Tubbutec/Modysix": {
+    "factory": false,
+    "devices": [
+      "Korg:Polysix",
+      "Tubbutec:Retrofit MIDI kits"
+    ]
+  },
+  "Tubbutec/uniPulse": {
+    "factory": false,
+    "devices": [
+      "Roland:CR-78",
+      "Roland:TR-606",
+      "Roland:TR-808",
+      "Korg:KR-55",
+      "Linn:LinnDrum",
+      "Tubbutec:Retrofit MIDI kits"
+    ]
+  },
+  "Tubbutec/MC-2oh2": {
+    "factory": false,
+    "devices": [
+      "Roland:MC-202",
+      "Tubbutec:Retrofit MIDI kits"
+    ]
+  },
+  "Encore Electronics/JP8MK": {
+    "factory": false,
+    "devices": [
+      "Roland:Jupiter-8",
+      "Encore Electronics:Retrofit MIDI kits"
+    ]
+  },
+  "Encore Electronics/SMK": {
+    "factory": false,
+    "devices": [
+      "Moog:Source",
+      "Encore Electronics:Retrofit MIDI kits"
+    ]
+  },
+  "Encore Electronics/OB8MK": {
+    "factory": false,
+    "devices": [
+      "Oberheim:OB-8",
+      "Encore Electronics:Retrofit MIDI kits"
+    ]
+  },
+  "Encore Electronics/OBXA-MK": {
+    "factory": false,
+    "devices": [
+      "Oberheim:OB-Xa",
+      "Encore Electronics:Retrofit MIDI kits"
+    ]
+  },
+  "Eventide/TimeFactor": [
+    "TimeFactor",
+    "H9"
+  ],
+  "Akai/MPC Live": [
+    "MPC Live",
+    "MPC One",
+    "MPC X",
+    "MPC Key 61"
+  ],
+  "Roland/SDX SRV SDE-330": [
+    "SRV-330",
+    "SDX-330",
+    "SDE-330"
+  ],
+  "Kawai/K5000R": [
+    "K5000"
+  ],
+  "Kawai/K5000S": [
+    "K5000"
+  ],
+  "Kawai/K5000W": [
+    "K5000"
+  ],
+  "Ensoniq/ASR-10 OS": [
+    "ASR-10",
+    "ASR-88"
+  ]
+}

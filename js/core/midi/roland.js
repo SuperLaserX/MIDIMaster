@@ -43,13 +43,16 @@ export function dt1Chunks(model, dev, addr, data, chunk = 128) {
   return out;
 }
 
-/** Parse a DT1 message for `model`. Returns {dev, addr, data, ok} or null. */
-export function parseDt1(raw, model) {
+/**
+ * Parse a DT1 message for `model`. Returns {dev, addr, data, ok} or null. `alen` is the address
+ * length (4 for most models; 3 for the D-50 family). `cmds` lists the accepted command bytes (the
+ * D-50's handshake DAT, 42h, carries the same address, data and checksum as a DT1).
+ */
+export function parseDt1(raw, model, alen = 4, cmds = [0x12]) {
   if (raw[0] !== 0xf0 || raw[1] !== ROLAND) return null;
   const m = model.length;
   for (let i = 0; i < m; i++) if (raw[3 + i] !== model[i]) return null;
-  if (raw[3 + m] !== 0x12) return null;
-  const alen = 4;
+  if (!cmds.includes(raw[3 + m])) return null;
   const addr = Array.from(raw.slice(4 + m, 4 + m + alen));
   const data = raw.slice(4 + m + alen, raw.length - 2);
   const ok = checksum([...addr, ...data]) === raw[raw.length - 2];
@@ -75,7 +78,7 @@ export async function readBlock(client, model, dev, addr, size, { timeout = 2500
     let to = from;
     while (to < size && !have[to]) to++;
     const take = (raw) => {
-      const p = parseDt1(raw, model);
+      const p = parseDt1(raw, model, addr.length);
       if (!p || !p.ok) return false;
       const off = addrToInt(p.addr) - start;
       if (off + p.data.length <= 0 || off >= size) return false;

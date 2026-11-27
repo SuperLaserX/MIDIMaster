@@ -1,4 +1,4 @@
-// Sound categories for the Main Library. The standard set is Roland's 38-category list from the
+// Sound categories for the Head Library. The standard set is Roland's 38-category list from the
 // JV-2080 firmware (also used by the JV/XP family), so a device with its own category system maps
 // straight onto it. Other patches get a category from their name: a prefix code ("BA ...", "PD:")
 // or a telling word ("Bass", "Pad").

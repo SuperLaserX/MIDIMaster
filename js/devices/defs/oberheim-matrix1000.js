@@ -13,6 +13,7 @@
 // (thread at 0xDF85) and sign extension table (0xE08B).
 
 import { named, readText } from '../../core/model/memmap.js';
+import { matrixTranslator, setMatrixName } from './oberheim-matrix1000-translate.js';
 
 const HDR = [0xf0, 0x10, 0x06];
 const PATCH_SIZE = 134;
@@ -294,13 +295,15 @@ function describe(raw) {
 // ------------------------------------------------------------------ definition
 const BANKS = Array.from({ length: 10 }, (_, b) => [b, `Bank ${b}${b < 2 ? ' (RAM)' : ' (ROM)'}`]);
 const decodePatch = (raw) => unnibble(raw, 5, PATCH_SIZE).data;
+// Head Library: the shared synth model (oberheim-matrix1000-translate.js)
+const TR = matrixTranslator(patchParams);
 
 export default {
   coverage: 'Every patch parameter, the modulation matrix and every master setting, read from and sent to the Matrix-1000 as found in the v1.13 firmware. Patch and master dumps, store, banks and group mode.',
   sysex: { manufacturer: [0x10], model: 0x06 },
   minGap: 20,
   describe,
-  // Main Library import: Matrix-6/1000 messages (maker 10h, model 06h).
+  // Head Library import: Matrix-6/1000 messages (maker 10h, model 06h).
   recognise: (raw) => raw?.[0] === 0xf0 && raw[1] === HDR[1] && raw[2] === HDR[2],
   simulate,
   objects: [
@@ -312,6 +315,10 @@ export default {
       decode: decodePatch,
       params: patchParams,
       name: patchName,
+      // Head Library: the shared synth model (any model's patch or program translates into it)
+      toCommon: (d) => TR.patchToCommon(d),
+      fromCommon: (c, base) => TR.patchFromCommon(c, base),
+      setName: setMatrixName,
       cols: 3,
       layout: [
         { group: 'DCO 1' }, { group: 'DCO 2' }, { group: 'Mix / VCF / VCA' }, { group: 'FM / tracking' },
@@ -353,7 +360,7 @@ export default {
       fromSyx: (msgs) => { const m = msgs.find((r) => isOb(r) && r[3] === 0x03); return m ? unnibble(m, 5, MASTER_SIZE).data : null; },
     },
   ],
-  // Librarian "Complete dump": the edit buffer and all ten banks (each with the master settings).
+  // Branch Library "Complete dump": the edit buffer and all ten banks (each with the master settings).
   // Selecting a bank locks it, so the dump ends by unlocking (no reply expected).
   fullDump: ['Edit buffer', ...Array.from({ length: 10 }, (_, b) => ({ request: `Bank ${b} (100 patches) + master`, timeout: 8000 })), { label: 'Unlock bank', bytes: () => msg.unlockBank(), timeout: 300, quiet: 300 }],
   requests: [

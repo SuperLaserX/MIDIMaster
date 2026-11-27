@@ -1,6 +1,6 @@
 // Demo transport for devices without their own simulator: records everything that is
 // sent, answers identity requests, and echoes dump requests with a small fake dump so
-// the librarian can be tried without hardware.
+// the Branch Library can be tried without hardware.
 
 import { Emitter } from '../emitter.js';
 

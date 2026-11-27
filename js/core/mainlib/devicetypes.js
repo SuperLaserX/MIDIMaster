@@ -1,4 +1,4 @@
-// What kind of instrument a device is, for the Main Library (several types per device). Devices
+// What kind of instrument a device is, for the Head Library (several types per device). Devices
 // whose design is known are listed; the rest fall back to the catalog's type code.
 
 const BY_CATALOG = {
@@ -9,6 +9,8 @@ const BY_CATALOG = {
 
 const KNOWN = {
   'roland-vsynth-xt': ['Synthesizer', 'Sampler', 'Virtual analog'],
+  'roland-vsynth-xt-vc1': ['Synthesizer', 'Rompler'],
+  'roland-vsynth-xt-vc2': ['Synthesizer', 'Vocoder'],
   'kurzweil-k2000': ['Synthesizer', 'Sampler'],
   'roland-jv2080': ['Rompler', 'Synthesizer'],
   'roland-jp8080': ['Synthesizer', 'Virtual analog'],

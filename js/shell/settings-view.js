@@ -4,6 +4,8 @@ import { h, clear, toast, confirmDialog, downloadBlob, pickFiles } from '../core
 import { library } from '../core/library.js';
 import { SETTING_DEFAULTS } from '../core/settings.js';
 import { DEVICES } from '../devices/registry.js';
+import { slotsOf } from '../core/midi/inputs.js';
+import { mappingTable } from '../core/ui/mappings.js';
 
 const ACCENTS = ['#f2b544', '#5aa7f2', '#4fc28a', '#ef5d5d', '#b48cf2', '#f28cc2', '#3fd0d0'];
 
@@ -67,6 +69,46 @@ export function settingsView(root, shell) {
     h('div.small.muted', `${inputs.length} input(s), ${outputs.length} output(s). Each device remembers its own ports; these are used when a device has none yet.`));
   }
 
+  // MIDI inputs: up to 4 controllers that play the open device and drive mapped functions
+  const inputsBox = h('div.col');
+  const activity = [];
+  function fillInputs() {
+    clear(inputsBox);
+    activity.length = 0;
+    if (!t.supported) return;
+    if (!t.access) {
+      inputsBox.append(h('div.row', h('button.btn.primary', { onclick: async () => { try { await t.init(); fillPorts(); fillInputs(); } catch (err) { shell.error(err, 'MIDI'); } } }, 'Enable MIDI'),
+        h('span.small.muted', 'Controllers can be chosen once MIDI is allowed.')));
+      return;
+    }
+    const names = shell.inputs.portNames();
+    const slots = slotsOf(v().inputs);
+    const set = (i, patch) => { const next = slotsOf(v().inputs).map((x, k) => (k === i ? { ...x, ...patch } : x)); s.update({ inputs: { slots: next } }); fillInputs(); };
+    const status = { off: 'not used', 'no-midi': 'MIDI not allowed', missing: 'not connected', open: 'listening' };
+    const devIn = shell.device ? shell.transport.input?.name : null;
+    inputsBox.append(...slots.map((x, i) => {
+      const sel = h('select', { onchange: () => set(i, { port: sel.value }) },
+        h('option', { value: '' }, '(none)'),
+        ...[...new Set([...names, ...(x.port && !names.includes(x.port) ? [x.port] : [])])].map((n) => h('option', { value: n, selected: n === x.port }, names.includes(n) ? n : `${n} (not connected)`)));
+      const flag = (key, label, title) => h('label.row.small', { title }, h('input', { type: 'checkbox', checked: !!x[key], onchange: (e) => set(i, { [key]: e.target.checked }) }), label);
+      const dot = h('span.dot' + (shell.inputs.status(i) === 'open' ? '.half' : ''));
+      activity[i] = dot;
+      return h('div.col.input-slot',
+        h('div.row', h('b', `Input ${i + 1}`), sel, dot, h('span.small.muted', status[shell.inputs.status(i)])),
+        x.port ? h('div.row',
+          flag('enabled', 'On', 'Listen to this controller'),
+          flag('thru', 'Plays the open device', 'Notes, pitch bend, aftertouch and unmapped controllers go to the open device'),
+          flag('toChannel', 'On the device\'s channel', 'Change the MIDI channel to the open device\'s channel (off: keep the controller\'s channel)')) : null,
+        x.port && x.port === devIn ? h('div.small.c-warn', 'This is also the open device\'s input port: with "Plays the open device" on, its own keys are heard twice (turn Local off on the device, or the option here).') : null);
+    }),
+    h('div.small.muted', 'What a controller sends goes to the device that is open. Mapped controllers change that device\'s parameter instead (below; each device\'s Input mappings page can override them).'));
+  }
+  const mappings = mappingTable(shell, {
+    list: () => v().inputs?.mappings || [],
+    save: (list) => s.update({ inputs: { mappings: list } }),
+    empty: 'No global mappings yet. Add one, e.g. CC 74 to Filter Cutoff (Learn picks the controller you move).',
+  });
+
   const libInfo = h('span.small.muted', '...');
   library.count().then((n) => { libInfo.textContent = `${n} stored dump(s)`; }).catch(() => { libInfo.textContent = 'not available'; });
 
@@ -86,6 +128,13 @@ export function settingsView(root, shell) {
           portsBox,
           toggle('midi.autoConnect', 'Reconnect at startup', 'Use MIDI without asking again once you have allowed it.'),
           toggle('midi.panicOnClose', 'All notes off when leaving a device')),
+        h('div.card.col',
+          h('h2', 'MIDI inputs (controllers)'),
+          inputsBox),
+        h('div.card.col',
+          h('h2', 'Controller mappings (all devices)'),
+          h('div.small.muted', 'Saved and loaded at startup. A device\'s own mappings (its Input mappings page) override these.'),
+          mappings.el),
         h('div.card.col',
           h('h2', 'MIDI timing'),
           h('div.row',
@@ -134,9 +183,16 @@ export function settingsView(root, shell) {
             }, 'Reset to defaults')))),
       h('p.small.muted', `MIDIMaster. Defaults: SysEx gap ${SETTING_DEFAULTS.midi.sysexGap} ms, timeout ${SETTING_DEFAULTS.midi.replyTimeout} ms.`));
     fillPorts();
+    fillInputs();
+    mappings.refresh();
   }
 
   render();
-  const off = t.on('ports', () => { if (t.access) fillPorts(); });
-  return { destroy() { off(); } };
+  const offs = [
+    t.on('ports', () => { if (t.access) { fillPorts(); fillInputs(); } }),
+    shell.inputs.on('status', () => fillInputs()),
+    // a blink on the input's dot for each message it sends
+    shell.inputs.on('activity', (i) => { const d = activity[i]; if (!d) return; d.classList.add('on'); clearTimeout(d._t); d._t = setTimeout(() => d.classList.remove('on'), 120); }),
+  ];
+  return { destroy() { for (const off of offs) off(); shell.inputs.learn = null; } };
 }

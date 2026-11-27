@@ -8,6 +8,7 @@ export function parseWav(buffer) {
   let fmt = null;
   let data = null;
   let loop = null;
+  let vp = null; // Roland V-Synth sample settings (vpsc / vpno chunks)
   let p = 12;
   while (p + 8 <= v.byteLength) {
     const id = tag(p);
@@ -23,6 +24,10 @@ export function parseWav(buffer) {
       data = { offset: body, size: Math.min(size, v.byteLength - body) };
     } else if (id === 'smpl' && size >= 60 && v.getUint32(body + 28, true) > 0) {
       loop = { start: v.getUint32(body + 36 + 8, true), end: v.getUint32(body + 36 + 12, true) };
+    } else if (id === 'vpsc' && size >= 32) {
+      vp = { ...vp, ...vsynthSettings(v, body) };
+    } else if (id === 'vpno' && size >= 8) {
+      vp = { ...vp, events: v.getUint32(body + 4, true) };
     }
     p = body + size + (size & 1);
   }
@@ -44,7 +49,22 @@ export function parseWav(buffer) {
       chans[c][f] = s;
     }
   }
-  return { sampleRate: fmt.rate, channels: chans, frames, loop };
+  return { sampleRate: fmt.rate, channels: chans, frames, loop, ...(vp ? { vsynth: vp } : {}) };
+}
+
+/**
+ * The V-Synth's sample settings (chunk "vpsc", 8 x 32-bit LE), as far as they are known: word 0
+ * bytes = 0Bh Variphrase-encoded / 0Ah not, the encode type (1, 3, 5: "A01".."A05" in the "rdmd"
+ * chunk's text), 0 mono / 1 stereo; word 1 the sample frames; word 2 byte 2 the original key;
+ * words 4 and 5 start and end in 1/16 samples; word 7 the tempo x 10000. Checked on 35 samples
+ * against their names (tempos) and the "rdmd" text ("A01_MO_63_110_44000": type, mono, key 63).
+ */
+function vsynthSettings(v, o) {
+  const w = (k) => v.getUint32(o + 4 * k, true);
+  return {
+    encoded: (w(0) & 0xff) === 0x0b, encodeType: (w(0) >> 8) & 0xff, stereo: ((w(0) >> 16) & 0xff) === 1,
+    frames: w(1), originalKey: (w(2) >> 16) & 0xff, start: w(4) / 16, end: w(5) / 16, tempo: w(7) / 10000,
+  };
 }
 
 export function floatToInt16(f32) {

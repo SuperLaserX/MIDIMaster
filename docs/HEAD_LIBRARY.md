@@ -1,10 +1,11 @@
-# Main Library
+# Head Library
 
 One place for the patches of every device. Each patch is a readable JSON file with the device it
 came from, the device's type, a sound category and every setting by name. Sub-libraries live in a
-folder the user picks, open in any device's Librarian, and a patch loads into another model when a
-translator exists. Today that means JP-8080 ↔ JP-8000; other devices store and load their own patches
-exactly.
+folder the user picks, open in any device's Branch Library, and a patch loads into another model when a
+translator exists: the JP-8080 and JP-8000 (exact within the family) and the V-Synth XT's three
+engines (V-Synth, VC-1 D-50, VC-2) translate to and from each other through the shared synth model;
+other devices store and load their own patches exactly.
 
 | Where | What |
 |---|---|
@@ -20,10 +21,12 @@ exactly.
 | `js/devices/patches.js` | Device objects ↔ patches (`patchFromObject`, `objectFromPatch`, `loadMode`) |
 | `js/devices/defs/roland-jp-common.js` | JP translator, JP-8000/8080 detection, WinJPLib `.pat`/`.pfm` reader |
 | `js/devices/defs/roland-vsynthxt-translate.js` | V-Synth XT translator (zone 1 ↔ shared model) |
+| `js/devices/defs/roland-vsynthxt-vc2-translate.js` | VC-2 translator (the playing side of a vocal patch ↔ shared model) |
+| `js/devices/defs/roland-vsynthxt-vc1-translate.js` | VC-1 (D-50) translator (upper tone ↔ shared model) |
 | `js/devices/kurzweil-k2000/disk/mainlib.js` | K2000 programs with keymaps and samples ↔ patches |
-| `js/core/ui/mainlib.js` | UI pieces shared by the page and the Librarian panel |
-| `js/shell/mainlibrary.js` | The Main Library page (`#/library`) |
-| `js/devices/generic/views/mainlib-panel.js` | The Main Library panel of every device's Librarian |
+| `js/core/ui/mainlib.js` | UI pieces shared by the page and the Branch Library panel |
+| `js/shell/mainlibrary.js` | The Head Library page (`#/library`) |
+| `js/devices/generic/views/mainlib-panel.js` | The Head Library panel of every device's Branch Library |
 
 ## Patch file (`midimaster-patch`, version 1)
 
@@ -62,17 +65,17 @@ took its performance's category), `manual`, or `none`.
 ## Folder layout
 
 ```
-<Main Library>/mainlibrary.json             {format: "midimaster-library", version, sublibraries: [{id, name, path} | {id, name, external, folder}]}
-<Main Library>/<sub-library>/sublibrary.json {format: "midimaster-sublibrary", version, id, name, created, notes, device, devices, patches: [index rows]}
-<Main Library>/<sub-library>/patches/<id>.json
-<Main Library>/<sub-library>/samples/<id>.wav + <id>.json
+<Head Library>/mainlibrary.json             {format: "midimaster-library", version, sublibraries: [{id, name, path} | {id, name, external, folder}]}
+<Head Library>/<sub-library>/sublibrary.json {format: "midimaster-sublibrary", version, id, name, created, notes, device, devices, patches: [index rows]}
+<Head Library>/<sub-library>/patches/<id>.json
+<Head Library>/<sub-library>/samples/<id>.wav + <id>.json
 ```
 
 An index row is `{id, name, kind, device, model, types, category, tags, samples, native, hasCommon, links}`,
 enough to list, filter and badge patches without reading every file.
 
 **A sub-library's device** (`device: {id, maker, model}`, also kept in `mainlibrary.json`) says which
-instrument it holds sounds for. It is set when the sub-library is made from a device's Librarian
+instrument it holds sounds for. It is set when the sub-library is made from a device's Branch Library
 (or the K2000 Library), when an import names the device, or when everything imported came from one
 device; it can be changed with **Edit**. `devices` lists the models its patches actually come from.
 
@@ -104,10 +107,11 @@ Sample audio is cached only while pending.
 | `.zip` | Every importable file inside (also images, and archives one level deep); `__MACOSX` and `._` files skipped |
 | `.mid`, `.midi` | SysEx events of the SMF (`smf.js`), then `importSysex` |
 | `.pat`, `.pfm` | JP-8000 WinJPLib files, through the JP-8000 definition's `readFile` |
+| `.p00`, `.p02`, `.P10` | V-Synth XT patch files, VC-2 patch files and VC-1 bank files from the XT's drive (USB storage), through the V-Synth, VC-2 and VC-1 definitions' `readFile` |
 | `.krz`, `.k25`, `.k26` | Programs with their keymaps and soundblocks; RAM audio becomes WAV |
 | `.wav` | A sample |
-| `.json` | Main Library patch files (one or an array) |
-| `.iso`, `.img`, `.bin` (+`.cue`) | Every importable file inside the image |
+| `.json` | Head Library patch files (one or an array) |
+| `.iso`, `.img`, `.bin` (+`.cue`) | Every importable file inside the image (FAT behind an MBR too: a V-Synth XT drive image gives its 512 V-Synth and 512 VC-1 patches) |
 
 `importSysex` leaves out request messages (identity requests and each definition's `isRequest`,
 e.g. RQ1 echoed by MIDI thru), lets each definition claim messages (`recognise`), gives messages
@@ -118,14 +122,14 @@ catalog's candidate models in `notes`.
 
 Also:
 
-- **Messages cut out of a MIDI file as raw SysEx** (older Librarian entries stored whole `.mid`
+- **Messages cut out of a MIDI file as raw SysEx** (older Branch Library entries stored whole `.mid`
   files) carry each event's length after F0, where the maker ID belongs: a 19-byte message reads as
   maker 13h (Digidesign), a 48-byte one as 30h (Dynacord). `repairSmfLengths` removes those lengths
   when every message has one that matches its size and the definitions then read more messages.
   Every place that reads a file now uses `sysexMessages` (MIDI file or raw SysEx).
 - **Damaged messages** of a known device (checksum errors, cut short in the file) are recognised by
   `def.isOwn` and kept as that device's `data`, named "Damaged <model> messages".
-- **The device a dump came from** (`opts.device`: the Librarian's device, or the import's "from"
+- **The device a dump came from** (`opts.device`: the Branch Library's device, or the import's "from"
   choice) is also the hint, and SysEx of its maker that no editor reads is kept as its data instead
   of an unknown device's.
 
@@ -133,7 +137,7 @@ The import report lists, per file and device, what was read and what was skipped
 
 ## Duplicates
 
-**Find duplicates...** on the Main Library page (`dedup.js`), in one sub-library or all:
+**Find duplicates...** on the Head Library page (`dedup.js`), in one sub-library or all:
 
 | Match | How |
 |---|---|
@@ -154,14 +158,30 @@ pointed at the kept one.
   report: `{mapped, approximated, dropped}`.
 - `null`: no translator yet (the panel shows "no translator").
 
-The Librarian panel shows every sub-library's patches with that badge. **Load** puts the patch in
+The Branch Library panel shows every sub-library's patches with that badge. **Load** puts the patch in
 the editor page (nothing is sent; a lossy translation asks first and shows the report), **Store
 to...** writes it into a memory slot (`obj.slots.store`), **Send** sends a `data` patch's SysEx.
-**Add editor data...** and a dump's **Add to Main Library** go the other way.
+**Add editor data...** and a dump's **Add to Head Library** go the other way.
 
-The K2000 uses its own pages: **Library → Add to Main Library** reads programs with the RAM keymaps
+**Sending to the open device** (`js/devices/generic/sendto.js`): with a device open (any page),
+the Head Library page offers **Send to the <model>...** on a patch's detail view and on the bar
+shown when patches are ticked; "select all shown" ticks a whole sub-library or the current search
+results. A device Branch Library's Head Library panel has the same ticks and button. Patches of another
+model go through its translator (e.g. JP-8080 patches onto the V-Synth or the VC-2); patches no
+object of the device can take are left out and listed. The dialog offers:
+
+- **Load into the editor** (one patch): as Load, nothing sent;
+- **Send to the edit buffer** (one patch): loaded and sent with the object's `sendAll`;
+- **Store into memory**: consecutive slots from a chosen first slot (`slots.store`, writable banks
+  only), with the list of the slots that will be replaced and their current names; sent at MIDI
+  speed with progress, and the slot names updated.
+
+A single translated patch shows the translation report first. Checked on the V-Synth XT
+(2026-11-24): a JP-8080 patch to the VC-2 edit buffer and into U448, both put back afterwards.
+
+The K2000 uses its own pages: **Library → Add to Head Library** reads programs with the RAM keymaps
 and soundblocks they use (ROM objects are only referenced) and, if chosen, the RAM audio by Sample
-Dump. **Load from Main Library...** rebuilds a Kurzweil file in memory (`krzFromPatches`: the
+Dump. **Load from Head Library...** rebuilds a Kurzweil file in memory (`krzFromPatches`: the
 objects plus a sparse sample area made of the WAVs, placed at each sample's `words`) and opens it on
 the Disk Import page, which assigns IDs and sends objects and audio as for a file from disk.
 
@@ -172,7 +192,7 @@ and the objects' `fromSyx`.
 
 | Hook | Used for |
 |---|---|
-| `def.recognise(raw)` | This definition reads the message (Main Library import) |
+| `def.recognise(raw)` | This definition reads the message (Head Library import) |
 | `def.isOwn(raw)` | The message is this device's, readable or not (damaged messages are kept as its data) |
 | `def.isRequest(raw)` | The message is a request, not data (left out of imports) |
 | `def.prefer(msgs)` | How well a set of messages fits this model when several definitions claim it |
@@ -182,21 +202,25 @@ and the objects' `fromSyx`.
 | `obj.category(data)` | The device's own category for the data (a `categories.js` id) |
 | `obj.toCommon(data)` | Data → shared model |
 | `obj.fromCommon(common, base)` | Shared model → `{data, report}` |
-| `obj.patchKinds` | Patch kinds the object accepts (default `[obj.key]`) |
-| `obj.setName(data, name)` | Write a name: a translated patch keeps the Main Library patch's name |
-| `obj.setCategory(data, id)` | Write the device's nearest category for a Main Library category id |
+| `obj.patchKinds` | Patch kinds the object accepts (default `[obj.key]`); patch, program and voice, and performance and combination, count as the same kind (`kindsOf` in `patches.js`), so a Korg program or a Yamaha voice loads into a Roland patch |
+| `obj.setName(data, name)` | Write a name: a translated patch keeps the Head Library patch's name |
+| `obj.setCategory(data, id)` | Write the device's nearest category for a Head Library category id |
 | `common.extra.match` | Set by a translator: equal for the same sound on every model of its family (duplicate search) |
 
 ## Every device needs a translator
 
-Moving sounds between instruments is the point of the Main Library, so **every new device
+Moving sounds between instruments is the point of the Head Library, so **every new device
 definition comes with `obj.toCommon` / `obj.fromCommon` for each object that holds a sound**
 (patch, program, performance, combination, rhythm set...; device settings such as `system`,
 `global` or `master` are exempt). The test "Every device definition translates its sounds" in
-`tests/mainlib.test.js` fails for a definition without one. Its `BACKLOG` lists the definitions
-made before this rule (Matrix-1000, JV-2080, M1/M1R); take an entry off once its translator exists,
-and never add one. The K2000 (its own module, not a definition) is on the same backlog in
-`docs/FUTURE_WORK.md`.
+`tests/mainlib.test.js` fails for a definition without one. Its `BACKLOG` is empty since
+2026-11-25 (the Matrix-1000, JV-2080 and M1/M1R translators were added; see
+`tests/translators.test.js`); never add an entry. The K2000 (its own module, not a definition) still
+needs its program translator (`docs/FUTURE_WORK.md`, Head Library). Whether an editor counts as a
+**Full editor** (every byte named, every object read and written, checked on the hardware, a
+translator for every sound, a MIDI channels page when multitimbral) is decided in one table,
+`js/devices/levels.js`, which `docs/devices/STATUS.md`, the firmware checklist and the home page
+badges read.
 
 ## The shared synth model
 
@@ -205,7 +229,25 @@ semitones and cents; times as the device's own 0..1 curve until a device with re
 more. Sections: `voice`, `osc` (array), `mix`, `pitch`, `filter`, `amp` (each with its envelope),
 `lfo` (array), `tone`, `effects`, `velocity`, `controller`, and `extra` (a family's exact data).
 Waves are named (`saw`, `supersaw`, `noise`...) or `rom:<name>` / `sample:<id>` for sample-based
-instruments.
+instruments (the VC-1's PCM partials are `rom:<D-50 wave name>`, the V-Synth's PCM oscillators
+`sample:<wave number>`, the VC-2's vocal waves `rom:<name>` or `vc2-wave:<n>`, M1 multisounds
+`rom:<name>`, `drum-kit:<n>` or `m1-card:<n>`, JV-2080 waves `rom:<name>` or
+`jv-wave:<type>-<id>-<n>` when the name is not known). Oscillators may carry `level` and `pan`;
+`lfo[].target` may be `'filter'`; `effects` has `reverb` and `chorus`; `drums: true` marks a drum
+program (M1 DRUMS).
+
+Several-part sounds (performance, combination) and rhythm sets use these shapes:
+
+- **Performance / combination**: `keyMode` (`'single'`, `'layer'`, `'dual'`, `'split'`,
+  `'velocity-switch'` or `'multi'`), `splitPoint` (key number), `tempo`, and `parts[]`:
+  `{on, channel (0-15), program (a number, or the JV's {type, group, number}), level 0..1,
+  pan -1..1, output?, transpose (semitones), fine (cents), low, high (keys), velLow, velHigh,
+  rhythm?}`.
+- **Rhythm set**: `{kind: 'rhythm', notes: [{note, wave, coarse (source key - note), fine, level,
+  pan, muteGroup, sustain, filter: {type, cutoff, resonance}, env: {attack, decay, sustain,
+  release}}]}`.
+
+Shared helpers for translators are in `js/devices/defs/translate-helpers.js`.
 
 **Same family, exact:** `extra` carries the family's own fields (the JP family keeps the whole
 patch), so JP-8080 → JP-8000 → JP-8080 returns identical bytes for everything both models have.
@@ -224,10 +266,10 @@ patch), so JP-8080 → JP-8000 → JP-8080 returns identical bytes for everythin
   (complete dumps, JV, JP-8000 vs JP-8080, unmapped and damaged SysEx, the device a dump came from,
   ZIP, KRZ audio exact to the sample, `.pat`/`.pfm`/`.j8k`), JP translation, duplicates (name,
   settings, any model, links), and the translator rule.
-- `tests/mainlib-ui.test.js`: the page and the Librarian panel on a small fake DOM
+- `tests/mainlib-ui.test.js`: the page and the Branch Library panel on a small fake DOM
   (`tests/helpers/fakedom.js`): list, open, edit, filter, bulk delete, import by drop, merge,
   find and delete duplicates, translated load, store to slot, add a dump (and its new sub-library's
-  device), and the Librarian showing an entry stored as a whole MIDI file.
+  device), and the Branch Library showing an entry stored as a whole MIDI file.
 - `tests/disk.test.js`: K2000 programs with samples → library → import job on the mock K2000 →
   read back.
 

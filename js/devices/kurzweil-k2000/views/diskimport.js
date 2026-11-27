@@ -30,15 +30,15 @@ const session = {
   job: null,
   jobState: null, // {total, index, fraction, text, log: [], result}
   nextId: 1,
-  openNext: null, // source id to open when the page is shown (Main Library hand-over)
+  openNext: null, // source id to open when the page is shown (Head Library hand-over)
 };
 
 /**
- * Add a Kurzweil file built in memory (from Main Library patches, see disk/mainlib.js) to the
+ * Add a Kurzweil file built in memory (from Head Library patches, see disk/mainlib.js) to the
  * sources; it opens when the Disk Import page is shown next.
  */
 export function addMemorySource(name, krz) {
-  const s = { id: session.nextId++, kind: 'memory', status: 'ready', files: [], name, path: `Main Library: ${name}`, krz, size: krz.size + krz.objects.reduce((n, o) => n + o.data.length, 0) };
+  const s = { id: session.nextId++, kind: 'memory', status: 'ready', files: [], name, path: `Head Library: ${name}`, krz, size: krz.size + krz.objects.reduce((n, o) => n + o.data.length, 0) };
   session.sources.push(s);
   session.openNext = s.id;
   return s;
@@ -178,7 +178,7 @@ export function diskImportView(root, app) {
       if (s.kind === 'memory') {
         if (!match(s.path)) continue;
         rows.push(h('div.imp-src' + (session.current?.key === `m${s.id}` ? '.sel' : ''), { onclick: () => openKrz(`m${s.id}`, s.path, { parsed: s.krz }, s.id), title: `${s.path}
-From the Main Library` },
+From the Head Library` },
           h('span.imp-ico', '❖'), h('span.grow.imp-name', s.name), h('span.small.muted', fmtBytes(s.size)), remove));
         continue;
       }

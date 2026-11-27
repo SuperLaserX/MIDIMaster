@@ -55,7 +55,7 @@ export function introView(root, app) {
       h('pre.ascii-logo', deviceLogo(entry, 'K2000')),
       h('div.col.intro-text',
         h('h1', 'Kurzweil K2000'),
-        h('div.sub', 'Full editor: live program editing, librarian, samples over MIDI Sample Dump, keymaps, disk import from .KRZ files and CD images, and the front panel. Connect MIDI Out of your interface to the K2000 MIDI In, and the K2000 MIDI Out back to your interface.'),
+        h('div.sub', 'Full editor: live program editing, Branch Library, samples over MIDI Sample Dump, keymaps, disk import from .KRZ files and CD images, and the front panel. Connect MIDI Out of your interface to the K2000 MIDI In, and the K2000 MIDI Out back to your interface.'),
         app.demo ? h('div.notice', 'Demo mode: a simulated K2000 answers every message. Remove ?demo from the address to use your instrument.') : null)),
     h('div.card.col',
       h('h2', 'MIDI ports'),

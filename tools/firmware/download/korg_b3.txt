@@ -1,0 +1,5 @@
+volca drum|1.14|volca_drum_updater_1_14.zip|
+volca FM|1.07|volca_fm_updater_0107.zip|
+volca modular|1.08|volcamodular_updater_0108.zip|
+volca nubass|1.07|volca_nubass_updater_0107.zip|
+volca sample|1.42|volcasample_updater_1_42.zip|

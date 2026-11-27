@@ -6,6 +6,9 @@
 // says so in the report. A sound from another synth becomes: OSC 1/2 analog waves, MOD for ring
 // and sync, COSM 1 as a TVF filter (its envelope A = Env 9), the TVA envelope (Env 13), LFOs 1-5
 // from the shared LFO, and the chorus, MFX and reverb blocks for the effects.
+//
+// It checks each wave against the engine's own waveform range, so a table set with fewer analog
+// waves reports the missing ones (M.model names the device for `extra`).
 
 import { readParam, writeParam } from '../../core/model/memmap.js';
 import { COMMON_MODEL, unit, emptyReport } from '../../core/mainlib/common.js';
@@ -21,7 +24,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, Math.round(v)));
 const u127 = (x) => clamp((x ?? 0) * 127, 0, 127);
 const b63 = (x) => clamp(64 + (x ?? 0) * 63, 1, 127); // bipolar -1..1 -> 1..127 (SysEx, centre 64)
 
-/** A short hash of bytes: equal for the same sound (Main Library duplicate search). */
+/** A short hash of bytes: equal for the same sound (Head Library duplicate search). */
 function hashBytes(d) {
   let h1 = 0x811c9dc5;
   let h2 = 0x01000193;
@@ -29,7 +32,7 @@ function hashBytes(d) {
   return `${h1.toString(36)}${h2.toString(36)}`;
 }
 
-/** M: {built, defaults(), fxSlot(kind, n, type), FX, FX_BLOCKS, nameOf} from roland-vsynthxt.js */
+/** M: {built, defaults(), fxSlot(kind, n, type), FX, FX_BLOCKS, nameOf, model?} from roland-vsynthxt.js */
 export function vsTranslator(M) {
   const byKey = new Map();
   for (const p of M.built.params) byKey.set(`${p.key.split('_')[0]}|${p.name}`, p);
@@ -59,7 +62,7 @@ export function vsTranslator(M) {
     const t = `t${z}`; const e = `e${z}`; const l = `l${z}`; const ca = `ca${z}`;
     const osc = [1, 2].map((n) => {
       const type = g(t, `OSC ${n} Type`);
-      const wave = type === 0 ? WAVES[g(t, `OSC ${n} Analog Wavefrom`)] : type === 1 ? `sample:${g(t, `OSC ${n} Wave Number`)}` : 'external';
+      const wave = type === 0 ? WAVES[g(t, `OSC ${n} Analog Wavefrom`)] : type === 1 ? `sample:${g(t, `OSC ${n} Wave Number`)}` : type === 3 ? 'vocoder' : 'external';
       return {
         on: !!g(t, `OSC ${n} Switch`), wave, coarse: g(t, `OSC ${n} Coarse Tune`) - 64, fine: g(t, `OSC ${n} Fine Tune`) - 64,
         level: unit(g(t, `OSC ${n} Level`)), pulseWidth: (g(t, `OSC ${n} Pulse Width`) - 64) / 63, pwmDepth: (g(t, `OSC ${n} Pulse Width LFO Depth`) - 64) / 63,
@@ -68,7 +71,7 @@ export function vsTranslator(M) {
     });
     const modType = ['mix', 'ring', 'fm', 'env-ring', 'sync'][g(t, 'MOD Type')];
     const modOn = !!g(t, 'MOD Switch');
-    const env = (n) => ({ attack: unit(Math.min(127, g(e, `Env ${n} Attack Time`))), decay: unit(Math.min(127, g(e, `Env ${n} Decay Time`))), sustain: unit(g(e, `Env ${n} Sustine`)), release: unit(Math.min(127, g(e, `Env ${n} Release Time`))) });
+    const env = (n) => ({ attack: unit(Math.min(127, g(e, `Env ${n} Attack Time`))), decay: unit(Math.min(127, g(e, `Env ${n} Decay Time`))), sustain: unit(g(e, `Env ${n} Sustain`)), release: unit(Math.min(127, g(e, `Env ${n} Release Time`))) });
     const cosmType = g(ca, 'COSM Type');
     const cosmName = M.FX[M.FX_BLOCKS.cosm[0] + cosmType]?.[0] || '';
     let filter = null;
@@ -104,7 +107,7 @@ export function vsTranslator(M) {
         ...(revType === 'DELAY' && g('c', 'Reverb Switch') ? { delay: { type: 'delay', level: unit(g('rv', 'Reverb Master Level')) } } : revType && revType !== 'OFF' && g('c', 'Reverb Switch') ? { reverb: { type: revType, level: unit(g('rv', 'Reverb Master Level')) } } : {}),
       },
       zones: zonesUsed,
-      extra: { family: FAMILY, model: 'roland-vsynth-xt', match: hashBytes(d.subarray(12)) },
+      extra: { family: FAMILY, model: M.model || 'roland-vsynth-xt', match: hashBytes(d.subarray(12)) },
     };
   }
 
@@ -147,6 +150,9 @@ export function vsTranslator(M) {
       if (w === undefined) {
         w = 0;
         r.approximated.push(`${pre} wave ${o.wave || '?'} → SAW${/^(rom|sample):/.test(o.wave || '') ? ' (sample waves are not moved yet)' : ''}`);
+      } else if (w > P(t, `${pre} Analog Wavefrom`).max) {
+        r.approximated.push(`${pre} wave ${WAVES[w].toUpperCase()} → SAW (not on this engine)`);
+        w = 0;
       } else r.mapped.push(`${pre} waveform`);
       set(t, `${pre} Type`, 0, null);
       set(t, `${pre} Analog Wavefrom`, w, null);
@@ -186,7 +192,7 @@ export function vsTranslator(M) {
         const en = n === 1 ? 1 : 5;
         set(e, `Env ${en} Attack Time`, u127(p.env.attack), null);
         set(e, `Env ${en} Decay Time`, u127(p.env.decay), null);
-        set(e, `Env ${en} Sustine`, 0, null);
+        set(e, `Env ${en} Sustain`, 0, null);
         set(e, `Env ${en} Release Time`, 0, null);
       }
     }
@@ -214,7 +220,7 @@ export function vsTranslator(M) {
       if (f.lfo2) r.dropped.push('Filter LFO 2 depth');
       if (f.env) {
         set(e, 'Env 9 Attack Time', u127(f.env.attack), null); set(e, 'Env 9 Decay Time', u127(f.env.decay), null);
-        set(e, 'Env 9 Sustine', u127(f.env.sustain), null); set(e, 'Env 9 Release Time', u127(f.env.release), 'Filter envelope (COSM 1 envelope A)');
+        set(e, 'Env 9 Sustain', u127(f.env.sustain), null); set(e, 'Env 9 Release Time', u127(f.env.release), 'Filter envelope (COSM 1 envelope A)');
       }
     }
 
@@ -223,7 +229,7 @@ export function vsTranslator(M) {
     if (a.level !== undefined) set(t, 'TVA Level', u127(a.level), 'Amp level');
     if (a.env) {
       set(e, 'Env 13 Attack Time', u127(a.env.attack), null); set(e, 'Env 13 Decay Time', u127(a.env.decay), null);
-      set(e, 'Env 13 Sustine', u127(a.env.sustain), null); set(e, 'Env 13 Release Time', u127(a.env.release), 'Amp envelope (TVA)');
+      set(e, 'Env 13 Sustain', u127(a.env.sustain), null); set(e, 'Env 13 Release Time', u127(a.env.release), 'Amp envelope (TVA)');
     }
     if (a.lfo1 !== undefined) set(t, 'TVA Level LFO Depth', b63(a.lfo1), 'Amp LFO depth');
     if (a.lfo2) r.dropped.push('Amp LFO 2 depth');

@@ -186,3 +186,37 @@ timbre with its program (or OFF), MIDI channel, level, panpot, transpose and key
 of who plays on each channel, a Channels in order button and a button that makes the
 combination MULTI. A MULTI combination with timbres 1-3 on channels 1-3 built this way was sent
 to an M1R's combination edit buffer and read back identically (`re/m1/multicheck.py`).
+
+## Translator (Head Library)
+
+`js/devices/defs/korg-m1-translate.js` moves programs and combinations through the shared synth
+model (`docs/HEAD_LIBRARY.md`). Every program and combination keeps its exact bytes in
+`common.extra` (family `korg-m1`), so the M1 and M1R take each other's sounds byte for byte.
+
+From an M1 **program**: OSC1 (and OSC2 in DOUBLE mode) as oscillators, their multisounds as
+`rom:<name>` waves, except the plain synth waves (Saw Wave, SquareWave, DWGS TRI, DWGS Sine, 25% and
+10% Pulse), which are named `saw`, `square`, `triangle`, `sine`, `pulse`; DRUMS mode as
+`drum-kit:<n>`. Octave and interval as semitones, the OSC2 detune as cents, the VDA levels as the
+oscillator levels and balance. OSC1's pitch EG, VDF and VDA give the pitch envelope, the filter
+(low pass, no resonance) and the amplifier: the 8-stage EGs read as ADSR (AT attack, DT + ST decay,
+SL sustain, RT release). The pitch MG is LFO 1 (its OSC select is the pitch target), the VDF MG
+LFO 2. Effects by kind: Hall ... Early Ref as reverb, Stereo/Cross Delay as delay, the rest as the
+modulation effect; the Delay/... doubles give both.
+
+Into an M1 program from another model: up to two oscillators (SINGLE or DOUBLE), waves by name
+(nearest multisound by shared words, e.g. a JV-2080 "ST.Strings" finds Strings) or by shape (saw
+→ Saw Wave, noise → Breath, approximated); coarse tuning in octaves (16', 8', 4') plus the OSC2
+interval (±12); both VDF/VDA from the filter and amp envelopes; MONO for mono and legato. Reported
+as dropped: resonance (the VDF has none), portamento, amp LFO, sync, ring and cross modulation,
+tone, velocity and controller depths. Two effects at most: modulation first, then reverb; a delay
+takes a free slot or joins the reverb as Delay/Hall or Delay/Room; parameters are the M1's defaults
+for each type.
+
+A **combination** reads as `keyMode` (SINGLE single, LAYER layer, SPLIT split with `splitPoint`,
+VEL.SW velocity-switch, MULTI multi) and 8 `parts` (`on`, `program` 0-99, `channel`, `level`,
+`transpose`, `fine`, `pan` -1..1 for A..B with `output` C/C+D/D, `low`/`high` key window,
+`velLow`/`velHigh`). From another model (e.g. a JP-8080 performance, dual → LAYER) the type, the
+timbre layout, levels, transpose, detune, pans and windows are set; programs are left to choose,
+since another model's program numbers do not apply, and part channels are used in MULTI only.
+
+The drum kits are part of the global dump (a settings object, not translated).

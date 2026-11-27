@@ -23,11 +23,6 @@ repositories/
 .ghidra/
 # Scripts the Ghidra MCP bridge writes when running inline code
 McpInline_*.java
-
-# ---------------------------------------------------------------------------
-# Reverse-engineering work area: unpacked firmware (copyrighted ROMs), Ghidra
-# projects and scratch files. Only tools/ and docs/ hold the results.
-# ---------------------------------------------------------------------------
 re/
 
 # ---------------------------------------------------------------------------
@@ -44,3 +39,10 @@ desktop.ini
 # Python bytecode from the tools
 __pycache__/
 *.pyc
+
+# Documentation
+FIRMWARE_*.md
+FUTURE_WORK.md
+HEAD_LIBRARY.md
+MIDI_*.md
+PROTOCOL.md

@@ -1,4 +1,4 @@
-// Main Library file formats (version 1). See docs/MAIN_LIBRARY.md.
+// Head Library file formats (version 1). See docs/HEAD_LIBRARY.md.
 //
 //   mainlibrary.json  {format: 'midimaster-library', version, sublibraries: [{id, name, path | external}]}
 //   sublibrary.json   {format: 'midimaster-sublibrary', version, id, name, created, notes, patches: [index rows]}

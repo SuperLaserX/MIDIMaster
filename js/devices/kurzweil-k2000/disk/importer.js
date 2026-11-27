@@ -19,7 +19,7 @@ import { Program, TAG } from '../model/program.js';
 import { put16be, put32be, s32be, u16be, sleep } from '../../../core/bits.js';
 import { SampleDump, sdsTransferSeconds, SDS_MAX_SAMPLES } from '../../../core/midi/sds.js';
 import { sdsNumberForId } from '../sds-ids.js';
-import { readAudio, programIssue, convertProgramForK2000, K2600_ONLY_TYPES } from './krz.js';
+import { readAudio, programIssue, convertProgramForK2000, completeProgram, K2600_ONLY_TYPES } from './krz.js';
 
 const ORDER = { [T.SOUNDBLOCK]: 0, [T.KEYMAP]: 1, [T.PROGRAM]: 2 };
 const REMAPPED_TYPES = new Set([T.SOUNDBLOCK, T.KEYMAP, T.PROGRAM]);
@@ -199,6 +199,10 @@ export function buildPlan(items, selected, { mode = 'keep', bank = 2, existing =
     try {
       if (it.type === T.PROGRAM) {
         if (it.status === 'convert') { const c = convertProgramForK2000(data); data = c.data; notes.push(...c.notes); }
+        // the K2000 takes a program only with every segment (see completeProgram in krz.js)
+        const full = completeProgram(data);
+        data = full.data;
+        if (full.added) notes.push(`${full.added} unused segment${full.added > 1 ? 's' : ''} added with the K2000's defaults`);
         data = remapProgram(data, idMap);
       } else if (it.type === T.KEYMAP) data = remapKeymap(data, idMap);
     } catch (err) { skipped.push({ item: it, reason: `could not be prepared (${err.message})` }); continue; }

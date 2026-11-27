@@ -182,5 +182,40 @@ through `tools/roland/jvlive.py` and through the app in Chrome (Web MIDI):
 
 ## Not covered
 
-Data cards (none was available to test), GM mode, wave names, and receiving panel edits
-(implemented, not tried: it needs Tx Edit Data and someone at the panel).
+Data cards (none was available to test), GM mode, and receiving panel edits (implemented, not
+tried: it needs Tx Edit Data and someone at the panel). The internal wave names (INT-A 255, INT-B
+193) are the owner's manual's (`roland-jv2080-waves.js`), since the wave ROM is not in the flash.
+
+## Translator (Head Library)
+
+`js/devices/defs/roland-jv2080-translate.js` moves patches, performances and rhythm sets through
+the shared synth model (`docs/HEAD_LIBRARY.md`). Each keeps its exact bytes in `common.extra`
+(family `roland-jv`), so another JV-2080 gets it back byte for byte.
+
+**Patch.** Every tone that is switched on is an oscillator: its wave as `rom:<name>` (INT-A/INT-B
+from the manual, SR-JV80 boards from their ROMs; the INT-B synth waves Synth Saw 1, JP-8 Saw A,
+Synth Square, JP-8 SquareA, Synth Pulse1, Triangle, Sine and White Noise as `saw`, `square`,
+`pulse`, `triangle`, `sine`, `noise`), coarse and fine tune, level and pan. Tone 1 (the first one
+on) gives the filter (type, cutoff, resonance, keyfollow, envelope depth and envelope, LFO depths),
+the amplifier envelope and LFO depths, the pitch envelope and LFO depths, and LFO 1/2; the
+4-segment envelopes read as ADSR (T1 attack, T2 + T3 decay, L3 sustain, T4 release). Key assign,
+solo legato, portamento, bend ranges, octave shift, patch level and category (the Head Library uses
+the same 38 Roland categories), and the effects: the EFX (when a tone is routed to it) as the
+modulation effect, chorus, and the reverb (types DELAY and PAN-DLY as a delay).
+
+Into a JV-2080 patch from another model: one tone per oscillator (up to 4), waves by name (exact,
+then a board's, then the nearest internal wave by shared words) or by shape; every tone gets the
+same filter, envelopes and LFOs. Effects: a chorus-like effect uses the chorus, others the EFX
+(nearest type, parameters kept in range), reverbs the reverb, a delay the reverb's DELAY type or
+the EFX STEREO-DELAY. Reported: sync, ring and cross modulation, tone, velocity and controller
+depths dropped; waves on boards that must be installed.
+
+**Performance** as `keyMode: 'multi'`, `tempo` and 16 `parts` (`on` = receive switch, `channel`,
+`program` {type, group, number}, `level`, `pan`, `transpose` = coarse tune + 12 x octave shift,
+`fine`, `low`/`high` key range, `rhythm` for part 10). From another model the parts' layout is set
+(parts fill 1-9 and 11-16; part 10 stays the rhythm part), keyboard key modes put the parts on one
+channel, a split sets the key ranges at the split point, and the patches are left to choose.
+
+**Rhythm set** as `kind: 'rhythm'` with `notes` for the keys that are switched on: `{note, wave,
+coarse (source key - note), fine, level, pan, muteGroup, sustain, filter {type, cutoff,
+resonance}, env}`. Keys outside 35-98 are dropped.

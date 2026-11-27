@@ -275,16 +275,38 @@ sends nothing.
   behind.
 - The unit pads a motion to its full length with C0 FF 80 00 00 00. All four motions on the test
   unit (loop length 4) total exactly 10368 ticks.
-- The factory motions are in the ROM at `8E6E0`-`8FEAA` (the same data is in the JP-8000 ROM).
+- The factory motions are in the ROM at `8E6E0`-`8FFE1`, each ending with six FFh bytes (the same
+  data is in the JP-8000 ROM).
+
+**Time and length** (traced 2026-11-25). Ticks are MIDI clocks: 24 a beat, 96 a measure.
+- **Loop point.** The Loop Length of a motion (System 00 00 20 00 + motion: 0 PLAY ONCE, 1-8
+  measures; factory setting 4) sets the point where the player starts again: `3A11C` stores the
+  setting and passes Loop Length x 96 to `3A484`, which keeps it per motion in the table at
+  `214874` (PLAY ONCE stores 2520h = 9504, no loop).
+- **The empty motion** the unit makes (`356DC`, mode 1) is the header and 50 empty events of 192
+  ticks (`5A714` appends them), 9792 ticks.
+- **A recording** goes in front of it: knob events inside the loop, the last one waiting until 192
+  ticks past the loop end. Every factory motion and every motion on the test unit (loop length 4)
+  has its knob events before tick 384 and the recording ends at 384 + 192 = 576, then the empty
+  motion follows (its header event, then the 50 C0 events): 10368 ticks. So a motion's length is
+  Loop Length x 96 + 192 + 9792, and only the loop plays; the rest is never reached.
+- The other Loop Length in the menus (Pattern REC, record 154) belongs to RPS patterns.
 
 **Motion page.** The Motion page reads a motion and shows each knob's curve.
+- **The loop:** the canvas shows the part that plays, the motion's Loop Length (read with the
+  System page) in measures, with lines at beats (24 ticks) and measures (96 ticks), and says how
+  many events lie after the loop end (they never play). **Show the whole motion** shows all of it,
+  with the part after the loop shaded.
 - **Draw:** pick a knob and draw on the canvas with the mouse. Freehand follows the stroke; Line
   draws a ramp from press to release; Erase clears a range. A stroke replaces only that knob's
-  events inside the range it covers, as one event every 12-192 ticks ("Resolution"), with repeated
-  values left out.
-- **Fill:** puts a ramp, triangle, sine, square or random steps over a chosen part of the motion.
+  events inside the range it covers, as one event every 1-48 ticks ("Resolution": 1/32, 1/16,
+  1/8, triplets...), with repeated values left out.
+- **Fill:** puts a ramp, triangle, sine, square or random steps over a chosen part of the loop (or
+  of the whole motion).
 - **Edit:** add, change or delete single events, or erase a whole knob.
-- **New empty motion:** starts a motion without reading one from the unit.
+- **New empty motion:** starts a motion without reading one from the unit, as long as the unit
+  makes one for the motion's Loop Length (Loop Length x 96 + 192 + 9792 ticks; 10368 at 4, and for
+  PLAY ONCE or when the System page has not been read).
 - **Send** rebuilds the motion in the unit's own layout (header, knob events, C0h empty events for
   gaps). Motions can also be saved to and loaded from .syx files.
 
@@ -322,7 +344,7 @@ Patterns move only to and from a memory card.
 - The preset bank layout (see Presets), checked with bank select and program change.
 - The motion data reads. A drawn motion (a sine on FLT CUTOFF FREQ and a ramp on FLT RESONANCE,
   310 events) was stored exactly on A[2], then the original was put back.
-- **Complete dump** (Librarian), run with the same requests the editor sends:
+- **Complete dump** (Branch Library), run with the same requests the editor sends:
 
   | Step | Messages | Bytes | Time |
   |---|---|---|---|
@@ -333,7 +355,7 @@ Patterns move only to and from a memory card.
   | Four motions | 42 | 9450 | |
   | **Total** | **821** | **88963** | **147 s** |
 
-  The librarian splits it into 200 items. A user patch is two address steps (00 00 02 00), so
+  The Branch Library splits it into 200 items. A user patch is two address steps (00 00 02 00), so
   "All user patches" requests 00 02 00 00 bytes: requesting 00 01 00 00 returns only A11-A88.
 
 **Restoring after a test.** The temporary performance matched stored user performance U:68, so
@@ -341,10 +363,17 @@ selecting U:68 again (bank 50h/00, program 2Fh on the Perform Ctrl channel, chan
 put everything back, including the part banks. Compare with `re/jp8080/work/cmpstored.py` before
 relying on this.
 
+**Browser check** (2026-11-25, Chrome, unit on `MIDI (OCTA-CAPTURE)`): the Patch, Performance,
+System, MIDI channels and Motion pages load without errors, the editor's patch, performance and
+system data equal a fresh read from the unit byte for byte, user patch and performance names fill
+the lists, and the Motion page reads motion A[1] and shows its loop. Found and fixed: the two
+System settings both labelled "Metronome" are the Pattern REC menu's (byte 10h, record 157) and
+the Motion REC menu's (byte 11h, record 150): they are now "Metronome (pattern recording)" and
+"Metronome (motion recording)". The unit's motion A[1] held 142 events on FLT CUTOFF FREQ and
+FLT RESONANCE spread over the whole 10368 ticks (drawn before the editor showed the loop; saved as
+`re/jp8080/live/motion_a1_drawn_2026-11-25.bin`); at the user's request the recorded original
+(`motion_a1.bin`, 176 events) was written back and read back identical (2800 bytes).
+
 ## Open items
 
-- **Browser check.** The pages, including Motion, have not been looked at in a browser with the
-  unit connected.
-- **Motion length.** The editor keeps each motion's length as read; a motion created from empty
-  uses 10368 ticks, the length of every motion on the test unit at loop length 4. How the length
-  follows the loop length setting is not traced.
+None for the JP-8080. (JP-8000: system 12h-16h and a hardware check, see its doc.)

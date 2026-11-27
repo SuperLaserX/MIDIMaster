@@ -1,4 +1,4 @@
-// Duplicate patches in the Main Library.
+// Duplicate patches in the Head Library.
 //
 //   'name'      the same name (case and spacing ignored) and kind; by default on the same device
 //   'settings'  a deep scan: the same settings whatever the name. Same device: every parameter but

@@ -1,0 +1,6 @@
+Blackbox|3.1.9|2026/07/blackbox-3.1.9.zip|
+Bluebox|1.5.2|2026/08/bluebox-1.5.2.zip|
+Lemondrop|1228|2026/01/NANOLEM1228.zip|
+Lemondrop|Nanobox Fireball 1225|2026/01/NANOFIRE1225.zip|
+Lemondrop|Nanobox Razzmatazz 1216|2026/01/NANORAZZ1216.zip|
+Lemondrop|Nanobox Tangerine 1228|2026/01/NANOTANG1228.zip|

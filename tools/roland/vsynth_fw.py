@@ -1,7 +1,12 @@
 """Build the V-Synth XT editor's firmware tables (V-Synth engine, OS v2.02) as a JS module.
 
-usage: python -I vsynth_fw.py <os image> <out .js> [<more images for value lists>]
+usage: python -I vsynth_fw.py <os image> <out .js> [<more images for value lists>] [--display <tsv>]
   VC-2: python -I vsynth_fw.py os.4.50001C.bin roland-vsynthxt-vc2-fw.js os.2.0B001C.bin
+  --display: the texts the firmware's own value display routine prints, for the parameters whose
+             spec this script cannot turn into a list (the routine computes them: reverb times, room
+             sizes, delay times with note values...). Made by tools/roland/ghidra/VsEmuFmt.java,
+             which runs that routine (VAPP1 89461A70, VAPP2 894FA070) in Ghidra's p-code emulator:
+             tools/roland/vsynth_display_vapp1.tsv and _vapp2.tsv.
   <os image>: the V-Synth application ("VAPP1"), the zlib stream at flash 0B0000 of V-SynthXT.rom
               (tools/roland/vsynth_rom.py unpacks the update file; re/vsynthxt/img/os.2.0B001C.bin),
               loaded at CPU 89300000 (SH-4, little endian).
@@ -31,6 +36,15 @@ import struct
 import sys
 
 BASE = 0x89300000
+DISPLAY = {}  # id -> [(internal value, text, text with unit)]
+if '--display' in sys.argv:
+    k = sys.argv.index('--display')
+    for line in open(sys.argv[k + 1], encoding='latin1'):
+        f = line.rstrip('\n').split('\t')
+        if len(f) >= 3 and not f[2].startswith('!'):
+            unesc = lambda s: re.sub(r'\\x([0-9a-f]{2})', lambda m: chr(int(m.group(1), 16)), s)
+            DISPLAY.setdefault(int(f[0]), []).append((int(f[1]), unesc(f[2]), unesc(f[3]) if len(f) > 3 else ''))
+    del sys.argv[k:k + 2]
 b = open(sys.argv[1], 'rb').read()
 u32 = lambda a: struct.unpack('<I', b[a - BASE:a - BASE + 4])[0]
 
@@ -282,12 +296,15 @@ def it_repr(a, z):
 
 # ------------------------------------------------------------------ the parameters
 P = []
+PACK = []  # [byte offset, width, bit position] in the internal bit-packed block (the .p00 file layout)
 for i in range(N_PATCH):
     off, wd, bp, bias, dflt, mn, mx = struct.unpack('<HBBhhhh', b[PTAB - BASE + 12 * i:PTAB - BASE + 12 * i + 12])
     name = names[i]
     if wd == 0xFC or name == '!(dummy)' or name == '_':
         P.append(None)
+        PACK.append(None)
         continue
+    PACK.append([off, {0xF8: 8, 0xF0: 16, 0xE0: 32}.get(wd, wd), bp])
     nib = {0xF8: 2, 0xF0: 4, 0xE0: 8}.get(wd, 1)
     if nib > 1:
         mn &= (1 << (4 * nib)) - 1 if mn < 0 and nib == 4 and bias == -32768 else -1
@@ -332,9 +349,74 @@ cs = names_fx.index('THRU', rv)
 FX_BLOCKS = {'mfx': [0, ch], 'chorus': [ch, rv], 'reverb': [rv, cs], 'cosm': [cs, len(FX)]}
 print('effect blocks', FX_BLOCKS)
 
+
+def from_display(pid, mn, mx):
+    """Segments from the texts the firmware's display routine printed for values mn..mx."""
+    rows = sorted(DISPLAY.get(pid, []))
+    if [v for v, _, _ in rows] != list(range(mn, mx + 1)):
+        return None
+    labels, notes = [], []
+    for _, t, _ in rows:
+        if t and ord(t[0]) in NOTE_GLYPHS:  # tempo-synced values are LCD note glyphs
+            notes.append(note_value(t.rstrip()))
+        elif notes:
+            return None
+        else:
+            labels.append(t.strip())
+    # note values as single labels: "1" and "2" (bars) must not get the unit
+    tail = [['L', x] for x in notes]
+    # the unit the routine appends (spec without a unit: delay times in ms)
+    units = {u[len(t):].strip() for _, t, u in rows if u.startswith(t)}
+    unit = units.pop().strip('[]') if len(units) == 1 else ''
+    if not notes and labels == [str(v) for v in range(mn, mx + 1)]:
+        raw.append((pid, names[pid]))  # the firmware prints the step number itself
+        return [['N', mx - mn + 1, mn, 1, 0, False, '', '', 0]], unit
+    return [['T', labels]] + tail, unit
+
+
+raw = []
+solved = set()
+for pid, why, spec in problems:
+    if pid < N_PATCH:
+        p = P[pid]
+        got = from_display(pid, p[2] - p[7], p[3] - p[7])
+        if got:
+            p[5], p[6] = got[0], p[6] or got[1]
+            solved.add(pid)
+    else:
+        e = E[pid - N_PATCH]
+        got = from_display(pid, e[3], e[4])
+        if got:
+            e[5], e[6] = got[0], e[6] or got[1]
+            solved.add(pid)
+# The routine has no case for some ids (it prints the step number), but the XT's screen shows them
+# with the list of the parameters that share their display spec (the same string in the firmware:
+# HALL2 Reverb Time uses HALL1's Low Rev Time spec and shows its list, checked on the unit). Take
+# the list of a solved parameter with the same spec pointer and the same number of values.
+spec_ptr = lambda pid: u32(SPEC + 4 * pid) if pid < N_PATCH else u32(ESPEC + 4 * (pid - N_PATCH))
+entry = lambda pid: P[pid] if pid < N_PATCH else E[pid - N_PATCH]
+raw_ids = {pid for pid, _ in raw}
+borrowed = []
+for pid, name in list(raw):
+    e = entry(pid)
+    rng = (e[2] - e[7], e[3] - e[7]) if pid < N_PATCH else (e[3], e[4])
+    for other in sorted(solved - raw_ids):
+        o = entry(other)
+        orng = (o[2] - o[7], o[3] - o[7]) if other < N_PATCH else (o[3], o[4])
+        if spec_ptr(other) == spec_ptr(pid) and orng[1] - orng[0] == rng[1] - rng[0]:
+            e[5] = json.loads(json.dumps(o[5]))
+            borrowed.append(f'{pid} {name} <- {other} {names[other]}')
+            raw.remove((pid, name))
+            break
+if solved:
+    print(f'{len(solved)} value lists taken from the display routine ({len(raw)} of them print the plain step number):',
+          ', '.join(f'{pid} {n}' for pid, n in raw))
+    if borrowed:
+        print('  lists of the same display spec:', '; '.join(borrowed))
+problems = [p for p in problems if p[0] not in solved]
 if problems:
     print(f'{len(problems)} display specs need attention:')
-    for p in problems[:60]:
+    for p in problems:
         print('  ', p[0], names[p[0]], '|', p[1], '|', repr(p[2]))
 
 js = [
@@ -349,6 +431,9 @@ js = [
     f'export const FX = {json.dumps(FX, separators=(",", ":"))};',
     f'export const FX_BLOCKS = {json.dumps(FX_BLOCKS)};',
     f'export const MUSICAL = {json.dumps(MUSICAL)};',
+    '// PACK[id]: [byte offset, bits, bit position from the MSB] of the value in its block of the',
+    '// firmware\'s bit-packed patch, the layout of the .p00 files on the XT\'s disk (null = no value).',
+    f'export const PACK = {json.dumps(PACK, separators=(",", ":"))};',
 ]
 open(sys.argv[2], 'w', encoding='utf-8').write('\n'.join(js) + '\n')
 print('written', sys.argv[2], len([p for p in P if p]), 'parameters,', len([e for e in E if e]), 'effect parameters,', len(FX), 'effect types; notes', MUSICAL)

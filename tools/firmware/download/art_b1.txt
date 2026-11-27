@@ -1,0 +1,13 @@
+AstroLab|2.0.0 (37)|astrolab-37/firmware/AstroLab37__2_0_0.astro37|
+AstroLab|2.0.0 (61)|astrolab-61/firmware/AstroLab61__2_0_0.astro|
+BeatStep|1.2.0.3|beatstep/firmware/BeatStep_Firmware_Update_1_2_0_3.led|
+BeatStep Pro|2.0.1.6|beatstep-pro/firmware/BeatStepPro_Firmware_Update_2_0_1_6.led|
+DrumBrute|1.2.1.0|drumbrute/firmware/DrumBrute_Firmware_Update_1_2_1_0.led|
+KeyStep|1.0.28|keystep/firmware/keystep_Firmware_Update__1_0_28.led|
+KeyStep Pro|2.5.20|keystep-pro/firmware/KeystepPro_Firmware_Update_2_5_20.kspf|
+MatrixBrute|2.0.3|matrixbrute/firmware/MatrixBrute_Firmware_Update_2_0_3_1411.mbf|
+MicroBrute|1.0.4|microbrute/firmware/MicroBrute_Firmware_Update_1_0_4_114.mbf|
+MiniBrute 2|1.0.18|minibrute-2/firmware/minibrute2_Firmware_Update_1_0_18_73.led|
+MiniFreak|5.0.1|minifreak/firmware/minifreak__5_0_1.mnf|
+PolyBrute|3.1.1|polybrute/firmware/polybrute__3_1_1_1875.pbf|
+MicroFreak|5.0.0|microfreak/firmware/MicroFreak_Firmware_Update_5_0_0_2084.mff|

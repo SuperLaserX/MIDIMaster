@@ -11,7 +11,9 @@ import { envelopeEditor } from '../envelope.js';
 import { Program, TAG, segmentLength, segmentName } from '../model/program.js';
 import {
   ProgramMap, pageEntries, paramValues, paramRange, algorithmSelectors, algorithmParam, ALGORITHMS,
+  blocksForAlgorithm, DSP_FUNCTIONS,
 } from '../model/fwmodel.js';
+import { algorithmDiagram, describeAlgorithm } from '../model/algorithms.js';
 import { fwCard, fwControl } from './fwpage.js';
 import { T } from '../model/types.js';
 import { fmt, noteName } from '../model/tables.js';
@@ -384,7 +386,15 @@ export function programView(root, app, params = {}) {
       const ctl = fwControl({
         p: algP, name: 'Algorithm', value: alg,
         names: () => null,
-        onChange: (v) => { commit([map.write(algP, L, null, v)], ctl); redraw(); },
+        // the new algorithm's blocks get functions it takes (kept where possible), so its pages appear
+        onChange: (v) => {
+          const patches = [map.write(algP, L, null, v)];
+          const changed = blocksForAlgorithm(map, L, v);
+          for (const c of changed) patches.push(map.write(c.p, L, c.block, c.value));
+          commit(patches, ctl);
+          if (changed.length) toast(`Algorithm ${v}: ${changed.map((c) => `F${c.block} set to ${DSP_FUNCTIONS[c.value]?.name || c.value}`).join(', ')}`, 'info', 4000);
+          redraw();
+        },
       });
       algControls.push(ctl);
     }
@@ -397,8 +407,11 @@ export function programView(root, app, params = {}) {
       });
       algControls.push(ctl);
     }
-    cards.push(h('div.card.fw-card',
+    const blocks = map.dspBlocks(L).filter((b) => b.block === b.start).map((b) => ({ block: b.block, name: b.name }));
+    cards.push(h('div.card.fw-card.wide',
       h('div.card-head', h('h2', 'Algorithm'), h('span.tag', ALGORITHMS[alg] ? `${alg}: ${ALGORITHMS[alg]}` : `${alg}`)),
+      algorithmDiagram(alg, blocks),
+      h('p.small.muted', describeAlgorithm(alg, Object.fromEntries(blocks.map((b) => [b.block, b.name])))),
       h('div.params', algControls)));
     // One card per DSP block, with the page the K2000 shows for its function.
     for (const b of map.dspBlocks(L)) {

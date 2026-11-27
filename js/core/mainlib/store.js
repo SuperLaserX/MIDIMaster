@@ -1,4 +1,4 @@
-// Main Library storage. The library's home is a folder the user picks (File System Access API);
+// Head Library storage. The library's home is a folder the user picks (File System Access API);
 // a key-value cache (IndexedDB) mirrors its JSON so it opens before folder access is confirmed,
 // and holds every write made while the folder is not reachable ("pending"), which is written to
 // the folder once access is back. Before a folder is chosen everything lives in the cache.
@@ -155,7 +155,7 @@ export class MainLibrary {
     this.kv = kv;
     this.pickFolder = pickFolder;
     this.wrap = wrap;
-    this.root = null; // folder backend of the Main Library folder
+    this.root = null; // folder backend of the Head Library folder
     this.state = 'none'; // 'none' (no folder yet) | 'connected' | 'disconnected' (permission needed)
     this.manifest = { format: MAIN_FORMAT, version: VERSION, sublibraries: [] };
     this.externals = new Map(); // sub id -> folder backend
@@ -184,7 +184,7 @@ export class MainLibrary {
   get folderName() { return this.root?.handle?.name || (this.root ? 'folder' : ''); }
 
   /**
-   * Choose the Main Library folder.
+   * Choose the Head Library folder.
    *   'merge' (the first choice): everything made before is written into it, next to any library
    *           already there.
    *   'copy'  (change the location): every sub-library in the current folder is copied to the new
@@ -319,7 +319,7 @@ export class MainLibrary {
     return sub.id;
   }
 
-  /** Remove a sub-library from the Main Library. Its files stay where they are. */
+  /** Remove a sub-library from the Head Library. Its files stay where they are. */
   async unregister(id) {
     this.manifest.sublibraries = this.manifest.sublibraries.filter((s) => s.id !== id);
     for (const k of await this.kv.keys(`f:${id}/`)) await this.kv.delete(k);
@@ -406,7 +406,7 @@ export class MainLibrary {
     }
     const rows = new Map(sub.patches.map((r) => [r.id, r]));
     for (const p of patches) {
-      if (!isPatch(p)) throw new Error(`Not a Main Library patch: ${p?.name ?? p}`);
+      if (!isPatch(p)) throw new Error(`Not a Head Library patch: ${p?.name ?? p}`);
       await f.writeText(`patches/${p.id}.json`, JSON.stringify(p, null, 1));
       rows.set(p.id, indexRow(p));
       onProgress?.(++done, total);

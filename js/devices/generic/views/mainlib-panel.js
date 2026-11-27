@@ -1,7 +1,7 @@
-// The Main Library panel of a device's Librarian: browse the registered sub-libraries, load a
+// The Head Library panel of a device's Branch Library: browse the registered sub-libraries, load a
 // patch into this device's editor (exactly for the same model, translated for another model of a
 // family with a translator), store it into a memory slot, send stored SysEx, and add the editor's
-// data or a recorded dump to the Main Library.
+// data or a recorded dump to the Head Library.
 
 import { h, clear, toast, dialog } from '../../../core/ui/dom.js';
 import { splitSysex } from '../../../core/midi/describe.js';
@@ -10,18 +10,19 @@ import { CATEGORY_LABEL } from '../../../core/mainlib/categories.js';
 import { patchFromObject, objectFromPatch, dataPatch, dataMessages } from '../../patches.js';
 import { asList } from '../objects.js';
 import { translationView, filterRows, filterBar, chooseSub, folderStatus, kindLabel, settingsView } from '../../../core/ui/mainlib.js';
+import { fitFor, sendToDevice } from '../sendto.js';
 
 const PAGE = 200;
 
 /**
- * g: the device module; sendMessages(title, msgs): the Librarian's sender (progress, pacing).
+ * g: the device module; sendMessages(title, msgs): the Branch Library's sender (progress, pacing).
  * Returns {el, addMessages(name, msgs), destroy()}.
  */
 export function mainLibraryPanel(g, { sendMessages }) {
   const el = h('div.card.col.ml-panel');
-  const st = { lib: null, rows: [], f: { q: '', sub: '', device: '', type: '', category: '', kind: '' }, onlyLoadable: true, limit: PAGE, open: null, destroyed: false };
+  const st = { lib: null, rows: [], f: { q: '', sub: '', device: '', type: '', category: '', kind: '' }, onlyLoadable: true, limit: PAGE, open: null, destroyed: false, checked: new Set() };
+  const keyOf = (r) => `${r.sub}/${r.id}`;
   const def = g.def;
-  const same = (id) => id === g.entry.id || (def?.deviceIds || []).includes(id);
   let off = null;
   const guard = (fn, context) => async (...a) => { try { await fn(...a); } catch (err) { g.error(err, context); } };
 
@@ -31,7 +32,7 @@ export function mainLibraryPanel(g, { sendMessages }) {
     st.lib = lib;
     off = lib.on(() => refresh());
     refresh();
-  }).catch((err) => { clear(el).append(h('h2', 'Main Library'), h('div.notice.bad', `The Main Library could not be opened: ${err.message}`)); });
+  }).catch((err) => { clear(el).append(h('h2', 'Head Library'), h('div.notice.bad', `The Head Library could not be opened: ${err.message}`)); });
 
   async function refresh() {
     st.rows = await st.lib.allRows();
@@ -39,15 +40,7 @@ export function mainLibraryPanel(g, { sendMessages }) {
   }
 
   /** How row `r` fits this device: {obj, mode: 'native'|'translate'} | {mode: 'data'} | null. */
-  function fit(r) {
-    if (r.kind === 'data') return same(r.device) ? { mode: 'data' } : null;
-    for (const obj of def?.objects || []) {
-      if (!(obj.patchKinds || [obj.key]).includes(r.kind)) continue;
-      if (same(r.device) && r.native !== false) return { obj, mode: 'native' };
-      if (r.hasCommon && obj.fromCommon) return { obj, mode: 'translate' };
-    }
-    return null;
-  }
+  const fit = (r) => fitFor(g, r);
 
   function render() {
     const lib = st.lib;
@@ -57,17 +50,28 @@ export function mainLibraryPanel(g, { sendMessages }) {
     const page = shown.slice(0, st.limit);
     const subName = new Map(subs.map((s) => [s.id, s.name]));
     const only = h('label.row.small', h('input', { type: 'checkbox', checked: st.onlyLoadable, onchange: (e) => { st.onlyLoadable = e.target.checked; st.limit = PAGE; render(); } }), `Only what the ${g.entry.model} can load`);
+    const checkedShown = shown.filter((r) => st.checked.has(keyOf(r)));
+    const all = h('input', {
+      type: 'checkbox', title: 'Select all shown (a whole sub-library or the search results)', checked: !!shown.length && shown.every((r) => st.checked.has(keyOf(r))),
+      onchange: () => { for (const r of shown) { if (all.checked) st.checked.add(keyOf(r)); else st.checked.delete(keyOf(r)); } render(); },
+    });
+    const bulk = checkedShown.length ? h('div.row.ml-bulk',
+      h('b', `${checkedShown.length} selected`),
+      h('button.btn.small.primary', { title: `Store them into ${g.entry.model} memory slots one after another (or load one into the editor)`, onclick: guard(() => sendToDevice(g, lib, checkedShown), 'Send') }, `Send to the ${g.entry.model}...`),
+      h('button.btn.small', { onclick: () => { st.checked.clear(); render(); } }, 'Clear selection')) : null;
     clear(el).append(
-      h('div.card-head.row', h('h2.grow', 'Main Library'),
-        h('button.btn.small', { title: `Save what the editor pages hold (read from the ${g.entry.model} or loaded) as Main Library patches`, onclick: guard(addEditorData, 'Add to Main Library') }, 'Add editor data...'),
-        h('a.btn.small', { href: '#/library', title: 'Import files, manage sub-libraries and the library folder' }, 'Open Main Library')),
+      h('div.card-head.row', h('h2.grow', 'Head Library'),
+        h('button.btn.small', { title: `Save what the editor pages hold (read from the ${g.entry.model} or loaded) as Head Library patches`, onclick: guard(addEditorData, 'Add to Head Library') }, 'Add editor data...'),
+        h('a.btn.small', { href: '#/library', title: 'Import files, manage sub-libraries and the library folder' }, 'Open Head Library')),
       folderStatus(lib, 0),
-      subs.length ? null : h('div.small.muted', 'No sub-libraries yet. Import files on the Main Library page, or add this device\'s data with "Add editor data" or a dump\'s "Add to Main Library".'),
+      subs.length ? null : h('div.small.muted', 'No sub-libraries yet. Import files on the Head Library page, or add this device\'s data with "Add editor data" or a dump\'s "Add to Head Library".'),
       subs.length ? h('div.row', only) : null,
       subs.length ? filterBar(base, st.f, () => { st.limit = PAGE; render(); }, { subs }) : null,
+      subs.length ? h('div.small.muted', `Tick patches (or all shown: a sub-library or search results) and Send to store them on the ${g.entry.model}; patches of other models are translated.`) : null,
+      bulk,
       subs.length ? (page.length ? h('div.table-wrap.ml-table', h('table.list',
-        h('thead', h('tr', h('th', 'Name'), h('th', 'Category'), h('th', 'From'), h('th', 'Kind'), h('th', 'Loads as'), h('th', ''))),
-        h('tbody', page.map((r) => row(r, subName))))) : h('div.empty', st.rows.length ? 'Nothing matches.' : 'The Main Library is empty.')) : null,
+        h('thead', h('tr', h('th', all), h('th', 'Name'), h('th', 'Category'), h('th', 'From'), h('th', 'Kind'), h('th', 'Loads as'), h('th', ''))),
+        h('tbody', page.map((r) => row(r, subName))))) : h('div.empty', st.rows.length ? 'Nothing matches.' : 'The Head Library is empty.')) : null,
       shown.length > page.length ? h('button.btn.small', { onclick: () => { st.limit += PAGE * 3; render(); } }, `Show more (${shown.length - page.length} not shown)`) : null,
       st.open ? detail() : null);
   }
@@ -79,7 +83,9 @@ export function mainLibraryPanel(g, { sendMessages }) {
         : m.mode === 'translate' ? h('span.badge.ram', { title: `From the ${r.model} through the shared synth model` }, `${m.obj.label}, translated`)
           : h('span.badge', 'SysEx');
     const canStore = m?.obj?.slots?.store;
+    const box = h('input', { type: 'checkbox', checked: st.checked.has(keyOf(r)), disabled: !m?.obj, onclick: (ev) => ev.stopPropagation(), onchange: () => { if (box.checked) st.checked.add(keyOf(r)); else st.checked.delete(keyOf(r)); render(); } });
     return h('tr' + (st.open?.row.id === r.id && st.open?.row.sub === r.sub ? '.sel' : ''), { onclick: guard(() => openRow(r), 'Open') },
+      h('td', box),
       h('td', r.name, h('div.small.muted', subName.get(r.sub) || '')),
       h('td.small', CATEGORY_LABEL[r.category] || r.category),
       h('td.small', r.model),
@@ -96,7 +102,7 @@ export function mainLibraryPanel(g, { sendMessages }) {
     return h('div.card.col',
       h('div.card-head.row', h('h2.grow', patch.name, h('span.small.muted', `  ${patch.device.model}, ${kindLabel(patch.kind)}`)), h('button.btn.small', { onclick: () => { st.open = null; render(); } }, 'Close')),
       settingsView(patch, { open: 2 }),
-      r.samples ? h('div.small.muted', `${r.samples} sample(s): play them on the Main Library page.`) : null);
+      r.samples ? h('div.small.muted', `${r.samples} sample(s): play them on the Head Library page.`) : null);
   }
 
   async function openRow(r) {
@@ -175,8 +181,8 @@ export function mainLibraryPanel(g, { sendMessages }) {
     const objs = (def?.objects || []).filter((o) => g.loadedKeys.has(o.key) && g.objectData[o.key] && o.params?.length);
     if (!objs.length) { toast(`Nothing is in the editor yet: read the ${g.entry.model} on the Connect page, or open a patch.`, 'warn'); return; }
     const boxes = objs.map((o) => h('input', { type: 'checkbox', checked: true }));
-    const r = await dialog('Add editor data to the Main Library', h('div.col',
-      h('p.small.muted', 'Each chosen object becomes one Main Library patch with all its settings.'),
+    const r = await dialog('Add editor data to the Head Library', h('div.col',
+      h('p.small.muted', 'Each chosen object becomes one Head Library patch with all its settings.'),
       objs.map((o, i) => h('label.row', boxes[i], `${o.label}${o.name ? `: ${o.name(g.objectData[o.key])}` : ''}`))), [
       { label: 'Cancel', value: false }, { label: 'Next', value: true, primary: true }]);
     if (!r) return;
@@ -186,9 +192,9 @@ export function mainLibraryPanel(g, { sendMessages }) {
     await addTo(patches, [], `${g.entry.model} sounds`);
   }
 
-  /** Add SysEx messages (a recorded dump or part of one) to the Main Library. */
+  /** Add SysEx messages (a recorded dump or part of one) to the Head Library. */
   async function addMessages(name, msgs) {
-    if (!st.lib) { toast('The Main Library is still opening.', 'warn'); return; }
+    if (!st.lib) { toast('The Head Library is still opening.', 'warn'); return; }
     let patches;
     // the dump came from this device: its unreadable SysEx stays its data, its sub-library is a device one
     if (def?.recognise) patches = (await importSysex(msgs, { file: name, hint: g.entry.id, device: g.entry.id })).patches;
@@ -201,11 +207,11 @@ export function mainLibraryPanel(g, { sendMessages }) {
     const counts = {};
     for (const p of patches) counts[p.kind] = (counts[p.kind] || 0) + 1;
     const what = Object.entries(counts).map(([k, n]) => `${n} ${kindLabel(k).toLowerCase()}${n === 1 ? '' : 's'}`).join(', ');
-    const sub = await chooseSub(st.lib, 'Add to the Main Library', { name, okLabel: 'Add', note: `${what}.`, device: g.entry });
+    const sub = await chooseSub(st.lib, 'Add to the Head Library', { name, okLabel: 'Add', note: `${what}.`, device: g.entry });
     if (!sub) return;
     await st.lib.addPatches(sub, patches, samples);
     toast(`Added ${what} to "${st.lib.subs().find((s) => s.id === sub)?.name}".`, 'good');
   }
 
-  return { el, addMessages: guard(addMessages, 'Add to Main Library'), destroy() { st.destroyed = true; off?.(); } };
+  return { el, addMessages: guard(addMessages, 'Add to Head Library'), destroy() { st.destroyed = true; off?.(); } };
 }

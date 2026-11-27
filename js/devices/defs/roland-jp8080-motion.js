@@ -6,12 +6,14 @@ import { h, svg, clear, toast, confirmDialog, downloadBlob, pickFiles, splitSyse
 import { sendOut } from '../generic/objects.js';
 import { parseDt1, addrToInt } from '../../core/midi/roland.js';
 import { sysexMessages } from '../../core/midi/smf.js';
-import { MODEL, A, MOTION_TICKS, motionTimeline, buildMotion, pack7, readMotion, motionMessages, motionAddr } from './roland-jp.js';
+import { readParam } from '../../core/model/memmap.js';
+import { MODEL, A, MOTION_TICKS, MOTION_TICKS_PER_MEASURE, motionLoopTicks, motionLength, motionTimeline, buildMotion, pack7, readMotion, motionMessages, motionAddr } from './roland-jp.js';
 
 const NAMES = ['A[1]', 'A[2]', 'B[1]', 'B[2]'];
 const state = {
   m: 0, motions: [null, null, null, null], slot: null, // motions[m] = {total, points, dirty}
-  draw: { slot: 16, tool: 'free', step: 48, shape: 'sine', cycles: 4, lo: 0, hi: 127, from: 0, to: 100 },
+  whole: false, // show the whole motion instead of the part that plays (the loop)
+  draw: { slot: 16, tool: 'free', step: 6, shape: 'sine', cycles: 4, lo: 0, hi: 127, from: 0, to: 100 },
 };
 let MOTION_SLOTS = [];
 const slotName = (s) => MOTION_SLOTS[s]?.[1] ?? `Slot ${s}`;
@@ -19,7 +21,8 @@ const pct = (t, total) => `${((100 * t) / total).toFixed(1)}%`;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // Drawing: a stroke becomes events every `step` ticks between its ends, dropping repeats.
-const STEPS = [[12, '12 ticks (fine)'], [24, '24 ticks'], [48, '48 ticks'], [96, '96 ticks'], [192, '192 ticks (coarse)']];
+// MIDI clocks: 96 ticks a measure, 24 a beat.
+const STEPS = [[1, '1 tick (fine)'], [3, '3 ticks (1/32)'], [4, '4 ticks (1/16 triplet)'], [6, '6 ticks (1/16)'], [8, '8 ticks (1/8 triplet)'], [12, '12 ticks (1/8)'], [24, '24 ticks (1/4)'], [48, '48 ticks (1/2, coarse)']];
 const SHAPES = [['up', 'Ramp up'], ['down', 'Ramp down'], ['tri', 'Triangle'], ['sine', 'Sine'], ['square', 'Square'], ['random', 'Random steps']];
 
 /** Events for one knob from a value function v(tick), every `step` ticks in [t0, t1]; consecutive repeats dropped. */
@@ -83,6 +86,20 @@ export function shapeFunction(shape, t0, t1, cycles, lo, hi, seed = 1) {
 export function motionView(root, g) {
   MOTION_SLOTS = g.def.motionSlots;
   const cur = () => state.motions[state.m];
+  /** Motion m's Loop Length on the unit (System page data: 0 PLAY ONCE, 1-8), or null when not read. */
+  const loopOf = (m) => {
+    const so = g.def.objects.find((o) => o.key === 'system');
+    const p = so?.params.find((x) => x.label === `Motion ${NAMES[m]} loop length`);
+    const d = g.objectData?.system;
+    return p && d && g.loadedKeys?.has('system') ? readParam(d, p) : null;
+  };
+  /** The part of the motion shown and drawn: the loop (what plays), or the whole motion. */
+  const viewOf = (mo) => {
+    const loop = loopOf(state.m);
+    const lt = motionLoopTicks(loop);
+    if (state.whole || !lt || lt > mo.total) return { span: mo.total, loop, lt, whole: true };
+    return { span: lt, loop, lt, whole: false };
+  };
 
   async function read(m = state.m) {
     g.setBusy?.(1, `Reading motion ${NAMES[m]}`);
@@ -176,17 +193,28 @@ export function motionView(root, g) {
   function drawCard(mo) {
     const D = state.draw;
     const W = 960; const H = 256;
-    const X = (t) => (t / mo.total) * W;
+    const V = viewOf(mo);
+    const span = V.span;
+    const X = (t) => (t / span) * W;
     const Y = (v) => H - (v / 127) * H;
-    const polyFor = (slot) => mo.points.filter((p) => p.slot === slot).map((p) => `${X(p.tick).toFixed(1)},${Y(p.value).toFixed(1)}`).join(' ');
+    const shown = (p) => p.tick < span;
+    const polyFor = (slot) => mo.points.filter((p) => p.slot === slot && shown(p)).map((p) => `${X(p.tick).toFixed(1)},${Y(p.value).toFixed(1)}`).join(' ');
     const grid = [];
-    for (let i = 1; i < 16; i++) grid.push(svg('line', { x1: (i * W) / 16, x2: (i * W) / 16, y1: 0, y2: H, class: i % 4 ? 'grid-minor' : 'grid-major' }));
+    if (!V.whole) {
+      // beats and measures of the loop
+      const beat = MOTION_TICKS_PER_MEASURE / 4;
+      for (let t = beat; t < span; t += beat) grid.push(svg('line', { x1: X(t), x2: X(t), y1: 0, y2: H, class: t % MOTION_TICKS_PER_MEASURE ? 'grid-minor' : 'grid-major' }));
+    } else {
+      for (let i = 1; i < 16; i++) grid.push(svg('line', { x1: (i * W) / 16, x2: (i * W) / 16, y1: 0, y2: H, class: i % 4 ? 'grid-minor' : 'grid-major' }));
+      // where the loop ends: the rest of the motion does not play
+      if (V.lt && V.lt < span) grid.push(svg('rect', { x: X(V.lt), y: 0, width: W - X(V.lt), height: H, class: 'curve-band' }));
+    }
     for (const v of [32, 64, 96]) grid.push(svg('line', { x1: 0, x2: W, y1: Y(v), y2: Y(v), class: v === 64 ? 'grid-major' : 'grid-minor' }));
     const others = [...new Set(mo.points.map((p) => p.slot))].filter((s) => s !== D.slot)
       .map((s) => svg('polyline', { points: polyFor(s), class: 'curve-other' }));
     const mine = svg('polyline', { points: polyFor(D.slot), class: 'curve-mine' });
-    const dots = mo.points.filter((p) => p.slot === D.slot).length <= 400
-      ? mo.points.filter((p) => p.slot === D.slot).map((p) => svg('circle', { cx: X(p.tick), cy: Y(p.value), r: 2.5, class: 'curve-dot' })) : [];
+    const mineShown = mo.points.filter((p) => p.slot === D.slot && shown(p));
+    const dots = mineShown.length <= 400 ? mineShown.map((p) => svg('circle', { cx: X(p.tick), cy: Y(p.value), r: 2.5, class: 'curve-dot' })) : [];
     const live = svg('polyline', { points: '', class: 'curve-live' });
     const band = svg('rect', { x: 0, y: 0, width: 0, height: H, class: 'curve-band' });
     const readout = h('span.small.mono.muted', 'Drag on the canvas to draw.');
@@ -196,7 +224,7 @@ export function motionView(root, g) {
     const at = (e) => {
       const r = canvas.getBoundingClientRect();
       return {
-        tick: clamp(Math.round(((e.clientX - r.left) / r.width) * mo.total), 0, mo.total - 1),
+        tick: clamp(Math.round(((e.clientX - r.left) / r.width) * span), 0, span - 1),
         value: clamp(Math.round((1 - (e.clientY - r.top) / r.height) * 127), 0, 127),
       };
     };
@@ -209,7 +237,9 @@ export function motionView(root, g) {
     });
     const move = (e) => {
       const p = at(e);
-      readout.textContent = `tick ${p.tick} (${pct(p.tick, mo.total)}), value ${p.value}`;
+      readout.textContent = V.whole
+        ? `tick ${p.tick} (${pct(p.tick, mo.total)}), value ${p.value}`
+        : `tick ${p.tick} (measure ${Math.floor(p.tick / MOTION_TICKS_PER_MEASURE) + 1}, beat ${Math.floor((p.tick % MOTION_TICKS_PER_MEASURE) / (MOTION_TICKS_PER_MEASURE / 4)) + 1}), value ${p.value}`;
       if (!stroke) return;
       if (D.tool === 'line') stroke = [stroke[0], p]; else stroke.push(p);
       if (D.tool === 'erase') {
@@ -240,20 +270,28 @@ export function motionView(root, g) {
     const num = (key, min, max, w = '5em') => h('input', { type: 'number', min, max, value: D[key], style: `width:${w}`, onchange: (e) => { D[key] = clamp(Number(e.target.value) || 0, min, max); } });
     const tools = [['free', 'Freehand'], ['line', 'Line'], ['erase', 'Erase']].map(([v, l]) => h('button.btn.small' + (D.tool === v ? '.primary' : ''), { onclick: () => { D.tool = v; render(); } }, l));
     const fill = () => {
-      const t0 = Math.round((D.from / 100) * (mo.total - 1)); const t1 = Math.round((D.to / 100) * (mo.total - 1));
+      const t0 = Math.round((D.from / 100) * (span - 1)); const t1 = Math.round((D.to / 100) * (span - 1));
       if (t1 <= t0) { toast('The end must be after the start.', 'warn'); return; }
       const f = shapeFunction(D.shape, t0, t1, Math.max(1, D.cycles), Math.min(D.lo, D.hi), Math.max(D.lo, D.hi), Date.now() % 100000);
       change((x) => { x.points = replaceRange(x.points, D.slot, t0, t1, sampleCurve(D.slot, t0, t1, D.step, f)); });
     };
     const count = mo.points.filter((p) => p.slot === D.slot).length;
+    const after = V.lt ? mo.points.filter((p) => p.tick >= V.lt).length : 0;
+    const loopText = V.loop === null ? 'Loop length not read (open the System page to read it)'
+      : V.loop === 0 ? 'Loop length PLAY ONCE: the motion plays once'
+        : `Loop length ${V.loop}: the first ${V.lt} ticks (${V.loop} measure${V.loop > 1 ? 's' : ''}) play, then repeat`;
+    const viewBtn = V.lt && V.lt <= mo.total
+      ? h('button.btn.small', { onclick: () => { state.whole = !state.whole; render(); } }, state.whole ? 'Show the loop' : 'Show the whole motion')
+      : null;
     return h('div.card',
       h('div.card-head', h('h2', 'Draw'),
         h('span.small.muted', `${slotName(D.slot)}: ${count} event${count === 1 ? '' : 's'}`)),
+      h('div.row', h('span.small.grow', `${loopText}.${after ? ` ${after} event${after > 1 ? 's' : ''} after the loop end do not play.` : ''}`), viewBtn),
       h('div.row', 'Knob ', sel('slot', MOTION_SLOTS, render), ...tools, ' Resolution ', sel('step', STEPS), readout),
       canvas,
-      h('p.small.muted', 'Freehand draws what you drag; Line draws a straight ramp from where you press to where you release; Erase removes this knob\'s events across the range you drag. Each stroke replaces only this knob\'s events inside the range it covers, as one event every "Resolution" ticks (repeated values are left out). Vertical lines divide the motion into 16ths; horizontal lines mark values 32, 64 and 96. The other knobs are shown faintly.'),
+      h('p.small.muted', `Freehand draws what you drag; Line draws a straight ramp from where you press to where you release; Erase removes this knob's events across the range you drag. Each stroke replaces only this knob's events inside the range it covers, as one event every "Resolution" ticks (repeated values are left out). ${V.whole ? 'Vertical lines divide the motion into 16ths; the shaded part is after the loop end.' : 'Vertical lines mark beats (24 ticks) and measures (96 ticks).'} Horizontal lines mark values 32, 64 and 96. The other knobs are shown faintly.`),
       h('div.row', 'Fill with ', sel('shape', SHAPES), ' cycles ', num('cycles', 1, 64), ' from value ', num('lo', 0, 127), ' to ', num('hi', 0, 127),
-        ' over ', num('from', 0, 99), '% to ', num('to', 1, 100), '% of the motion ',
+        ' over ', num('from', 0, 99), '% to ', num('to', 1, 100), `% of the ${V.whole ? 'motion' : 'loop'} `,
         h('button.btn', { onclick: fill, title: 'Replace this knob\'s events in that range with the shape' }, 'Fill')));
   }
 
@@ -278,10 +316,11 @@ export function motionView(root, g) {
         h('button.btn', { onclick: save }, 'Save .syx'),
         h('button.btn', { onclick: load }, 'Load .syx'),
         mo ? h('button.btn', { onclick: () => change((x) => { x.points = []; }) }, 'Clear') : null),
-      h('p.small.muted', 'A motion records knob moves against time: each event sets one knob (one of the 40 Tx/Rx knob slots) to a value at a tick. The length is fixed by the recording (10368 ticks for a 4-measure loop on the unit this was built with). Motion Set and the loop length of each motion are on the System page. RPS patterns cannot be transferred by MIDI: the unit keeps them on its own memory card only.'));
+      h('p.small.muted', `A motion records knob moves against time: each event sets one knob (one of the 40 Tx/Rx knob slots) to a value at a tick (MIDI clocks: 96 to a measure). A recording covers the motion's loop length (System page, Motion control) and plays in a loop; the unit keeps a ${MOTION_TICKS - 4 * MOTION_TICKS_PER_MEASURE}-tick empty tail after it that never plays (every motion is ${MOTION_TICKS} ticks at loop length 4). Motion Set is on the System page too. RPS patterns cannot be transferred by MIDI: the unit keeps them on its own memory card only.`));
     if (!mo) {
-      root.append(h('div.row', h('p.grow', 'Read the motion from the unit, load a .syx, or start an empty motion and draw it.'),
-        h('button.btn', { onclick: () => { state.motions[state.m] = { total: MOTION_TICKS, points: [], dirty: true }; render(); } }, 'New empty motion')));
+      const loop = loopOf(state.m);
+      root.append(h('div.row', h('p.grow', `Read the motion from the unit, load a .syx, or start an empty motion and draw it. A new motion is as long as the unit makes one for its loop length (${loop === null ? 'not read yet: 4 measures, the factory setting' : loop === 0 ? 'PLAY ONCE: 4 measures' : `${loop} measure${loop > 1 ? 's' : ''}`}, ${motionLength(loop ?? 4)} ticks).`),
+        h('button.btn', { onclick: () => { state.motions[state.m] = { total: motionLength(loopOf(state.m) ?? 4), points: [], dirty: true }; render(); } }, 'New empty motion')));
       return;
     }
     root.append(

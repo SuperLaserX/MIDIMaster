@@ -1,4 +1,4 @@
-// The Main Library page and the Librarian's Main Library panel, rendered on a fake DOM.
+// The Head Library page and the Branch Library's Head Library panel, rendered on a fake DOM.
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,7 +29,7 @@ async function setup() {
   return { lib, sub, jp80, jp00, e80, e00, p80, p00, data };
 }
 
-test('Main Library page: lists, opens, edits and deletes patches', async () => {
+test('Head Library page: lists, opens, edits and deletes patches', async () => {
   const { lib, sub, p80, p00 } = await setup();
   const { mainLibraryView } = await import('../js/shell/mainlibrary.js');
   const errors = [];
@@ -99,7 +99,7 @@ test('Main Library page: lists, opens, edits and deletes patches', async () => {
   view.destroy();
 });
 
-test('Librarian Main Library panel: badges, translated load, add a dump', async () => {
+test('Branch Library Head Library panel: badges, translated load, add a dump', async () => {
   const { lib, sub, jp00, e00, p80 } = await setup();
   const { mainLibraryPanel } = await import('../js/devices/generic/views/mainlib-panel.js');
   const set = [];
@@ -161,7 +161,7 @@ test('Librarian Main Library panel: badges, translated load, add a dump', async 
 
 const button = (root, label) => root.findAll((e) => e.tagName === 'BUTTON' && e.textContent === label)[0] || null;
 
-test('Main Library page: merge sub-libraries, then find and delete duplicates', async () => {
+test('Head Library page: merge sub-libraries, then find and delete duplicates', async () => {
   const { lib, sub, jp80, e80, p80 } = await setup();
   const { mainLibraryView } = await import('../js/shell/mainlibrary.js');
   const o80 = jp80.objects.find((o) => o.key === 'patch');
@@ -207,7 +207,7 @@ test('Main Library page: merge sub-libraries, then find and delete duplicates', 
   view.destroy();
 });
 
-test('Librarian panel: a new sub-library made from a device is that device\'s', async () => {
+test('Branch Library panel: a new sub-library made from a device is that device\'s', async () => {
   const { lib, jp00, e00 } = await setup();
   const { mainLibraryPanel } = await import('../js/devices/generic/views/mainlib-panel.js');
   const g = {
@@ -232,7 +232,7 @@ test('Librarian panel: a new sub-library made from a device is that device\'s', 
   panel.destroy();
 });
 
-test('Librarian: an entry stored as a whole MIDI file shows its patches, not "Other messages"', async () => {
+test('Branch Library: an entry stored as a whole MIDI file shows its patches, not "Other messages"', async () => {
   const { librarianView } = await import('../js/devices/generic/views/librarian.js');
   const jp00 = (await import('../js/devices/defs/roland-jp8000.js')).default;
   const o00 = jp00.objects.find((o) => o.key === 'patch');
@@ -248,7 +248,7 @@ test('Librarian: an entry stored as a whole MIDI file shows its patches, not "Ot
     entry: getDevice('roland-jp8000'), def: jp00, ctx: { deviceId: 0x10 }, connected: false,
     host: { library: { list: async () => entries }, shell: { mainLibrary: async () => lib }, settings: { value: { midi: { bytesPerSecond: 3000 } } } },
     transport: { on: () => () => {} }, client: {}, loadedKeys: new Set(), objectData: {}, slotNames: {},
-    error: (e) => { throw e; }, setObjectData() {}, nav() {},
+    error: (e) => { throw e; }, setObjectData() {}, nav() {}, job: null, on: () => () => {},
   };
   const root = document.createElement('div');
   const view = librarianView(root, g);
@@ -263,7 +263,7 @@ test('Librarian: an entry stored as a whole MIDI file shows its patches, not "Ot
   view.destroy();
 });
 
-test('Main Library page: search the sub-libraries for patches, and sort them', async () => {
+test('Head Library page: search the sub-libraries for patches, and sort them', async () => {
   const { lib, sub } = await setup();
   const { mainLibraryView } = await import('../js/shell/mainlibrary.js');
   const jp00 = (await import('../js/devices/defs/roland-jp8000.js')).default;

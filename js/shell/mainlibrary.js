@@ -1,6 +1,6 @@
-// Main Library: patches of every device in one place, as readable JSON in a folder the user picks
+// Head Library: patches of every device in one place, as readable JSON in a folder the user picks
 // (js/core/mainlib/). Sub-libraries are created by importing files (.syx .mid .krz .wav .json and
-// disk images .iso .bin/.cue .img), or registered from another folder; any device's Librarian can
+// disk images .iso .bin/.cue .img), or registered from another folder; any device's Branch Library can
 // open them, and a patch loads into another model when a translator exists.
 
 import { h, clear, toast, confirmDialog, dialog, downloadBlob, pickFiles, safeFileName } from '../core/ui/dom.js';
@@ -11,6 +11,7 @@ import { splitSysex } from '../core/midi/describe.js';
 import { dataMessages } from '../devices/patches.js';
 import { CATEGORY_LABEL } from '../core/mainlib/categories.js';
 import { loadDef, getDevice } from '../devices/registry.js';
+import { sendToDevice, fitFor } from '../devices/generic/sendto.js';
 import {
   settingsView, importReportView, categorySelect, categoryOf, samplesView, targetsFor, filterRows, filterBar,
   chooseSub, folderStatus, kindLabel, subLabel, deviceSelect,
@@ -55,8 +56,8 @@ export function mainLibraryView(root, shell) {
   const detailBox = h('div.ml-detail', { hidden: true });
 
   root.append(
-    h('h1', 'Main Library'),
-    h('div.sub', 'Patches from every device in one place, each stored as a readable JSON file with its device, category and every setting. Sub-libraries open in any device\'s Librarian; a patch loads into another model when a translator exists (JP-8080 and JP-8000 so far).'),
+    h('h1', 'Head Library'),
+    h('div.sub', 'Patches from every device in one place, each stored as a readable JSON file with its device, category and every setting. Sub-libraries open in any device\'s Branch Library; a patch loads into another model when a translator exists (JP-8080, JP-8000 and the V-Synth XT\'s V-Synth, VC-1 and VC-2 engines). With a device open, Send to puts patches into its editor, edit buffer or memory.'),
     folderBox, subsBox, importBox, dedupBox,
     h('div.row.editor-split', h('div.grow', browseBox), detailBox));
 
@@ -67,7 +68,7 @@ export function mainLibraryView(root, shell) {
     st.lib = lib;
     off = lib.on(() => refresh());
     refresh();
-  }).catch((err) => { clear(folderBox).append(h('div.notice.bad', `The Main Library could not be opened: ${err.message}`)); });
+  }).catch((err) => { clear(folderBox).append(h('div.notice.bad', `The Head Library could not be opened: ${err.message}`)); });
 
   let refreshing = null;
   async function refresh() {
@@ -94,7 +95,7 @@ export function mainLibraryView(root, shell) {
     } catch (err) {
       // the library changed while it was being read (e.g. a merge removing a sub-library): read it again
       st.refreshErrors = (st.refreshErrors || 0) + 1;
-      if (st.refreshErrors <= 3) refreshing.again = true; else shell.error(err, 'Main Library');
+      if (st.refreshErrors <= 3) refreshing.again = true; else shell.error(err, 'Head Library');
     } finally {
       const again = refreshing.again;
       refreshing = null;
@@ -120,12 +121,12 @@ export function mainLibraryView(root, shell) {
       h('div.card-head.row', h('h2.grow', 'Library folder'), ...btns),
       folderStatus(lib, st.pending),
       h('div.small.muted', lib.state === 'none'
-        ? 'Choose (or create) a folder for the Main Library. Every patch is saved there as a JSON file you can read, back up or share; samples as WAV files.'
+        ? 'Choose (or create) a folder for the Head Library. Every patch is saved there as a JSON file you can read, back up or share; samples as WAV files.'
         : 'Every change is written to this folder as it happens. A copy is kept in the browser, so the library opens even before the browser allows the folder again.'));
   }
 
   async function chooseFirst() {
-    if (await st.lib.chooseFolder('merge')) toast(`The Main Library is in "${st.lib.folderName}".`, 'good');
+    if (await st.lib.chooseFolder('merge')) toast(`The Head Library is in "${st.lib.folderName}".`, 'good');
   }
 
   async function reconnect() {
@@ -135,7 +136,7 @@ export function mainLibraryView(root, shell) {
 
   async function changeLocation() {
     const how = await dialog('Change location', h('div.col',
-      h('p', 'Move the library to another folder, or open a Main Library that is already in another folder.'),
+      h('p', 'Move the library to another folder, or open a Head Library that is already in another folder.'),
       h('p.small.muted', 'Moving copies every sub-library into the new folder; the old folder is left as it is. Opening another library replaces this list with the one in that folder (the sub-libraries here stay in their folder and can be opened again later).')), [
       { label: 'Cancel', value: null },
       { label: 'Open a library there', value: 'open' },
@@ -233,7 +234,7 @@ export function mainLibraryView(root, shell) {
     const r = await dialog(title, h('div.col',
       h('label.field', 'Name', nameInp),
       h('label.field', 'Device', devSel),
-      h('p.small.muted', 'The device the sub-library holds sounds for. Sub-libraries added from a device\'s Librarian get that device.')), [
+      h('p.small.muted', 'The device the sub-library holds sounds for. Sub-libraries added from a device\'s Branch Library get that device.')), [
       { label: 'Cancel', value: null },
       { label: okLabel, primary: true, value: () => ({ name: nameInp.value.trim(), device: deviceRef(getDevice(devSel.value)) }) },
     ]);
@@ -294,7 +295,7 @@ export function mainLibraryView(root, shell) {
     const local = !s.external && st.lib.state === 'none';
     const msg = local
       ? `"${s.name}" is only kept in this browser (no library folder is chosen yet). Unregistering it deletes it. Continue?`
-      : `Remove "${s.name}" from the Main Library? Its files stay ${s.external ? `in "${s.folder || 'its folder'}"` : `in "${st.lib.folderName}/${s.path}"`}; register that folder again to bring it back.`;
+      : `Remove "${s.name}" from the Head Library? Its files stay ${s.external ? `in "${s.folder || 'its folder'}"` : `in "${st.lib.folderName}/${s.path}"`}; register that folder again to bring it back.`;
     if (!(await confirmDialog('Unregister sub-library', msg, local ? 'Delete' : 'Unregister', true))) return;
     await st.lib.unregister(s.id);
     toast(`"${s.name}" unregistered.`, 'good');
@@ -327,7 +328,7 @@ export function mainLibraryView(root, shell) {
   }
   function renderImport() {
     renderImportControls();
-    const drop = h('div.dropzone', st.busy ? 'Importing...' : 'Drop files or folders here: .syx .mid .krz/.k25/.k26 .wav .json, JP-8000/8080 .pat .pfm .j8k, .zip archives, and disk or CD images (.iso, .bin with its .cue, .img)');
+    const drop = h('div.dropzone', st.busy ? 'Importing...' : 'Drop files or folders here: .syx .mid .krz/.k25/.k26 .wav .json, JP-8000/8080 .pat .pfm .j8k, V-Synth XT .p00 .p02 .P10, .zip archives, and disk or CD images (.iso, .bin with its .cue, .img)');
     drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
     drop.addEventListener('dragleave', () => drop.classList.remove('over'));
     drop.addEventListener('drop', guard(async (e) => {
@@ -349,7 +350,7 @@ export function mainLibraryView(root, shell) {
     if (st.busy) return;
     const usable = files.filter((f) => IMPORTABLE.test(f.name));
     const skipped = files.filter((f) => !IMPORTABLE.test(f.name));
-    if (!usable.length) { toast('None of these files is a format the Main Library reads.', 'warn'); return; }
+    if (!usable.length) { toast('None of these files is a format the Head Library reads.', 'warn'); return; }
     setBusy(`Reading ${usable.length} file(s)...`);
     let r;
     try {
@@ -383,8 +384,12 @@ export function mainLibraryView(root, shell) {
   }
 
   // ------------------------------------------------------------ browsing
+  /** The device that is open (its module), if it can take Head Library patches. */
+  const openDevice = () => { const g = shell.device?.instance?.context; return g?.def?.objects ? g : null; };
+
   function renderBrowse() {
     const lib = st.lib;
+    const dev = openDevice();
     const shown = filterRows(st.rows, st.f);
     const page = shown.slice(0, st.limit);
     const subName = new Map(lib.subs().map((s) => [s.id, s.name]));
@@ -395,6 +400,9 @@ export function mainLibraryView(root, shell) {
     });
     const bulk = checkedShown.length ? h('div.row.ml-bulk',
       h('b', `${checkedShown.length} selected`),
+      dev
+        ? h('button.btn.small.primary', { title: `Load or store them on the ${dev.entry.model} (translated when they are from another model)`, onclick: guard(() => sendToDevice(dev, lib, checkedShown), 'Send') }, `Send to the ${dev.entry.model}...`)
+        : h('button.btn.small', { disabled: true, title: 'Open a device (Devices page) to send patches to it' }, 'Send to a device...'),
       h('button.btn.small', { onclick: guard(() => bulkMove(checkedShown), 'Move') }, 'Move to...'),
       h('button.btn.small', { onclick: guard(() => bulkCategory(checkedShown), 'Category') }, 'Set category...'),
       h('button.btn.small', { onclick: guard(() => bulkExport(checkedShown), 'Export') }, 'Export JSON'),
@@ -455,7 +463,7 @@ export function mainLibraryView(root, shell) {
   }
 
   async function bulkDelete(rows) {
-    if (!(await confirmDialog('Delete', `Delete ${rows.length} item(s) from the Main Library? Their JSON files (and samples no other patch uses) are removed from the folder.`, 'Delete', true))) return;
+    if (!(await confirmDialog('Delete', `Delete ${rows.length} item(s) from the Head Library? Their JSON files (and samples no other patch uses) are removed from the folder.`, 'Delete', true))) return;
     setBusy(`Deleting ${rows.length} item(s)...`);
     try { for (const [sub, ids] of groupBySub(rows)) await st.lib.deletePatches(sub, ids); } finally { setBusy(null); }
     st.checked.clear();
@@ -630,7 +638,11 @@ export function mainLibraryView(root, shell) {
       h('label.field', 'Category', categorySelect(cat, (v) => { cat = v; })),
       h('label.field', 'Tags', tags),
       notes,
-      h('div.row', h('button.btn.primary', { onclick: save }, 'Save changes'), h('span.grow'),
+      h('div.row', h('button.btn.primary', { onclick: save }, 'Save changes'),
+        openDevice() && fitFor(openDevice(), row)?.obj
+          ? h('button.btn', { title: `Load it into the editor, send it to the edit buffer or store it on the ${openDevice().entry.model}`, onclick: guard(() => sendToDevice(openDevice(), lib, [row]), 'Send') }, `Send to the ${openDevice().entry.model}...`)
+          : null,
+        h('span.grow'),
         h('button.btn.small', { onclick: guard(() => moveOne(row), 'Move') }, 'Move to...'),
         h('button.btn.small', { onclick: () => downloadBlob(JSON.stringify(patch, null, 1), `${safeFileName(patch.name)}.json`, 'application/json') }, 'JSON'),
         patch.native?.bytes || patch.native?.syx ? h('button.btn.small', { title: 'The patch as SysEx for its device', onclick: guard(() => exportSyx(patch), 'Export') }, '.syx') : null,
@@ -640,9 +652,9 @@ export function mainLibraryView(root, shell) {
         h('b', 'Loads into'),
         targets === null ? h('div.small.muted', 'Checking...') : targets.length
           ? h('div.row', targets.map((t) => h('a.badge' + (t.mode === 'native' ? '.live' : '.ram'), {
-            href: `#/d/${encodeURIComponent(t.id)}/librarian`, title: `Open the ${t.model} Librarian (Main Library panel) to load it`,
+            href: `#/d/${encodeURIComponent(t.id)}/librarian`, title: `Open the ${t.model} Branch Library (Head Library panel) to load it`,
           }, `${t.model}${t.mode === 'native' ? '' : ' (translated)'}`)))
-          : h('div.small.muted', patch.kind === 'data' ? 'Stored SysEx: send it from its device\'s Librarian (Export .syx).' : 'No editor can load it yet.')),
+          : h('div.small.muted', patch.kind === 'data' ? 'Stored SysEx: send it from its device\'s Branch Library (Export .syx).' : 'No editor can load it yet.')),
       samplesView(lib, row.sub, patch),
       h('b', 'Settings'),
       settingsView(patch)));

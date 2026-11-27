@@ -302,12 +302,12 @@ test('Import job: samples by SDS into temporary IDs, then rebased WRITEs', async
   assert.deepEqual(programKeymaps(mock.get(132, 202).data), [201]);
 });
 
-test('Test pattern: chord, run and overlapping glide notes at a fixed length', () => {
+test('Test pattern: progression, run and overlapping glide notes', () => {
   const { events, beats } = buildPattern('all');
-  assert.equal(beats, 16);
+  assert.equal(beats, 4 * 4 + 8 + 8, 'the 1-5-6-4 progression, a run and a glide');
   const ons = events.filter((e) => e.on);
   assert.equal(ons.length, events.length / 2);
-  assert.equal(ons.filter((e) => e.beat === 0).length, 4); // the chord
+  assert.equal(ons.filter((e) => e.beat === 0).length, 3); // the first chord
   // Glide: the second note starts before the first one ends.
   const glide = buildPattern('glide').events;
   const firstOff = glide.find((e) => !e.on && e.id === 0).beat;
@@ -332,7 +332,7 @@ test('Real files from D:/midi (skipped when absent)', { skip: !fs.existsSync(REA
   }
 });
 
-test('Main Library: K2000 programs with samples go to the library and back through the import job', async () => {
+test('Head Library: K2000 programs with samples go to the library and back through the import job', async () => {
   const { importFiles } = await import('../js/core/mainlib/importers.js');
   const { krzFromPatches, programFromK2000 } = await import('../js/devices/kurzweil-k2000/disk/mainlib.js');
   const { getDevice } = await import('../js/devices/registry.js');

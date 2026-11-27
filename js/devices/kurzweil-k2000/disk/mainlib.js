@@ -1,4 +1,4 @@
-// K2000 objects <-> Main Library patches.
+// K2000 objects <-> Head Library patches.
 //
 // A K2000 patch is a program with the RAM keymaps and soundblocks it uses (or one object no program
 // uses), kept as the objects' exact data in native.objects. Sample audio is stored as 16-bit WAV
@@ -18,7 +18,7 @@ import { Soundblock } from '../model/soundblock.js';
 import { programKeymaps, keymapSamples } from './importer.js';
 
 /**
- * A Main Library patch from K2000 objects.
+ * A Head Library patch from K2000 objects.
  * objs: [{type, id, name, data}] (the first is the program, or the lone object);
  * samples: [{id, file, name, rate, soundblock, words}] already added to `stored` by the caller.
  */
@@ -55,10 +55,10 @@ export function k2000Sample(pcm, { rate, name, soundblock, lo, source = '', loop
 }
 
 /**
- * A Kurzweil file in memory, as readKrz() returns it, from Main Library K2000 patches.
+ * A Kurzweil file in memory, as readKrz() returns it, from Head Library K2000 patches.
  * getSample(id) -> {bytes} | null reads a sample's WAV.
  */
-export async function krzFromPatches(patches, getSample, name = 'Main Library') {
+export async function krzFromPatches(patches, getSample, name = 'Head Library') {
   const objects = [];
   const seen = new Set();
   const pieces = [];
@@ -107,7 +107,7 @@ export async function krzFromPatches(patches, getSample, name = 'Main Library') 
 }
 
 /**
- * A program on the K2000 with the RAM keymaps and soundblocks it uses, as a Main Library patch.
+ * A program on the K2000 with the RAM keymaps and soundblocks it uses, as a Head Library patch.
  * receive(soundblockId, headerIndex, label) -> {samples (Int16Array), sampleRate, loop...} | null
  * downloads audio by Sample Dump (slow); without it the patch keeps the objects only.
  * Returns {patch, samples: [{id, bytes, info}]}.

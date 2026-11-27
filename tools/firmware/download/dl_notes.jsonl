@@ -1,0 +1,374 @@
+{"maker":"Roland","model":"AX-Synth","status":"none","why":"support page has only the GW-8 driver and the editor, no system update","date":"2026-11-25"}
+{"maker":"Roland","model":"E-80","status":"none","why":"support page has drivers, Database Manager and factory data, no system update","date":"2026-11-25"}
+{"maker":"Roland","model":"VB-99","status":"none","why":"support page has drivers, editor and a soundset, no system update","date":"2026-11-25"}
+{"maker":"Roland","model":"TD-27","status":"none","why":"the System Program 2.21 page has no download button for any region (the update is apparently delivered another way)","date":"2026-11-25"}
+{"maker":"Roland","model":"RD-64","status":"skipped","why":"digital/stage piano (left out as agreed)","date":"2026-11-25"}
+{"maker":"Roland","model":"RD-88","status":"skipped","why":"digital/stage piano (left out as agreed)","date":"2026-11-25"}
+{"maker":"Roland","model":"RD-800","status":"skipped","why":"digital/stage piano (left out as agreed)","date":"2026-11-25"}
+{"maker":"Roland","model":"RD-2000","status":"skipped","why":"digital/stage piano (left out as agreed)","date":"2026-11-25"}
+{"maker":"Roland","model":"V-Piano","status":"skipped","why":"digital piano (left out as agreed)","date":"2026-11-25"}
+{"maker":"Roland","model":"VK-88","status":"skipped","why":"organ (left out as agreed)","date":"2026-11-25"}
+{"maker":"Roland","model":"VR-09","status":"skipped","why":"organ (left out as agreed)","date":"2026-11-25"}
+{"maker":"Roland","model":"VR-700","status":"skipped","why":"organ (left out as agreed)","date":"2026-11-25"}
+{"maker":"Clavia","model":"Nord C1","status":"skipped","why":"organ (left out as agreed)","date":"2026-11-25"}
+{"maker":"Clavia","model":"Nord Grand","status":"skipped","why":"digital piano (left out as agreed)","date":"2026-11-25"}
+{"maker":"Clavia","model":"Nord Piano","status":"skipped","why":"digital piano (left out as agreed)","date":"2026-11-25"}
+{"maker":"Clavia","model":"Nord Electro","status":"none","why":"the first Nord Electro (2001) has no page in Nord's download section (legacy products start with the Electro 2)","date":"2026-11-25"}
+{"maker":"Boss","model":"RC-202","status":"none","why":"support page has no system program (editor/CEF source only)","date":"2026-11-25"}
+{"maker":"Boss","model":"ES-6","status":"none","why":"no support page with updates found (slug es-6)","date":"2026-11-25"}
+{"maker":"Roland","model":"TD-9","status":"none","why":"no Roland support page with a system program found (td-9, td-9kx, td-9kx2)","date":"2026-11-25"}
+{"maker":"Roland","model":"TD-713","status":"none","why":"no Roland support page found for it","date":"2026-11-25"}
+{"maker":"Roland","model":"JUNO-60 (2025 reissue)","status":"none","why":"no Roland support page with updates found","date":"2026-11-25"}
+{"maker":"Korg","model":"Electribe EMX-1","status":"none","why":"Korg's ELECTRIBE-MX download page has bonus data only, no system update","date":"2026-11-25"}
+{"maker":"Korg","model":"microKEY","status":"none","why":"only drivers/editor on Korg's page, no firmware update","date":"2026-11-25"}
+{"maker":"Korg","model":"microKORG S","status":"none","why":"only editor/sound data on Korg's page, no system update","date":"2026-11-25"}
+{"maker":"Korg","model":"nanoKONTROL","status":"none","why":"only templates, drivers and the editor on Korg's page, no firmware update","date":"2026-11-25"}
+{"maker":"Korg","model":"R3","status":"none","why":"only bonus programs on Korg's page, no system update","date":"2026-11-25"}
+{"maker":"Korg","model":"Nautilus","status":"none","why":"only the Sub-System firmware updater (downloaded) is published; the main OS updates come through the instrument/accessory discs","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Motif","status":"none","why":"Yamaha's download search (usa.yamaha.com, consumer and pro-audio) lists no OS/firmware updater for it","date":"2026-11-25"}
+{"maker":"Yamaha","model":"MOX6","status":"none","why":"Yamaha's download search (usa.yamaha.com, consumer and pro-audio) lists no OS/firmware updater for it","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Tyros","status":"none","why":"Yamaha's download search (usa.yamaha.com, consumer and pro-audio) lists no OS/firmware updater for it","date":"2026-11-25"}
+{"maker":"Yamaha","model":"AW16G","status":"none","why":"Yamaha's download search (usa.yamaha.com, consumer and pro-audio) lists no OS/firmware updater for it","date":"2026-11-25"}
+{"maker":"Yamaha","model":"MM6","status":"none","why":"Yamaha's download search (usa.yamaha.com, consumer and pro-audio) lists no OS/firmware updater for it","date":"2026-11-25"}
+{"maker":"Yamaha","model":"DTX8","status":"none","why":"Yamaha's download search (usa.yamaha.com, consumer and pro-audio) lists no OS/firmware updater for it","date":"2026-11-25"}
+{"maker":"Yamaha","model":"SPX2000","status":"none","why":"Yamaha's download search (usa.yamaha.com, consumer and pro-audio) lists no OS/firmware updater for it","date":"2026-11-25"}
+{"maker":"Yamaha","model":"01X","status":"none","why":"Yamaha's download search (usa.yamaha.com, consumer and pro-audio) lists no OS/firmware updater for it","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Magicstomp","status":"none","why":"Yamaha's download search (usa.yamaha.com, consumer and pro-audio) lists no OS/firmware updater for it","date":"2026-11-25"}
+{"maker":"Yamaha","model":"UD Stomp","status":"none","why":"Yamaha's download search (usa.yamaha.com, consumer and pro-audio) lists no OS/firmware updater for it","date":"2026-11-25"}
+{"maker":"Yamaha","model":"S90","status":"none","why":"Yamaha's download search (usa.yamaha.com, consumer and pro-audio) lists no OS/firmware updater for it","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Montage M","status":"none","why":"the full OS updater V3.01 (3.91 GB) was left out; the V3.01 update from V3.00 (75 MB) is here; V1.22 returned HTTP 500","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Clavinova CVP-2xx","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Clavinova CVP-3xx","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Clavinova CVP-4xx","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Clavinova CVP-5xx","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Clavinova CVP-6xx","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Clavinova CVP-7xx","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Clavinova CVP-8xx","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Disklavier E3","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Disklavier ENSPIRE","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Disklavier Mark IV","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"P-515","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"CP1","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"CP4 Stage","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"CP88","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Sonogenic SHS-500","status":"skipped","why":"home/digital piano line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Electone ELS-02","status":"skipped","why":"organ (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"Electone ELS-01","status":"skipped","why":"organ (left out as agreed)","date":"2026-11-25"}
+{"maker":"Arturia","model":"AstroLab","status":"skipped","why":"official firmware packages are 7.87 GB each (AstroLab 37 and 61; they carry the sound content): over the 2 GB limit, left for a decision","date":"2026-11-25"}
+{"maker":"Arturia","model":"MiniBrute","status":"none","why":"Arturia's resources page for the first MiniBrute redirects to the MiniBrute 2; no firmware file listed","date":"2026-11-25"}
+{"maker":"Arturia","model":"Origin","status":"none","why":"no resources page with firmware found (discontinued 2009 product)","date":"2026-11-25"}
+{"maker":"Moog","model":"Minimoog Voyager","status":"none","why":"archived moogmusic.com files for OS 3.5 are sound banks and release notes only; the OS is not published as a file","date":"2026-11-25"}
+{"maker":"Moog","model":"Grandmother","status":"none","why":"no public download found: the current moogmusic.com has no firmware pages (Matriarch updates go through the owner account), and no archived copy on the Wayback Machine","date":"2026-11-25"}
+{"maker":"Moog","model":"Labyrinth","status":"none","why":"no public download found: the current moogmusic.com has no firmware pages (Matriarch updates go through the owner account), and no archived copy on the Wayback Machine","date":"2026-11-25"}
+{"maker":"Moog","model":"Matriarch","status":"none","why":"no public download found: the current moogmusic.com has no firmware pages (Matriarch updates go through the owner account), and no archived copy on the Wayback Machine","date":"2026-11-25"}
+{"maker":"Moog","model":"Messenger","status":"none","why":"no public download found: the current moogmusic.com has no firmware pages (Matriarch updates go through the owner account), and no archived copy on the Wayback Machine","date":"2026-11-25"}
+{"maker":"Moog","model":"Moog One","status":"none","why":"no public download found: the current moogmusic.com has no firmware pages (Matriarch updates go through the owner account), and no archived copy on the Wayback Machine","date":"2026-11-25"}
+{"maker":"Moog","model":"Mother-32","status":"none","why":"no public download found: the current moogmusic.com has no firmware pages (Matriarch updates go through the owner account), and no archived copy on the Wayback Machine","date":"2026-11-25"}
+{"maker":"Moog","model":"Muse","status":"none","why":"no public download found: the current moogmusic.com has no firmware pages (Matriarch updates go through the owner account), and no archived copy on the Wayback Machine","date":"2026-11-25"}
+{"maker":"Moog","model":"Subharmonicon","status":"none","why":"no public download found: the current moogmusic.com has no firmware pages (Matriarch updates go through the owner account), and no archived copy on the Wayback Machine","date":"2026-11-25"}
+{"maker":"Waldorf","model":"Iridium","status":"none","why":"the waldorfmusic.com FAQ/download page for it lists manuals, sounds and tools but no firmware file","date":"2026-11-25"}
+{"maker":"Waldorf","model":"M","status":"none","why":"the waldorfmusic.com FAQ/download page for it lists manuals, sounds and tools but no firmware file","date":"2026-11-25"}
+{"maker":"Waldorf","model":"Protein","status":"none","why":"the waldorfmusic.com FAQ/download page for it lists manuals, sounds and tools but no firmware file","date":"2026-11-25"}
+{"maker":"Waldorf","model":"Quantum","status":"none","why":"the waldorfmusic.com FAQ/download page for it lists manuals, sounds and tools but no firmware file","date":"2026-11-25"}
+{"maker":"Waldorf","model":"Pulse 2","status":"none","why":"the waldorfmusic.com FAQ/download page for it lists manuals, sounds and tools but no firmware file","date":"2026-11-25"}
+{"maker":"Waldorf","model":"Q","status":"none","why":"no FAQ/download page with firmware on waldorfmusic.com (discontinued)","date":"2026-11-25"}
+{"maker":"Waldorf","model":"Rocket","status":"none","why":"no FAQ/download page with firmware on waldorfmusic.com (discontinued)","date":"2026-11-25"}
+{"maker":"Waldorf","model":"Zarenbourg","status":"none","why":"no FAQ/download page with firmware on waldorfmusic.com (discontinued)","date":"2026-11-25"}
+{"maker":"Fractal Audio","model":"Axe-Fx","status":"none","why":"fractalaudio.com has no download page for the first Axe-Fx (Standard/Ultra)","date":"2026-11-25"}
+{"maker":"Kurzweil","model":"Artis","status":"skipped","why":"stage/digital piano (left out as agreed); kurzweil.com has an OS update for it","date":"2026-11-25"}
+{"maker":"Kurzweil","model":"Forte","status":"skipped","why":"stage/digital piano (left out as agreed); kurzweil.com has an OS update for it","date":"2026-11-25"}
+{"maker":"Kurzweil","model":"SP4-7","status":"skipped","why":"stage/digital piano (left out as agreed); kurzweil.com has an OS update for it","date":"2026-11-25"}
+{"maker":"Teenage Engineering","model":"EP-133 K.O. II","status":"none","why":"updated through teenage.engineering's web/app updater; no firmware file is published on the download page","date":"2026-11-25"}
+{"maker":"Teenage Engineering","model":"OP-XY","status":"none","why":"updated through teenage.engineering's web/app updater; no firmware file is published on the download page","date":"2026-11-25"}
+{"maker":"Teenage Engineering","model":"OP-Z","status":"none","why":"updated through teenage.engineering's web/app updater; no firmware file is published on the download page","date":"2026-11-25"}
+{"maker":"Teenage Engineering","model":"TX-6","status":"none","why":"updated through teenage.engineering's web/app updater; no firmware file is published on the download page","date":"2026-11-25"}
+{"maker":"1010music","model":"Toolbox","status":"none","why":"not on 1010music's downloads page (discontinued)","date":"2026-11-25"}
+{"maker":"Groove Synthesis","model":"3rd Wave","status":"none","why":"groovesynthesis.com serves files through per-session download links (owner/account flow); not fetched","date":"2026-11-25"}
+{"maker":"Casio","model":"CT-S1000V","status":"skipped","why":"Casio home keyboard / digital piano (left out as agreed)","date":"2026-11-25"}
+{"maker":"Casio","model":"CT-X5000","status":"skipped","why":"Casio home keyboard / digital piano (left out as agreed)","date":"2026-11-25"}
+{"maker":"Casio","model":"MZ-X500","status":"skipped","why":"Casio home keyboard / digital piano (left out as agreed)","date":"2026-11-25"}
+{"maker":"Casio","model":"Privia PX-5S","status":"skipped","why":"Casio home keyboard / digital piano (left out as agreed)","date":"2026-11-25"}
+{"maker":"Casio","model":"Privia PX-S3000","status":"skipped","why":"Casio home keyboard / digital piano (left out as agreed)","date":"2026-11-25"}
+{"maker":"Dexibell","model":"Combo J7","status":"skipped","why":"digital/stage piano or organ line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Dexibell","model":"Vivo S7","status":"skipped","why":"digital/stage piano or organ line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Hammond","model":"SK1","status":"skipped","why":"organ (left out as agreed)","date":"2026-11-25"}
+{"maker":"Hammond","model":"XK-5","status":"skipped","why":"organ (left out as agreed)","date":"2026-11-25"}
+{"maker":"Kawai","model":"CA97","status":"skipped","why":"digital/stage piano or organ line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Kawai","model":"ES920","status":"skipped","why":"digital/stage piano or organ line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Kawai","model":"MP7","status":"skipped","why":"digital/stage piano or organ line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Kawai","model":"VPC1","status":"skipped","why":"digital/stage piano or organ line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Novation","model":"A-Station","status":"skipped","why":"Novation: the collection already has every firmware Novation publishes (the official-download flag in the list is likely wrong)","date":"2026-11-25"}
+{"maker":"Novation","model":"Bass Station II","status":"skipped","why":"Novation: the collection already has every firmware Novation publishes (the official-download flag in the list is likely wrong)","date":"2026-11-25"}
+{"maker":"Novation","model":"Circuit","status":"skipped","why":"Novation: the collection already has every firmware Novation publishes (the official-download flag in the list is likely wrong)","date":"2026-11-25"}
+{"maker":"Novation","model":"Circuit Tracks","status":"skipped","why":"Novation: the collection already has every firmware Novation publishes (the official-download flag in the list is likely wrong)","date":"2026-11-25"}
+{"maker":"Novation","model":"K-Station","status":"skipped","why":"Novation: the collection already has every firmware Novation publishes (the official-download flag in the list is likely wrong)","date":"2026-11-25"}
+{"maker":"Novation","model":"KS4","status":"skipped","why":"Novation: the collection already has every firmware Novation publishes (the official-download flag in the list is likely wrong)","date":"2026-11-25"}
+{"maker":"Novation","model":"Launchkey","status":"skipped","why":"Novation: the collection already has every firmware Novation publishes (the official-download flag in the list is likely wrong)","date":"2026-11-25"}
+{"maker":"Novation","model":"Launchpad","status":"skipped","why":"Novation: the collection already has every firmware Novation publishes (the official-download flag in the list is likely wrong)","date":"2026-11-25"}
+{"maker":"Novation","model":"Peak","status":"skipped","why":"Novation: the collection already has every firmware Novation publishes (the official-download flag in the list is likely wrong)","date":"2026-11-25"}
+{"maker":"Novation","model":"Remote SL","status":"skipped","why":"Novation: the collection already has every firmware Novation publishes (the official-download flag in the list is likely wrong)","date":"2026-11-25"}
+{"maker":"Novation","model":"SL MkIII","status":"skipped","why":"Novation: the collection already has every firmware Novation publishes (the official-download flag in the list is likely wrong)","date":"2026-11-25"}
+{"maker":"Novation","model":"UltraNova","status":"skipped","why":"Novation: the collection already has every firmware Novation publishes (the official-download flag in the list is likely wrong)","date":"2026-11-25"}
+{"maker":"Novation","model":"X-Station","status":"skipped","why":"Novation: the collection already has every firmware Novation publishes (the official-download flag in the list is likely wrong)","date":"2026-11-25"}
+{"maker":"Novation","model":"XioSynth","status":"skipped","why":"Novation: the collection already has every firmware Novation publishes (the official-download flag in the list is likely wrong)","date":"2026-11-25"}
+{"maker":"Numark","model":"NS7","status":"skipped","why":"DJ gear (left out as agreed)","date":"2026-11-25"}
+{"maker":"Pioneer DJ","model":"DJS-1000","status":"skipped","why":"DJ gear (left out as agreed)","date":"2026-11-25"}
+{"maker":"Studiologic","model":"Numa Compact","status":"skipped","why":"digital/stage piano or organ line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Viscount","model":"Legend","status":"skipped","why":"digital/stage piano or organ line (left out as agreed)","date":"2026-11-25"}
+{"maker":"Wersi","model":"OAX","status":"skipped","why":"organ (left out as agreed)","date":"2026-11-25"}
+{"maker":"Yamaha","model":"MODX M","status":"none","why":"the only updater (V3.00, 4 GB) answers HTTP 500 from Yamaha's download server; try again later or by hand","date":"2026-11-25"}
+{"maker":"Modal Electronics","model":"Argon8","status":"none","why":"updates are installed through Modal's MODALapp; no standalone firmware file is published","date":"2026-11-25"}
+{"maker":"Modal Electronics","model":"Cobalt8","status":"none","why":"updates are installed through Modal's MODALapp; no standalone firmware file is published","date":"2026-11-25"}
+{"maker":"Modal Electronics","model":"001","status":"none","why":"updates are installed through Modal's MODALapp; no standalone firmware file is published","date":"2026-11-25"}
+{"maker":"Modal Electronics","model":"002","status":"none","why":"updates are installed through Modal's MODALapp; no standalone firmware file is published","date":"2026-11-25"}
+{"maker":"Modal Electronics","model":"008","status":"none","why":"updates are installed through Modal's MODALapp; no standalone firmware file is published","date":"2026-11-25"}
+{"maker":"Modal Electronics","model":"CraftSynth 2","status":"none","why":"updates are installed through Modal's MODALapp; no standalone firmware file is published","date":"2026-11-25"}
+{"maker":"Modal Electronics","model":"Skulpt","status":"none","why":"updates are installed through Modal's MODALapp; no standalone firmware file is published","date":"2026-11-25"}
+{"maker":"Behringer","model":"2600","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Cat","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Crave","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"DeepMind 12","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"DEQ2496","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"JT-4000","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"K-2","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Kobol Expander","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"LmDrum","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Model 15","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Model D","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Monopoly","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Motor 49","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"MS-1","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Neutron","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Odyssey","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Poly D","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Pro VS Mini","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Pro-1","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Pro-800","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"RD-6","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"RD-8","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"RD-9","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Solina String Ensemble","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Swing","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"TD-3","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"UB-Xa","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"VC340","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Wasp Deluxe","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Wave","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"Wing","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"X-Touch","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"X32","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Behringer","model":"XR18","status":"none","why":"not fetched: behringer.com renders downloads with JavaScript and the synth firmware ships through the SynthTribe app (files sit on cdn.mediavalet.com behind per-asset links)","date":"2026-11-25"}
+{"maker":"Mutable Instruments","model":"Anushri","status":"none","why":"no firmware file on the archived mutable-instruments.net (source code only, on GitHub)","date":"2026-11-25"}
+{"maker":"Line 6","model":"DL4 MkII","status":"none","why":"firmware is installed through Line 6 Updater / HX Edit / POD Go Edit, which fetch it themselves; line6.com lists no standalone firmware file","date":"2026-11-25"}
+{"maker":"Line 6","model":"DT25","status":"none","why":"firmware is installed through Line 6 Updater / HX Edit / POD Go Edit, which fetch it themselves; line6.com lists no standalone firmware file","date":"2026-11-25"}
+{"maker":"Line 6","model":"Helix","status":"none","why":"firmware is installed through Line 6 Updater / HX Edit / POD Go Edit, which fetch it themselves; line6.com lists no standalone firmware file","date":"2026-11-25"}
+{"maker":"Line 6","model":"M13","status":"none","why":"firmware is installed through Line 6 Updater / HX Edit / POD Go Edit, which fetch it themselves; line6.com lists no standalone firmware file","date":"2026-11-25"}
+{"maker":"Line 6","model":"POD Go","status":"none","why":"firmware is installed through Line 6 Updater / HX Edit / POD Go Edit, which fetch it themselves; line6.com lists no standalone firmware file","date":"2026-11-25"}
+{"maker":"Line 6","model":"POD HD","status":"none","why":"firmware is installed through Line 6 Updater / HX Edit / POD Go Edit, which fetch it themselves; line6.com lists no standalone firmware file","date":"2026-11-25"}
+{"maker":"Line 6","model":"POD X3","status":"none","why":"firmware is installed through Line 6 Updater / HX Edit / POD Go Edit, which fetch it themselves; line6.com lists no standalone firmware file","date":"2026-11-25"}
+{"maker":"Line 6","model":"POD xt","status":"none","why":"firmware is installed through Line 6 Updater / HX Edit / POD Go Edit, which fetch it themselves; line6.com lists no standalone firmware file","date":"2026-11-25"}
+{"maker":"Line 6","model":"Vetta","status":"none","why":"firmware is installed through Line 6 Updater / HX Edit / POD Go Edit, which fetch it themselves; line6.com lists no standalone firmware file","date":"2026-11-25"}
+{"maker":"Akai","model":"APC40","status":"none","why":"not fetched: akaipro.com builds its download list with JavaScript (reCAPTCHA on the page); no direct file link found","date":"2026-11-25"}
+{"maker":"Akai","model":"EWI4000s","status":"none","why":"not fetched: akaipro.com builds its download list with JavaScript (reCAPTCHA on the page); no direct file link found","date":"2026-11-25"}
+{"maker":"Akai","model":"Force","status":"none","why":"not fetched: akaipro.com builds its download list with JavaScript (reCAPTCHA on the page); no direct file link found","date":"2026-11-25"}
+{"maker":"Akai","model":"MPC Key 61","status":"none","why":"not fetched: akaipro.com builds its download list with JavaScript (reCAPTCHA on the page); no direct file link found","date":"2026-11-25"}
+{"maker":"Akai","model":"MPC Live","status":"none","why":"not fetched: akaipro.com builds its download list with JavaScript (reCAPTCHA on the page); no direct file link found","date":"2026-11-25"}
+{"maker":"Akai","model":"MPC One","status":"none","why":"not fetched: akaipro.com builds its download list with JavaScript (reCAPTCHA on the page); no direct file link found","date":"2026-11-25"}
+{"maker":"Akai","model":"MPC Renaissance","status":"none","why":"not fetched: akaipro.com builds its download list with JavaScript (reCAPTCHA on the page); no direct file link found","date":"2026-11-25"}
+{"maker":"Akai","model":"MPC X","status":"none","why":"not fetched: akaipro.com builds its download list with JavaScript (reCAPTCHA on the page); no direct file link found","date":"2026-11-25"}
+{"maker":"Akai","model":"MPC XL","status":"none","why":"not fetched: akaipro.com builds its download list with JavaScript (reCAPTCHA on the page); no direct file link found","date":"2026-11-25"}
+{"maker":"Akai","model":"MPK49","status":"none","why":"not fetched: akaipro.com builds its download list with JavaScript (reCAPTCHA on the page); no direct file link found","date":"2026-11-25"}
+{"maker":"Akai","model":"MPX16","status":"none","why":"not fetched: akaipro.com builds its download list with JavaScript (reCAPTCHA on the page); no direct file link found","date":"2026-11-25"}
+{"maker":"Eventide","model":"H9","status":"none","why":"not fetched: eventideaudio.com/downloads loads files through a script (admin-ajax); H9/H90 update through their control apps","date":"2026-11-25"}
+{"maker":"Eventide","model":"H90","status":"none","why":"not fetched: eventideaudio.com/downloads loads files through a script (admin-ajax); H9/H90 update through their control apps","date":"2026-11-25"}
+{"maker":"Eventide","model":"H7600","status":"none","why":"not fetched: eventideaudio.com/downloads loads files through a script (admin-ajax); H9/H90 update through their control apps","date":"2026-11-25"}
+{"maker":"Eventide","model":"H8000","status":"none","why":"not fetched: eventideaudio.com/downloads loads files through a script (admin-ajax); H9/H90 update through their control apps","date":"2026-11-25"}
+{"maker":"Eventide","model":"H9000","status":"none","why":"not fetched: eventideaudio.com/downloads loads files through a script (admin-ajax); H9/H90 update through their control apps","date":"2026-11-25"}
+{"maker":"Eventide","model":"Eclipse","status":"none","why":"not fetched: eventideaudio.com/downloads loads files through a script (admin-ajax); H9/H90 update through their control apps","date":"2026-11-25"}
+{"maker":"Eventide","model":"TimeFactor","status":"none","why":"not fetched: eventideaudio.com/downloads loads files through a script (admin-ajax); H9/H90 update through their control apps","date":"2026-11-25"}
+{"maker":"Pioneer DJ","model":"Toraiz AS-1","status":"none","why":"not DJ gear, so in scope; the AlphaTheta (Pioneer DJ) help center has an OS page for it but builds the download link with JavaScript; not fetched","date":"2026-11-25"}
+{"maker":"Pioneer DJ","model":"Toraiz SP-16","status":"none","why":"not DJ gear, so in scope; the AlphaTheta (Pioneer DJ) help center has an OS page for it but builds the download link with JavaScript; not fetched","date":"2026-11-25"}
+{"maker":"Pioneer DJ","model":"Toraiz Squid","status":"none","why":"not DJ gear, so in scope; the AlphaTheta (Pioneer DJ) help center has an OS page for it but builds the download link with JavaScript; not fetched","date":"2026-11-25"}
+{"maker":"Allen & Heath","model":"Qu-16","status":"none","why":"allen-heath.com sits behind a Cloudflare browser challenge (403 to scripts); the Wayback Machine has the Qu release notes and update guide but no copy of the firmware file itself","date":"2026-11-26"}
+{"maker":"Allen & Heath","model":"Xone:K2","status":"none","why":"no firmware file published (allen-heath.com behind a Cloudflare challenge; the archived resource lists only overlays and mappings)","date":"2026-11-26"}
+{"maker":"Ableton","model":"Push","status":"none","why":"Push 2 firmware ships inside Ableton Live and is installed by Live; no standalone file","date":"2026-11-26"}
+{"maker":"Ableton","model":"Push 3","status":"none","why":"Push 3 updates are installed by Live or by Push 3 itself (standalone, online); no standalone file","date":"2026-11-26"}
+{"maker":"Novation","model":"Peak","status":"none","why":"Peak and Summit: firmware is delivered only through Novation Components (web/app updater); downloads.novationmusic.com lists no plain firmware file","date":"2026-11-26"}
+{"maker":"Novation","model":"Circuit","status":"none","why":"Circuit and Circuit Mono Station: firmware is delivered only through Novation Components (web/app updater); downloads.novationmusic.com lists no plain firmware file","date":"2026-11-26"}
+{"maker":"Novation","model":"Circuit Tracks","status":"none","why":"Circuit Tracks and Circuit Rhythm: firmware is delivered only through Novation Components (web/app updater); downloads.novationmusic.com lists no plain firmware file","date":"2026-11-26"}
+{"maker":"Novation","model":"SL MkIII","status":"none","why":"firmware is delivered only through Novation Components (web/app updater); downloads.novationmusic.com lists no plain firmware file","date":"2026-11-26"}
+{"maker":"Novation","model":"FLkey","status":"none","why":"FLkey, FLkey 2, FLkey Mini: firmware is delivered only through Novation Components (web/app updater); downloads.novationmusic.com lists no plain firmware file","date":"2026-11-26"}
+{"maker":"Novation","model":"Impulse","status":"none","why":"no firmware file on the Impulse download pages (only USB driver and Automap)","date":"2026-11-26"}
+{"maker":"Novation","model":"Remote SL","status":"none","why":"SL MkII and ReMOTE SL: firmware updates were bundled with the Automap software installers; no standalone firmware file on downloads.novationmusic.com (not fetched)","date":"2026-11-26"}
+{"maker":"Novation","model":"UltraNova","status":"none","why":"MiniNova (variant): no firmware file on its download page (Components); the UltraNova 1.4 installer was fetched","date":"2026-11-26"}
+{"maker":"Novation","model":"Launchpad","status":"none","why":"Launchpad MK3 family (Pro MK3, X, Mini MK3): firmware is delivered only through Novation Components (web/app updater); downloads.novationmusic.com lists no plain firmware file; Launchpad Pro and MK2 updaters fetched","date":"2026-11-26"}
+{"maker":"Novation","model":"Launchkey","status":"none","why":"Launchkey MK3 and MK4: firmware is delivered only through Novation Components (web/app updater); downloads.novationmusic.com lists no plain firmware file; Launchkey MK2 and Mini mk1 updaters fetched","date":"2026-11-26"}
+{"maker":"Novation","model":"Bass Station II","status":"none","why":"newer Bass Station II / AFX Station firmware: firmware is delivered only through Novation Components (web/app updater); downloads.novationmusic.com lists no plain firmware file; the last standalone Librarian and Firmware Updater (1.2) was fetched","date":"2026-11-26"}
+{"maker":"Kenton","model":"MIDI retrofit kits","status":"none","why":"kentonuk.com publishes the kit manuals (retrofit-kit-manuals page) but no kit firmware; kits are sold with the firmware installed","date":"2026-11-26"}
+{"maker":"CHD Elektroservis","model":"MIDI interfaces and retrofits","status":"none","why":"chd-el.cz sells the kits with firmware installed; the support pages carry manuals and PC utilities only","date":"2026-11-26"}
+{"maker":"Kiwitechnics","model":"KiwiSix","status":"none","why":"kiwitechnics.com offers no firmware download for its boards (updates are done by Kiwitechnics or dealers)","date":"2026-11-26"}
+{"maker":"HKA Design","model":"MXR 185 MIDI Interface","status":"none","why":"hkadesign.org.uk publishes the manual only; no firmware file","date":"2026-11-26"}
+{"maker":"Tubbutec","model":"TR-6oh6","status":"none","why":"firmware ships inside the TR-6oh6 web configurator/updater (browser page that sends SysEx); no plain firmware file","date":"2026-11-26"}
+{"maker":"Tubbutec","model":"TR-8oh8","status":"none","why":"firmware ships inside the TR-8oh8 web configurator/updater; no plain firmware file","date":"2026-11-26"}
+{"maker":"Tubbutec","model":"uniMatrix","status":"none","why":"configured with a web configurator; no firmware file published","date":"2026-11-26"}
+{"maker":"Tubbutec","model":"KAC TM62100","status":"skipped","why":"Yamaha SK-series key-assigner replacement (organ/string-machine line, left out as agreed); firmware zips exist on tubbutec.de","date":"2026-11-26"}
+{"maker":"Encore Electronics","model":"OBXMK","status":"none","why":"the Software Updates page has no code for the OB-X kit (only JP8MK, SMK, OB8MK and OBXA-MK)","date":"2026-11-26"}
+{"maker":"CME","model":"WIDI Master","status":"none","why":"WIDI firmware is installed only through CME's WIDI App (Bluetooth); cme-pro.com lists the firmware history but no file","date":"2026-11-26"}
+{"maker":"CME","model":"Xkey","status":"none","why":"Xkey firmware updates come through CME's Xkey Plus app; no standalone file on cme-pro.com","date":"2026-11-26"}
+{"maker":"Crumar","model":"Mojo","status":"skipped","why":"clonewheel organ (left out as agreed)","date":"2026-11-26"}
+{"maker":"Crumar","model":"Seven","status":"skipped","why":"stage piano (left out as agreed)","date":"2026-11-26"}
+{"maker":"DigiTech","model":"GNX3000","status":"none","why":"digitech.com product pages offer only the X-Edit editor/librarian; no standalone firmware file","date":"2026-11-26"}
+{"maker":"DigiTech","model":"GSP-1101","status":"none","why":"digitech.com product pages offer only the X-Edit editor/librarian; no standalone firmware file","date":"2026-11-26"}
+{"maker":"DigiTech","model":"RP500","status":"none","why":"digitech.com product pages offer only the X-Edit editor/librarian; no standalone firmware file","date":"2026-11-26"}
+{"maker":"Dreadbox","model":"Abyss","status":"none","why":"dreadbox-fx.com/support lists no Abyss firmware","date":"2026-11-26"}
+{"maker":"Erica Synths","model":"Bassline DB-01","status":"none","why":"ericasynths.lv builds its support/download lists with JavaScript (Magento/Vue); no direct firmware link found in the product pages","date":"2026-11-26"}
+{"maker":"Erica Synths","model":"LXR-02","status":"none","why":"ericasynths.lv builds its support/download lists with JavaScript (Magento/Vue); no direct firmware link found in the product pages","date":"2026-11-26"}
+{"maker":"Erica Synths","model":"Perkons HD-01","status":"none","why":"ericasynths.lv builds its support/download lists with JavaScript (Magento/Vue); no direct firmware link found in the product pages","date":"2026-11-26"}
+{"maker":"Erica Synths","model":"Syntrx II","status":"none","why":"ericasynths.lv builds its support/download lists with JavaScript (Magento/Vue); no direct firmware link found in the product pages","date":"2026-11-26"}
+{"maker":"Yamaha","model":"Motif Rack","status":"none","why":"Yamaha's download search lists OS updaters only for the MOTIF-RACK ES (in the collection as Motif ES Rack) and MOTIF-RACK XS; nothing for the original 2003 MOTIF-RACK","date":"2026-11-26"}
+{"maker":"Yamaha","model":"Clavinova CVP-209","status":"skipped","why":"Clavinova digital piano line (left out as agreed)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"Clavinova CVP-309","status":"skipped","why":"Clavinova digital piano line (left out as agreed)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"Clavinova CVP-409","status":"skipped","why":"Clavinova digital piano line (left out as agreed)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"Clavinova CVP-509","status":"skipped","why":"Clavinova digital piano line (left out as agreed)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"Clavinova CVP-609","status":"skipped","why":"Clavinova digital piano line (left out as agreed)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"Clavinova CVP-709","status":"skipped","why":"Clavinova digital piano line (left out as agreed)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"Clavinova CVP-809","status":"skipped","why":"Clavinova digital piano line (left out as agreed)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"Electone ELS-01 Stagea","status":"skipped","why":"Electone organ (left out as agreed)","date":"2026-11-26"}
+{"maker":"Kenton","model":"MIDI USB Host","status":"none","why":"Kenton delivers flash updates through its shop (WooCommerce 'Download' products in the Firmware/Flash Updates category, checkout flow); no direct file","date":"2026-11-26"}
+{"maker":"Sonicware","model":"Liven XFM","status":"none","why":"sonicware.jp/pages/downloads lists firmware for the other Liven models but none for the Liven XFM","date":"2026-11-26"}
+{"maker":"M-Audio","model":"Axiom","status":"none","why":"m-audio.com legacy product pages link only to the script-driven /support/downloads search; no direct firmware link found","date":"2026-11-26"}
+{"maker":"M-Audio","model":"Code 25","status":"none","why":"m-audio.com legacy product pages link only to the script-driven /support/downloads search; no direct firmware link found","date":"2026-11-26"}
+{"maker":"M-Audio","model":"Hammer 88","status":"none","why":"m-audio.com legacy product pages link only to the script-driven /support/downloads search; no direct firmware link found","date":"2026-11-26"}
+{"maker":"M-Audio","model":"Oxygen 8","status":"none","why":"m-audio.com legacy product pages link only to the script-driven /support/downloads search; no direct firmware link found","date":"2026-11-26"}
+{"maker":"M-Audio","model":"Trigger Finger","status":"none","why":"m-audio.com legacy product pages link only to the script-driven /support/downloads search; no direct firmware link found","date":"2026-11-26"}
+{"maker":"M-Audio","model":"Venom","status":"none","why":"m-audio.com legacy product pages link only to the script-driven /support/downloads search; no direct firmware link found","date":"2026-11-26"}
+{"maker":"Arturia","model":"AstroLab","status":"have","why":"both official 2.0.0 packages downloaded after the user asked for them (AstroLab 37 and 61, 7.87 GB each)","date":"2026-11-26"}
+{"maker":"Erica Synths","model":"LXR-02","status":"have","why":"firmware 1.6.1 linked from the Erica news post (erp.ericasynths.lv/media)","date":"2026-11-26"}
+{"maker":"Erica Synths","model":"Syntrx II","status":"have","why":"SysEx 1.05 linked from the Erica news post (erp.ericasynths.lv/media)","date":"2026-11-26"}
+{"maker":"Erica Synths","model":"Bassline DB-01","status":"have","why":"audio update 1.10 linked from the Erica news post (erp.ericasynths.lv/media)","date":"2026-11-26"}
+{"maker":"Erica Synths","model":"Perkons HD-01","status":"have","why":"firmware 1.3.0 linked from the Erica news post (erp.ericasynths.lv/media)","date":"2026-11-26"}
+{"maker":"Expressive E","model":"Osmose","status":"none","why":"expressivee.com offers Osmose updates only through its own updater app and account area; no public file","date":"2026-11-26"}
+{"maker":"Expressive E","model":"Touché","status":"none","why":"Touché firmware is updated by Expressive E's desktop software; no public file","date":"2026-11-26"}
+{"maker":"Fender","model":"Mustang","status":"none","why":"Mustang GT/GTX firmware is installed by the Fender Tone app (Wi-Fi/USB); no standalone file","date":"2026-11-26"}
+{"maker":"Fender","model":"Tone Master Pro","status":"none","why":"installed over Wi-Fi or by the Tone Master Pro Control app (support.fender.com); no standalone file","date":"2026-11-26"}
+{"maker":"Fishman","model":"TriplePlay","status":"none","why":"firmware is installed by Fishman's TriplePlay / TriplePlay Connect software; no standalone file","date":"2026-11-26"}
+{"maker":"GEWA","model":"G9","status":"none","why":"updates by Wi-Fi from the GEWA cloud or through the gewamusic.com download area, which refuses scripts; no direct file link found","date":"2026-11-26"}
+{"maker":"Hughes & Kettner","model":"GrandMeister 36","status":"none","why":"hughes-and-kettner.com has presets and apps but no amp firmware download","date":"2026-11-26"}
+{"maker":"iConnectivity","model":"iConnectMIDI4+","status":"none","why":"firmware is installed by iConnectivity's iConfig / Auracle apps; no standalone file","date":"2026-11-26"}
+{"maker":"iConnectivity","model":"mioXL","status":"none","why":"firmware is installed by iConnectivity's Auracle app; no standalone file","date":"2026-11-26"}
+{"maker":"IK Multimedia","model":"UNO Synth","status":"none","why":"firmware is installed by the UNO Synth Editor / IK Product Manager (account); no standalone file","date":"2026-11-26"}
+{"maker":"Isla Instruments","model":"S2400","status":"none","why":"islaelectronics.com/downloads has no S2400 firmware file; updates are posted on the Isla forum","date":"2026-11-26"}
+{"maker":"Kemper","model":"Profiler","status":"none","why":"kemper-amps.com/downloads lists PROFILER OS 14.2.2 (2026-09-22, 30.79 MB) but the download needs a Kemper account login; Rig Manager also installs it","date":"2026-11-26"}
+{"maker":"Keith McMillen","model":"QuNexus","status":"none","why":"KMI firmware is installed by its editor apps / software center; no standalone file","date":"2026-11-26"}
+{"maker":"Mellotron","model":"M4000D","status":"none","why":"mellotron.com support and tech pages offer no firmware file","date":"2026-11-26"}
+{"maker":"Native Instruments","model":"Komplete Kontrol S61","status":"none","why":"firmware comes with Native Access (account); no public file","date":"2026-11-26"}
+{"maker":"Native Instruments","model":"Maschine+","status":"none","why":"Maschine+ OS updates come through Native Access (account); no public file","date":"2026-11-26"}
+{"maker":"Neural DSP","model":"Quad Cortex","status":"none","why":"updated over Wi-Fi from Cortex Cloud; no standalone file","date":"2026-11-26"}
+{"maker":"ROLI","model":"Seaboard RISE","status":"none","why":"firmware is installed by ROLI Connect / ROLI Dashboard; no standalone file","date":"2026-11-26"}
+{"maker":"Strymon","model":"TimeLine","status":"none","why":"Strymon firmware is installed by the Nixie desktop app; no standalone file","date":"2026-11-26"}
+{"maker":"Torso Electronics","model":"T-1","status":"none","why":"updated with Torso's T-1 config tool (torsoelectronics.com/resources, browser based); no standalone file","date":"2026-11-26"}
+{"maker":"Torso Electronics","model":"S-4","status":"none","why":"torsoelectronics.com builds its downloads with JavaScript; no direct firmware link found","date":"2026-11-26"}
+{"maker":"Pearl","model":"Mimic Pro","status":"none","why":"pearldrum.com refuses scripts (403); no direct firmware link found","date":"2026-11-26"}
+{"maker":"Nektar","model":"Panorama P4","status":"none","why":"nektartech.com refuses scripts (403); no direct firmware link found","date":"2026-11-26"}
+{"maker":"Physis","model":"Physis H2","status":"skipped","why":"stage/digital piano (left out as agreed)","date":"2026-11-26"}
+{"maker":"John Bowen","model":"Solaris","status":"none","why":"johnbowen.com refuses scripts (403) and the Wayback Machine has no Solaris OS file","date":"2026-11-26"}
+{"maker":"MFB","model":"Dominion 1","status":"none","why":"mfberlin.de no longer belongs to MFB; the Wayback Machine copy has no Dominion firmware file","date":"2026-11-26"}
+{"maker":"MIDI Solutions","model":"Event Processor","status":"none","why":"midisolutions.com offers only its Programmer tools (settings are sent as SysEx); no firmware files","date":"2026-11-26"}
+{"maker":"Morningstar","model":"MC6","status":"none","why":"updated through the Morningstar web editor; no firmware file on morningstarfx.com or in the Wayback Machine","date":"2026-11-26"}
+{"maker":"MOTU","model":"Micro Express","status":"none","why":"motu.com builds its download lists with JavaScript; the firmware comes with the MOTU MIDI driver installer","date":"2026-11-26"}
+{"maker":"Mackie","model":"Mackie Control Universal","status":"none","why":"mackie.com refuses scripts (error page); no direct firmware link found","date":"2026-11-26"}
+{"maker":"Ketron","model":"SD9","status":"none","why":"Ketron OS files are on shop.ketron.it, which does not answer scripts; only the Event 1.1.0 OS is in the Wayback Machine","date":"2026-11-26"}
+{"maker":"Ketron","model":"Audya","status":"none","why":"Ketron OS files are on shop.ketron.it, which does not answer scripts; none in the Wayback Machine","date":"2026-11-26"}
+{"maker":"Ketron","model":"SD7","status":"none","why":"Ketron OS files are on shop.ketron.it, which does not answer scripts; none in the Wayback Machine","date":"2026-11-26"}
+{"maker":"TC Electronic","model":"D-Two","status":"none","why":"no D-Two update in tcelectronic.com/media as archived by the Wayback Machine; the current site has none","date":"2026-11-26"}
+{"maker":"TC Electronic","model":"G-Force","status":"none","why":"no G-Force update in tcelectronic.com/media as archived by the Wayback Machine; the current site has none","date":"2026-11-26"}
+{"maker":"TC Electronic","model":"M-One","status":"none","why":"no M-One update in tcelectronic.com/media as archived by the Wayback Machine; the current site has none","date":"2026-11-26"}
+{"maker":"TC-Helicon","model":"VoiceLive 3","status":"none","why":"updated with the TC-Helicon VoiceSupport app; no standalone file","date":"2026-11-26"}
+{"maker":"TC-Helicon","model":"VoicePrism","status":"none","why":"no VoicePrism update in tc-helicon.com/media or tcelectronic.com/media as archived by the Wayback Machine","date":"2026-11-26"}
+{"maker":"TC-Helicon","model":"VoiceWorks","status":"none","why":"only the VoiceWorks editor (Vyzor) is archived, no firmware file","date":"2026-11-26"}
+{"maker":"TC-Helicon","model":"Harmony4","status":"none","why":"Harmony4 is a Pro Tools TDM plug-in (installers archived on tcelectronic.com/media), not a hardware unit","date":"2026-11-26"}
+{"maker":"Doepfer","model":"Dark Time","status":"none","why":"doepfer.de/update: Dark Time firmware is sent only on request by e-mail (serial number needed); units from 2016 on are current; no public file","date":"2026-11-26"}
+{"maker":"Eventide","model":"H90","status":"none","why":"H90 firmware is installed by the Eventide Control app (eventideaudio.com/downloads?product=H90 lists only the app and guides); no standalone file","date":"2026-11-26"}
+{"maker":"Korg","model":"padKONTROL","status":"none","why":"korg.com lists only scene data and templates for the padKONTROL; no system updater","date":"2026-11-26"}
+{"maker":"Korg","model":"R3","status":"none","why":"korg.com lists only the R3 bonus program and Power Bank sound data; no system update","date":"2026-11-26"}
+{"maker":"Korg","model":"EXB-MOSS","status":"none","why":"korg.com lists only MOSS preload/sound data; the board has no updatable firmware file","date":"2026-11-26"}
+{"maker":"Kurzweil","model":"KSP8","status":"none","why":"kurzweil.com/ksp8 lists KSP8V190_MID.zip, KSP8V150_CARD.zip, KSPOB150_MID/CARD.zip and mLAN2Updaterksp8.zip under wp-content/uploads/2020/03, but every link answers 404 and the Wayback Machine has no copy","date":"2026-11-26"}
+{"maker":"Vermona","model":"DRM1 MKIII","status":"none","why":"vermona.com/en/support offers firmware only through a script-driven product selector; no direct file link found","date":"2026-11-26"}
+{"maker":"Vermona","model":"Perfourmer","status":"none","why":"vermona.com/en/support offers firmware only through a script-driven product selector; no direct file link found","date":"2026-11-26"}
+{"maker":"Vermona","model":"Mono Lancet","status":"none","why":"vermona.com/en/support offers firmware only through a script-driven product selector; no direct file link found","date":"2026-11-26"}
+{"maker":"TC Electronic","model":"D-Two","status":"none","why":"no D-Two update in tcelectronic.com/media or in TC's former service site (service-tcgroup.tcelectronic.com/files/Tech_Service) as archived by the Wayback Machine","date":"2026-11-26"}
+{"maker":"TC Electronic","model":"G-Force","status":"none","why":"no G-Force update in tcelectronic.com/media or in TC's former service site (service-tcgroup.tcelectronic.com/files/Tech_Service) as archived by the Wayback Machine","date":"2026-11-26"}
+{"maker":"TC Electronic","model":"M-One","status":"none","why":"no M-One update in tcelectronic.com/media or in TC's former service site (service-tcgroup.tcelectronic.com/files/Tech_Service) as archived by the Wayback Machine","date":"2026-11-26"}
+{"maker":"Yamaha","model":"Magicstomp","status":"have","why":"firmware 2.10 MIDI-file update found on archive.org","date":"2026-11-26"}
+{"maker":"IK Multimedia","model":"UNO Synth","status":"have","why":"UNO Synth Firmware Updater 1.1.4 found on archive.org","date":"2026-11-26"}
+{"maker":"Moog","model":"Grandmother","status":"have","why":"firmware 1.1.3 SysEx found on archive.org","date":"2026-11-26"}
+{"maker":"Digidesign","model":"Command|8","status":"none","why":"the Command|8 firmware updater (C8FirmwareUpdater, firmware App V02.00.02.srec) came with the Pro Tools 6.x installers and Digidesign's old download pages; no standalone public file found on avid.com","date":"2026-11-26"}
+{"maker":"Kawai","model":"K5000","status":"have","why":"K5000R/S/W operating systems 3.00-4.04 from Kawai America's old download pages (Wayback Machine)","date":"2026-11-26"}
+{"maker":"Behringer","model":"Neutron","status":"have","why":true,"date":"2026-11-26"}
+{"maker":"GEM","model":"WK4","status":"have","why":"WK2/WK8 OS files from the Wayback copy of generalmusic.com/Download/GEM/OS; no WK4/WK6 OS there (the wk4 file is an error page)","date":"2026-11-26"}
+{"maker":"GEM","model":"S2","status":"none","why":"no OS download: generalmusic.com/Download/GEM/OS (Wayback) has only Equinox 88 Pro, Genesys Grand Ensemble, PS2600, WK1, WK2 HD, WK2000HD and WK8 LE; archive.org item gem-s-series is a 166 MB pack of S-series sound and song disks (Teledisk), no OS disk named","date":"2026-11-26"}
+{"maker":"GEM","model":"Genesys","status":"none","why":"no Genesys/Genesys Pro/XP OS in the Wayback copy of generalmusic.com/Download/GEM/OS (only the Genesys Grand Ensemble piano OS 1.03)","date":"2026-11-26"}
+{"maker":"GEM","model":"WS2","status":"none","why":"no WS OS in the Wayback copy of generalmusic.com/Download/GEM/OS","date":"2026-11-26"}
+{"maker":"Ensoniq","model":"PARIS","status":"none","why":"Wayback copies of emu.com/download/PARIS_Win9x_20_Installer.zip and PARIS_Win9x_21_Installer.exe are truncated at about 1 MB (content-length mismatch on every retry, 2026-11-26)","date":"2026-11-26"}
+{"maker":"Alesis","model":"Ion","status":"have","why":"Ion OS 1.00-1.06 from the Wayback copy of alesis.com/downloads/software/Ion","date":"2026-11-26"}
+{"maker":"Alesis","model":"SamplePad","status":"have","why":"SamplePad Pro firmware 1.1.00 from the Wayback copy of cdn.inmusicbrands.com/alesis","date":"2026-11-26"}
+{"maker":"Alesis","model":"Photon X25","status":"none","why":"the Wayback copy of alesis.com/downloads/software/photonx25 has only the ASIO driver 1.0.8 and DAW templates, no firmware","date":"2026-11-26"}
+{"maker":"Alesis","model":"Photon X25","status":"have","why":"firmware 1.04 from Alesis's Photon X25 USB fix (archive.org item photon_x25)","date":"2026-11-26"}
+{"maker":"Kurzweil","model":"PC1X","status":"have","why":"PC1X update 2.02 from the Wayback copy of kurzweil.com/wp-content/uploads","date":"2026-11-26"}
+{"maker":"Kurzweil","model":"PC2","status":"have","why":"PC2 boot loader 2.00 from the Wayback copy of kurzweil.com/wp-content/uploads (no PC2 OS file archived there)","date":"2026-11-26"}
+{"maker":"Kurzweil","model":"KSP8","status":"none","why":"kurzweil.com/ksp8 links KSP8V190_MID.zip, KSP8V150_CARD.zip, KSPOB150_*.zip and mLAN2Updaterksp8.zip under wp-content/uploads/2020/03, but all give 404 and the Wayback Machine has no copy of them (checked 2026-11-26)","date":"2026-11-26"}
+{"maker":"Kurzweil","model":"PC2","status":"have","why":"PC2/PC2X OS 4.00 and boot loader 2.00 from kurzweil.com/pc2 and /pc2x","date":"2026-11-26"}
+{"maker":"Korg","model":"Electribe EMX-1","status":"have","why":"system update 1.02 from the Wayback copy of korg.com/downloads/pc (Korg's current EMX-1 page has none)","date":"2026-11-26"}
+{"maker":"Roland","model":"Lucina AX-09","status":"have","why":"System Update 1.10 listed on roland.com/uk and /jp (static.roland.com)","date":"2026-11-26"}
+{"maker":"Roland","model":"TD-8","status":"have","why":"System Update 1.10 listed on roland.com/uk and /jp (static.roland.com)","date":"2026-11-26"}
+{"maker":"Roland","model":"VB-99","status":"have","why":"System Program 1.02 from roland.com/jp (static.roland.com/jp/media/zip)","date":"2026-11-26"}
+{"maker":"Boss","model":"BR-1180","status":"have","why":"System Program 2.01 from the Roland Japan support archive (lib.roland.co.jp)","date":"2026-11-26"}
+{"maker":"Boss","model":"BR-532","status":"have","why":"System Program 1.03 from the Roland Japan support archive (lib.roland.co.jp)","date":"2026-11-26"}
+{"maker":"Roland","model":"SC-8820","status":"have","why":"System Program update from the Roland Japan support archive (lib.roland.co.jp)","date":"2026-11-26"}
+{"maker":"Roland","model":"SC-D70","status":"have","why":"System Program (MIDI and USB packages) from the Roland Japan support archive (lib.roland.co.jp)","date":"2026-11-26"}
+{"maker":"Roland","model":"SD-90","status":"have","why":"System Program 1.03 from the Roland Japan support archive (lib.roland.co.jp)","date":"2026-11-26"}
+{"maker":"Roland","model":"VM-3100","status":"have","why":"System Program 1.05 from the Roland Japan support archive (lib.roland.co.jp)","date":"2026-11-26"}
+{"maker":"Roland","model":"TD-27","status":"none","why":"roland.com (us, uk, global, jp, ...) lists TD-27 System Program 2.21, but the download link is added by a geo-IP script; the page holds no file URL","date":"2026-11-26"}
+{"maker":"Roland","model":"TD-713","status":"have","why":"V71 module System Program 2.10 from roland.com (support page of the V71, the TD-713/TD-716 module)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"MODX M","status":"none","why":"MODX M OS Updater V3.00 (4 GB) is listed by Yamaha's download search (usa, jp, uk, europe; files/2925850) but data.yamaha.com answers 404 (2026-11-26)","date":"2026-11-26"}
+{"maker":"Boss","model":"RC-202","status":"none","why":"boss.info (uk, jp) lists only BOSS TONE STUDIO, drivers, demo data and CEF source for the RC-202; no system program","date":"2026-11-26"}
+{"maker":"Boss","model":"GS-10","status":"none","why":"boss.info (uk) lists only drivers for the GS-10; no system program","date":"2026-11-26"}
+{"maker":"E-mu","model":"Proteus PK-6","status":"none","why":"E-mu's OS images for the Command Stations and Proteus 2000 family (Command131/132.zip, p2k226.zip, xl7mp7v101.zip under emu.com/dlweb/osimages) were not archived by the Wayback Machine (only E-mu's HTML pages); E-Loader 1.1 is archived but carries no OS","date":"2026-11-26"}
+{"maker":"Oberheim","model":"OB-12","status":"none","why":"no OS file: the Wayback copies of oberheim.com and viscountinstruments.com hold only OB-X8 and Viscount Legend files; viscount.it has none archived","date":"2026-11-26"}
+{"maker":"Oberheim","model":"Two Voice Pro","status":"none","why":"no firmware file in the Wayback copy of tomoberheim.com (no files archived) or oberheim.com","date":"2026-11-26"}
+{"maker":"Atari","model":"Falcon030","status":"have","why":"ROM dump from the MAME set falcon30 (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Music Quest","model":"PC MIDI Card","status":"have","why":"ROM dump from the MAME set isa_pcmidi (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Roland","model":"CM-32P","status":"have","why":"ROM dump from the MAME set cm32p (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Roland","model":"MPU-401","status":"have","why":"ROM dump from the MAME set mpu401 (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Roland","model":"MT-100","status":"have","why":"ROM dump from the MAME set mt100 (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Roland","model":"PR-100","status":"have","why":"ROM dump from the MAME set pr100 (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Roland","model":"SC-88VL","status":"have","why":"ROM dump from the MAME set sc88vl (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Roland","model":"TB-303","status":"have","why":"ROM dump from the MAME set tb303 (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Roland","model":"TR-606","status":"have","why":"ROM dump from the MAME set tr606 (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Roland","model":"TR-808","status":"have","why":"ROM dump from the MAME set tr808 (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"DB50XG","status":"have","why":"ROM dump from the MAME set db50xg (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"DB60XG","status":"have","why":"ROM dump from the MAME set db60xg (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"MU10","status":"have","why":"ROM dump from the MAME set mu10 (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"MU15","status":"have","why":"ROM dump from the MAME set mu15 (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"QS300","status":"have","why":"ROM dump from the MAME set qs300 (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"SW1000XG","status":"have","why":"ROM dump from the MAME set sw1000xg (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"TG100","status":"have","why":"ROM dump from the MAME set tg100 (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"VL1","status":"have","why":"ROM dump from the MAME set vl1 (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Casio","model":"FZ-10M","status":"none","why":"no FZ-10M/FZ-20M OS disk on archive.org (title search: only manuals and a brochure) or in other public archives checked","date":"2026-11-26"}
+{"maker":"Korg","model":"Z1","status":"none","why":"no Z1 OS update in the Wayback copies of korg.com/downloads (only Z1 editors and the MIDI implementation) or korg.co.jp/Support/Update","date":"2026-11-26"}
+{"maker":"Korg","model":"T1","status":"none","why":"no T1/T2/T3 OS in the Wayback copies of korg.com/downloads or korg.co.jp/Support/Update (T123_pl.exe there is not an OS)","date":"2026-11-26"}
+{"maker":"E-mu","model":"Orbit","status":"none","why":"same instrument as the Orbit 9090 (Orbit V2 = OS 2.00); E-mu's own OS images were not archived; the Orbit 9090 ROM dumps (v1.00, v2.00) are in the collection under Orbit 9090","date":"2026-11-26"}
+{"maker":"Casio","model":"FZ-10M","status":"have","why":"ROM dump from the MAME set fz10m (clone inside the merged fz1.zip, archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Casio","model":"DG-20","status":"have","why":"ROM dump from the MAME set dg20 (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"SFG-05","status":"have","why":"ROM dump from the MAME device msx_cart_sfg05 (archive.org item mame-roms-merged_)","date":"2026-11-26"}
+{"maker":"Yamaha","model":"PLG150-AN","status":"have","why":"PLG100-VL and PLG150-AP ROM dumps from the MAME devices plg100_vl, plg150_ap (archive.org item mame-roms-merged_); the other PLG boards are not dumped there","date":"2026-11-26"}
+{"maker":"Roland","model":"SC-88Pro","status":"have","why":"control ROM 1.02 and wave ROMs from archive.org item 88emu-roms","date":"2026-11-26"}
+{"maker":"Roland","model":"SK-88Pro","status":"have","why":"program ROM 1.01 from archive.org item 88emu-roms","date":"2026-11-26"}
+{"maker":"Roland","model":"SCB-55","status":"have","why":"program and internal (MCU) ROMs from archive.org item 88emu-roms","date":"2026-11-26"}
+{"maker":"Roland","model":"SN-U110 PCM cards","status":"have","why":"SN-U110-01 to -15 card images from archive.org item 88emu-roms (cm32p_cm64_pcm_cards.zip)","date":"2026-11-26"}
+{"maker":"Turtle Beach","model":"Maui","status":"have","why":"Rio EPROM dump from archive.org item turtle-beach-rio-mx27c512-rom-dump","date":"2026-11-26"}
+{"maker":"Midiman","model":"MIDISPORT 2x2","status":"have","why":"firmware images from the Debian package midisport-firmware 1.2 (the interfaces load them from the host driver at plug-in)","date":"2026-11-26"}
+{"maker":"Steinberg","model":"MIDEX-8","status":"have","why":"Midex 8 driver archive with the firmware loader (archive.org item midex-8)","date":"2026-11-26"}
+{"maker":"E-mu","model":"Proteus PK-6","status":"have","why":"Command Station OS 2.00 (XL-7/MP-7/PX-7) and Proteus family OS 2.26 (128-voice: Vintage Pro) from emumania.net; no PK-6/MK-6/XK-6/Halo keyboard OS found","date":"2026-11-27"}
+{"maker":"Kurzweil","model":"KSP8","status":"have","why":"OS 1.50, 1.81, 1.90 (MIDI file and card), objects 1.50 and the mLAN2 updater from the Wayback copy of Kurzweil's FTP mirror (kurzweil.com/content/migration/downloads/pub/Kurzweil/Pro_Products/KSP8/)","date":"2026-11-27"}
+{"maker":"GEM","model":"S2","status":"have","why":"S2R Turbo expansion EPROM dumps S2R-17 to S2R-20 from GitHub M1Lky-W4y/S2R-turbo; no S2/S3 OS floppy found","date":"2026-11-27"}

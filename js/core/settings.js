@@ -23,6 +23,11 @@ export const SETTING_DEFAULTS = {
     filterRealtime: true, // hide clock and active sensing in the monitor
   },
   keyboard: { show: true, channel: 0, velocity: 100, octave: 3, computerKeys: true, patternBpm: 120 },
+  // MIDI inputs (core/midi/inputs.js): up to 4 controllers; global controller mappings
+  inputs: {
+    slots: Array.from({ length: 4 }, () => ({ port: '', enabled: true, thru: true, toChannel: true })),
+    mappings: [],
+  },
   monitor: { maxEntries: 400 },
 };
 

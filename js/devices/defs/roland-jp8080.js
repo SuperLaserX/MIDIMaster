@@ -43,7 +43,7 @@ const M = {
   depthName: 'Control',
   patchBanks: PATCH_BANKS,
   perfBanks: PERF_BANKS,
-  coverage: 'Every system, performance, voice modulator, part and patch byte (including the Control and Velocity depth matrices and the Tx/Rx CC table) with the labels, ranges, value displays and option lists of the v1.04 firmware; bytes without a JP-8080 screen are named from Roland’s address map and the JP-8000 menus. Read and written by address (DT1/RQ1). User patch and performance memories, PRESET 1-3 names from the ROM, bank select, program change, the MODE1/MODE2 CC maps, and motion and RPS pattern data for the librarian. Checked on a JP-8080.',
+  coverage: 'Every system, performance, voice modulator, part and patch byte (including the Control and Velocity depth matrices and the Tx/Rx CC table) with the labels, ranges, value displays and option lists of the v1.04 firmware; bytes without a JP-8080 screen are named from Roland’s address map and the JP-8000 menus. Read and written by address (DT1/RQ1). User patch and performance memories, PRESET 1-3 names from the ROM, bank select, program change, the MODE1/MODE2 CC maps, and motion and RPS pattern data for the Branch Library. Checked on a JP-8080.',
   // Bytes without LCD text (see roland-jp.js): [label, options or null, help, extra].
   switches: ({ PANEL, JP8000, ONOFF, groups }) => ({
   PATCH: {

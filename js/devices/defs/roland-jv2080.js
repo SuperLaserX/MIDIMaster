@@ -9,13 +9,15 @@
 // option lists (roland-jv2080-ui.js), including the names of EFX parameters 1-12 for each
 // of the 40 EFX types. Bank select follows the decoder at 0x0E1230BC.
 
-import { named, readText } from '../../core/model/memmap.js';
+import { named, readText, readParam } from '../../core/model/memmap.js';
 import { dt1, dt1Chunks, rq1, parseDt1, readBlock, intToAddr, addrToInt } from '../../core/midi/roland.js';
 import { JV2080_BLOCKS as FW } from './roland-jv2080-fw.js';
 import { LISTS, EFX_TYPES } from './roland-jv2080-ui.js';
 import { categoryFromRoland } from '../../core/mainlib/categories.js';
 import { PRESET_PATCHES, PRESET_PERFORMANCES } from './roland-jv2080-presets.js';
 import { SRJV80_BOARDS } from './roland-srjv80.js';
+import { INT_A_WAVES, INT_B_WAVES } from './roland-jv2080-waves.js';
+import { jvTranslator, setJvName } from './roland-jv2080-translate.js';
 
 const MODEL = [0x6a];
 const A = (s) => addrToInt(s.split(' ').map((x) => parseInt(x, 16)));
@@ -117,9 +119,9 @@ const pcmGroups = () => Array.from({ length: 127 }, (_, i) => [i + 1, `PCM ${i +
 
 /** Wave group IDs for a group type: INT-A/B, expansion boards, PCM cards. */
 const waveGroupOptions = (type, ctx) => (type === 0 ? [[1, 'INT-A'], [2, 'INT-B']] : type === 2 ? boardOptions(ctx) : pcmGroups());
-/** Wave numbers, named for expansion boards (the internal wave names are not in the flash). */
+/** Wave numbers, named: INT-A/INT-B from the owner's manual (the names are not in the flash), boards from their ROMs. */
 function waveNumberOptions(type, id) {
-  const names = type === 2 ? boardWaveNames(id) : null;
+  const names = type === 2 ? boardWaveNames(id) : type === 0 ? (id === 1 ? INT_A_WAVES : id === 2 ? INT_B_WAVES : null) : null;
   return names ? numbered(names.length, (i) => names[i]) : numbered(256);
 }
 
@@ -819,6 +821,9 @@ function describe(raw) {
   return null;
 }
 
+// Head Library: the shared synth model (roland-jv2080-translate.js)
+const TR = jvTranslator({ patch: patchBuilt.params, perf: perfBuilt.params, rhythm: rhythmBuilt.params });
+
 const TONE_SECTIONS = [{ key: 'common', label: 'Common' }, ...[0, 1, 2, 3].map((n) => ({ key: `t${n}`, label: `Tone ${n + 1}` }))];
 const PATCH_TARGETS = [['patch', 'Patch mode'], ...Array.from({ length: 16 }, (_, p) => p).filter((p) => p !== 9).map((p) => [`p${p}`, `Performance part ${p + 1}`])];
 const hex4 = (n) => intToAddr(n).map((b) => b.toString(16).padStart(2, '0')).join(' ');
@@ -834,7 +839,7 @@ function expansionNote(bank, ctx) {
 }
 
 /**
- * Split a SysEx dump into the objects it holds (librarian): user patches, performances and
+ * Split a SysEx dump into the objects it holds (Branch Library): user patches, performances and
  * rhythm sets, the temporary areas and the system block, by DT1 address. Each item has the
  * page it can be opened in.
  */
@@ -874,7 +879,7 @@ export default {
   sysex: { manufacturer: [0x41], model: MODEL, deviceIdDefault: 0x10 },
   minGap: 25,
   describe,
-  // Main Library import: the messages this definition reads (DT1 for model 6A).
+  // Head Library import: the messages this definition reads (DT1 for model 6A).
   recognise: (raw) => !!parseDt1(raw, MODEL)?.ok,
   // Roland model 6A messages, readable or not (a damaged DT1 is still this device's data)
   isOwn: (raw) => raw?.[0] === 0xf0 && raw[1] === 0x41 && raw[3] === MODEL[0],
@@ -888,7 +893,7 @@ export default {
     help: 'Selects patch 1 of each expansion slot, then puts back the current patch and its edits (about 10 seconds). Board patch and wave names come from the board ROMs, so they need no reading. The last result is kept either way.',
   }],
   libraryItems,
-  // Librarian "Complete dump": the system, the temporary areas and every user memory.
+  // Branch Library "Complete dump": the system, the temporary areas and every user memory.
   fullDump: ['System', 'Temporary patch (patch mode)', 'Temporary performance', 'All user patches', 'All user performances', 'User rhythm sets'],
   objects: [
     {
@@ -909,8 +914,12 @@ export default {
     },
     {
       key: 'patch', page: 'Patch', icon: '◆', label: 'Patch', size: patchBuilt.size, autoLoad: true,
-      // Main Library: the patch's own Category (same 38 categories as the Main Library).
+      // Head Library: the patch's own Category (same 38 categories as the Head Library).
       category: (d) => categoryFromRoland(readParam(d, patchBuilt.params.find((x) => x.label === 'Category'))),
+      setCategory: (d, id) => TR.patchSetCategory(d, id),
+      setName: setJvName,
+      toCommon: (d) => TR.patchToCommon(d),
+      fromCommon: (c, base) => TR.patchFromCommon(c, base),
       init: () => defaults(patchBuilt),
       fetch: (api) => fetchParts(api, patchBuilt),
       params: patchBuilt.params,
@@ -969,6 +978,9 @@ export default {
     },
     {
       key: 'performance', page: 'Performance', icon: '▦', label: 'Performance', size: perfBuilt.size, autoLoad: true,
+      setName: setJvName,
+      toCommon: (d) => TR.perfToCommon(d),
+      fromCommon: (c, base) => TR.perfFromCommon(c, base),
       init: () => defaults(perfBuilt),
       fetch: (api) => fetchParts(api, perfBuilt),
       params: perfBuilt.params,
@@ -1013,6 +1025,9 @@ export default {
     },
     {
       key: 'rhythm', page: 'Rhythm set', icon: '▤', label: 'Rhythm set', size: rhythmBuilt.size,
+      setName: setJvName,
+      toCommon: (d) => TR.rhythmToCommon(d),
+      fromCommon: (c, base) => TR.rhythmFromCommon(c, base),
       init: () => defaults(rhythmBuilt),
       fetch: (api) => fetchParts(api, rhythmBuilt),
       params: rhythmBuilt.params,

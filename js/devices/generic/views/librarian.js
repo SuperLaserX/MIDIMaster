@@ -1,20 +1,23 @@
-// Librarian: record SysEx dumps from the device, keep them in the browser, send them
+// Branch Library: record SysEx dumps from the device, keep them in the browser, send them
 // back, and import or export .syx files. Works with any instrument that dumps SysEx.
 
-import { h, clear, toast, formDialog, confirmDialog, downloadBlob, pickFiles, safeFileName } from '../../../core/ui/dom.js';
+import { h, clear, toast, formDialog, confirmDialog, dialog, downloadBlob, pickFiles, safeFileName } from '../../../core/ui/dom.js';
 import { niceName } from '../../../core/mainlib/format.js';
 import { splitSysex, manufacturerName, manufacturerId, describeMessage } from '../../../core/midi/describe.js';
-import { hex, sleep } from '../../../core/bits.js';
-import { fullDumpSteps, runFullDump } from '../fulldump.js';
+import { hex } from '../../../core/bits.js';
+import { waitUntil } from '../../../core/midi/schedule.js';
+import { fullDumpSteps, optionalGroups, estimateSeconds, durationText } from '../fulldump.js';
+import { startCapture, startCompleteDump, joinMsgs } from '../dumpjob.js';
 import { sysexMessages, isSmf } from '../../../core/midi/smf.js';
 import { mainLibraryPanel } from './mainlib-panel.js';
+import { importFromMainLibrary } from './mainlib-pick.js';
 
 const QUIET_MS = 2500;
 
 export function librarianView(root, g) {
   const lib = g.host.library;
   const device = g.entry.id;
-  const st = { items: [], capture: null, sending: false, open: null };
+  const st = { items: [], sending: false, open: null };
   const list = h('div');
   const captureBox = h('div');
   const openBox = h('div');
@@ -25,57 +28,43 @@ export function librarianView(root, g) {
     renderList();
   }
 
-  // ------------------------------------------------------------ capture
-  function startCapture(requestBytes = null, { name, text } = {}) {
-    if (st.capture) return;
-    const cap = { messages: [], bytes: 0, timer: null, started: Date.now() };
-    const info = h('div.small.mono', 'Waiting...');
-    const stop = async (save = true) => {
-      clearTimeout(cap.timer);
-      off();
-      st.capture = null;
-      clear(captureBox);
-      if (save && cap.messages.length) await saveCapture(cap.messages, name ? { name, notes: 'Complete dump started on the device' } : {});
-      else if (save) toast('Nothing was received.', 'warn');
-    };
-    const off = g.transport.on('sysex', (d) => {
-      if (d[1] === 0x7e && (d[3] === 0x06 || d[3] >= 0x7c)) return; // identity and handshakes
-      cap.messages.push(Uint8Array.from(d));
-      cap.bytes += d.length;
-      info.textContent = `${cap.messages.length} message(s), ${cap.bytes} bytes. Last: ${describeMessage(d, g.host.shell.device?.instance?.decode)}`;
-      clearTimeout(cap.timer);
-      cap.timer = setTimeout(() => stop(true), QUIET_MS);
-    });
-    st.capture = { stop };
-    clear(captureBox).append(h('div.card.col.capture',
-      h('div.row', h('span.spinner'), h('b.grow', 'Recording SysEx'),
-        h('button.btn.small.primary', { onclick: () => stop(true) }, 'Stop and save'),
-        h('button.btn.small', { onclick: () => stop(false) }, 'Cancel')),
-      h('div.small.muted', text || (requestBytes ? 'Dump request sent. Waiting for the reply.' : `Start the dump on the ${g.entry.model} now (usually under MIDI, Utility or System: Bulk Dump, SysEx Transmit or Data Transfer). Recording stops ${QUIET_MS / 1000} s after the last message.`)),
-      info));
-    if (requestBytes) {
-      for (const m of splitSysex(requestBytes)) g.client.send(m).catch((err) => g.error(err, 'Dump request'));
+  // ------------------------------------------------------------ dumps (background jobs, ../dumpjob.js)
+  // A recording or a complete dump belongs to the device, not to this page: it goes on while other
+  // pages are shown, this page shows it again when opened, and it saves itself when it is done.
+  const jobEls = { job: null };
+  function renderJob(job) {
+    if (!job) { jobEls.job = null; clear(captureBox); return; }
+    if (jobEls.job !== job) {
+      jobEls.job = job;
+      jobEls.title = h('b.grow', '');
+      jobEls.info = h('div.small.mono', '');
+      jobEls.bar = h('div');
+      jobEls.time = h('span.small.muted', '');
+      clear(captureBox).append(h('div.card.col.capture',
+        h('div.row', h('span.spinner'), jobEls.title, jobEls.time,
+          h('button.btn.small.primary', { title: 'Stop now and save what has arrived', onclick: () => job.stop(true) }, 'Stop and save'),
+          h('button.btn.small', { title: 'Stop and discard what has arrived', onclick: async () => { if (job.count < 50 || await confirmDialog('Cancel', `Discard the ${job.count} messages received so far?`, 'Discard', true)) job.stop(false); } }, 'Cancel')),
+        job.text ? h('div.small.muted', job.text) : null,
+        job.kind === 'dump' ? h('div.progress', jobEls.bar) : null,
+        jobEls.info,
+        h('div.small.muted', 'It goes on while you use other pages of this device; a message tells you when it is saved.')));
     }
+    jobEls.title.textContent = job.kind === 'dump'
+      ? `${job.title} ${job.step.i + 1}/${job.step.n}: ${job.step.label}${job.left != null ? ` (${durationText(job.left)} left)` : ''}`
+      : job.title;
+    jobEls.bar.style.width = `${job.percent ?? 0}%`;
+    jobEls.time.textContent = `started ${new Date(job.started).toLocaleTimeString()}`;
+    jobEls.info.textContent = `${job.count} message(s), ${job.bytes} bytes${job.kind === 'capture' ? `. Last: ${job.last}` : ''}`;
   }
 
-  async function saveCapture(messages, { name = `${g.entry.model} dump ${new Date().toLocaleString()}`, notes = '', note = '' } = {}) {
-    const total = messages.reduce((a, m) => a + m.length, 0);
-    const bytes = new Uint8Array(total);
-    let o = 0;
-    for (const m of messages) { bytes.set(m, o); o += m.length; }
-    const r = await formDialog('Save dump', [{ key: 'name', label: 'Name', value: name }], 'Save',
-      `${messages.length} message(s), ${total} bytes.${note ? ` ${note}` : ''}`);
-    if (!r) {
-      if (notes && (await confirmDialog('Discard dump', 'Discard the complete dump? Export it as a .syx file instead to keep it outside the library.', 'Export .syx'))) {
-        downloadBlob(bytes, `${safeFileName(name)}.syx`, 'application/octet-stream');
-      }
-      return;
-    }
-    const id = await lib.put({ device, name: r.name || 'Dump', bytes, kind: 'sysex', notes });
-    toast('Dump saved in the library', 'good');
-    await refresh();
-    const saved = st.items.find((x) => x.id === id);
-    if (saved) openEntry(saved);
+  function record(requestBytes = null, opts = {}) {
+    if (g.job) { toast(`A ${g.job.title.toLowerCase()} is running; wait for it or stop it first.`, 'warn'); return; }
+    try {
+      startCapture(g, {
+        requestBytes, splitSysex, quiet: QUIET_MS, ...opts,
+        text: opts.text || (requestBytes ? 'Dump request sent. Waiting for the reply.' : `Start the dump on the ${g.entry.model} now (usually under MIDI, Utility or System: Bulk Dump, SysEx Transmit or Data Transfer). Recording stops ${QUIET_MS / 1000} s after the last message.`),
+      });
+    } catch (err) { g.error(err, 'Record'); }
   }
 
   // ------------------------------------------------------------ complete dump
@@ -84,44 +73,44 @@ export function librarianView(root, g) {
   const fullSteps = () => fullDumpSteps(g.def);
 
   async function completeDump() {
-    if (st.capture || st.sending) return;
-    const steps = fullSteps();
+    if (g.job) { toast(`A ${g.job.title.toLowerCase()} is running; wait for it or stop it first.`, 'warn'); return; }
+    if (st.sending) return;
+    let steps = fullSteps();
     if (!steps) {
-      startCapture(null, {
-        name: `${g.entry.model} complete dump ${new Date().toLocaleString()}`,
-        text: `Start a complete dump on the ${g.entry.model} now: choose the option that sends everything (often called All, All Data, Bulk Dump All or Total) under MIDI, Utility or System. The ${g.entry.model}'s own dump requests are not mapped yet, so the dump has to be started on the device. Recording stops ${QUIET_MS / 1000} s after the last message.`,
+      // def.panelDump: a device without dump requests says how its complete dump is started on the
+      // unit: 'text' or {text, quiet (ms between messages it may take), expect (messages in it)}
+      const pd = typeof g.def?.panelDump === 'string' ? { text: g.def.panelDump } : g.def?.panelDump;
+      const quiet = pd?.quiet ?? QUIET_MS;
+      record(null, {
+        name: `${g.entry.model} complete dump ${new Date().toLocaleString()}`, notes: 'Complete dump started on the device',
+        quiet, expect: pd?.expect ?? null,
+        text: pd ? `Start the complete dump on the ${g.entry.model} now: ${pd.text}. The ${g.entry.model} has no dump requests, so the dump is started on the unit. Recording stops ${pd.expect ? 'when it is complete, or ' : ''}${quiet / 1000} s after the last message.`
+          : `Start a complete dump on the ${g.entry.model} now: choose the option that sends everything (often called All, All Data, Bulk Dump All or Total) under MIDI, Utility or System. The ${g.entry.model}'s own dump requests are not mapped yet, so the dump has to be started on the device. Recording stops ${QUIET_MS / 1000} s after the last message.`,
       });
       return;
     }
     if (!g.connected) { toast('Choose the MIDI ports on the Connect page first.', 'warn'); return; }
-    if (!(await confirmDialog('Complete dump', `Request all of the ${g.entry.model}'s data (${steps.map((s) => s.label).join('; ')}) and save it as one library entry? This can take a few minutes; the ${g.entry.model} only sends, nothing on it changes.`, 'Start'))) return;
-    const run = { cancel: false, messages: [], results: [] };
-    const stepEl = h('b.grow', '');
-    const info = h('div.small.mono', '');
-    const bar = h('div');
-    st.capture = { stop: () => { run.cancel = true; } };
-    clear(captureBox).append(h('div.card.col.capture',
-      h('div.row', h('span.spinner'), stepEl, h('button.btn.small', { onclick: () => { run.cancel = true; } }, 'Cancel')),
-      h('div.progress', bar), info));
-    try {
-      Object.assign(run, await runFullDump({ transport: g.transport, client: g.client, ctx: g.ctx }, steps, {
-        cancelled: () => run.cancel,
-        onStep: (i, s) => { stepEl.textContent = `Complete dump ${i + 1}/${steps.length}: ${s.label}`; bar.style.width = `${Math.round((i / steps.length) * 100)}%`; },
-        onProgress: (n, bytes) => { info.textContent = `${n} message(s), ${bytes} bytes`; },
-      }));
-    } catch (err) { g.error(err, 'Complete dump'); } finally {
-      st.capture = null;
-      clear(captureBox);
-    }
-    if (run.cancel) { toast('Complete dump cancelled.', 'warn'); return; }
-    if (!run.messages.length) { toast(`The ${g.entry.model} did not answer. Check the MIDI ports and the device ID on the Connect page.`, 'bad'); return; }
-    const empty = run.results.filter((r) => !r.count).map((r) => r.label);
-    const notes = `Complete dump: ${run.results.map((r) => `${r.label} ${r.count ? `${r.count} msg` : 'no reply'}`).join('; ')}`;
-    await saveCapture(run.messages, {
-      name: `${g.entry.model} complete dump ${new Date().toLocaleString()}`,
-      notes,
-      note: empty.length ? `No reply (empty or not present): ${empty.join(', ')}.` : 'Every request was answered.',
-    });
+    // optional groups (e.g. ROM banks) are chosen here, all ticked: a complete dump holds everything
+    const groups = optionalGroups(steps);
+    const boxes = groups.map(() => h('input', { type: 'checkbox', checked: true }));
+    const timed = steps.some((s) => s.seconds);
+    const estimate = h('div.small');
+    const chosen = () => steps.filter((s) => !s.optional || boxes[groups.findIndex((x) => x.steps.includes(s))].checked);
+    const showEstimate = () => { estimate.textContent = timed ? `Takes ${durationText(estimateSeconds(chosen()))}. It goes on while you use other pages of the ${g.entry.model} (and in a background tab), and is saved by itself when it is done.` : 'This can take a few minutes. It goes on while you use other pages of this device, and is saved by itself when it is done.'; };
+    boxes.forEach((b) => b.addEventListener('change', showEstimate));
+    showEstimate();
+    const sp = g.host.device.value.speed;
+    const pace = `Pace: requests go out ${g.client.s.minGap} ms apart (${sp ? `measured on the Connect page, ${new Date(sp.measured).toLocaleDateString()}` : 'the DIN-MIDI default; Measure speed on the Connect page for this link\'s own pace'}).${g.def?.fullDumpPace ? ` ${g.def.fullDumpPace}` : ''}`;
+    const mandatory = [...new Set(steps.filter((s) => !s.optional).map((s) => s.group || s.label))];
+    const ok = await dialog('Complete dump', h('div.col',
+      h('p.small', `Request all of the ${g.entry.model}'s data and save it in the Branch Library: each bank of sounds as an entry of its own, the settings and other data together in one. The ${g.entry.model} only sends; nothing on it changes.`),
+      h('div.small.muted', `${mandatory.length > 12 ? `${mandatory.slice(0, 12).join('; ')}; and ${mandatory.length - 12} more` : mandatory.join('; ')}.`),
+      groups.length ? h('div.col', groups.map((x, i) => h('label.row', boxes[i], `${x.group} (${x.steps.length} request${x.steps.length === 1 ? '' : 's'}${x.seconds ? `, ${durationText(x.seconds)}` : ''})`))) : null,
+      h('div.small', pace),
+      estimate), [{ label: 'Cancel', value: false }, { label: 'Start', value: true, primary: true }]);
+    if (!ok) return;
+    steps = chosen();
+    try { startCompleteDump(g, steps); } catch (err) { g.error(err, 'Complete dump'); }
   }
 
   // ------------------------------------------------------------ requests
@@ -150,12 +139,15 @@ export function librarianView(root, g) {
     const box = h('div.card.col', h('div.small', `Sending ${title} (${msgs.length} message(s))`), h('div.progress', bar));
     captureBox.prepend(box);
     try {
+      let last = null;
       for (let i = 0; i < msgs.length; i++) {
-        await g.client.send(msgs[i]);
-        // Large messages need time to travel at MIDI speed before the next one.
-        await sleep((msgs[i].length / g.host.settings.value.midi.bytesPerSecond) * 1000);
+        // a long message needs time to go out before the next: the device's measured pace (Connect
+        // page) or the DIN-MIDI default; scheduled by the client, so a background tab is not slowed
+        const r = await g.client.send(msgs[i], { gapAfter: (msgs[i].length / g.client.s.bytesPerSecond) * 1000 });
+        last = r?.at ?? last;
         bar.style.width = `${Math.round(((i + 1) / msgs.length) * 100)}%`;
       }
+      if (last) await waitUntil(last);
       toast(`Sent ${title}`, 'good');
     } catch (err) { g.error(err, 'Send'); } finally { st.sending = false; box.remove(); }
   }
@@ -170,12 +162,6 @@ export function librarianView(root, g) {
     if (grouped?.length) return grouped;
     return msgs.map((m, i) => ({ key: String(i), label: describeMessage(m, decode()), name: '', msgs: [m] }));
   }
-  const joinMsgs = (msgs) => {
-    const out = new Uint8Array(msgs.reduce((a, m) => a + m.length, 0));
-    let o = 0;
-    for (const m of msgs) { out.set(m, o); o += m.length; }
-    return out;
-  };
 
   /** Show what an entry (or an unsaved file: entry without id) holds; all items selected. */
   function openEntry(e) {
@@ -219,7 +205,7 @@ export function librarianView(root, g) {
         h('button.btn.primary', { disabled: !selected.size || st.sending, onclick: () => sendMessages(selected.size === items.length ? `"${entry.name}"` : `${selected.size} of ${items.length} items from "${entry.name}"`, chosenMsgs()) }, `Send selected (${selected.size})`),
         h('button.btn', { disabled: !selected.size, onclick: () => downloadBlob(joinMsgs(chosenMsgs()), `${safeFileName(all ? entry.name : `${entry.name} (${selected.size} items)`)}.syx`, 'application/octet-stream') }, 'Export selected'),
         h('button.btn', { disabled: !selected.size, onclick: saveSelection }, entry.id ? 'Save selected as new entry' : 'Save to library'),
-        h('button.btn', { disabled: !selected.size, title: 'Turn the selected items into Main Library patches (readable JSON with every setting)', onclick: () => ml.addMessages(all ? entry.name : `${entry.name} (${selected.size} items)`, chosenMsgs()) }, 'Add to Main Library')),
+        h('button.btn', { disabled: !selected.size, title: 'Turn the selected items into Head Library patches (readable JSON with every setting)', onclick: () => ml.addMessages(all ? entry.name : `${entry.name} (${selected.size} items)`, chosenMsgs()) }, 'Add to Head Library')),
       h('div.small.muted', g.def?.libraryItems ? `Items are the ${g.entry.model} objects the dump holds. Click a row or its box to choose what to send.` : 'Each item is one SysEx message. Click a row or its box to choose what to send.'),
       h('div.table-wrap.lib-items', h('table.list',
         h('thead', h('tr', h('th', ''), h('th', '#'), h('th', 'Item'), h('th', 'Name'), h('th', 'Messages'), h('th', 'Bytes'), h('th', ''))),
@@ -308,12 +294,12 @@ export function librarianView(root, g) {
   }
 
   root.append(
-    h('h1', 'Librarian'),
+    h('h1', 'Branch Library'),
     h('div.sub', `Keep ${g.entry.model} data (patches, banks, setups, sequences) as SysEx in this browser. Dumps are stored exactly as received, so they can be sent back unchanged. Open a dump to see what it holds and choose which parts to send.`),
     h('div.card.col',
       h('div.row',
-        h('button.btn.primary', { onclick: completeDump, title: fullSteps() ? `Request every kind of ${g.entry.model} data in turn and save it all as one entry` : `Record a complete dump started on the ${g.entry.model}` }, 'Complete dump'),
-        h('button.btn', { onclick: () => startCapture() }, 'Record a dump'),
+        h('button.btn.primary', { onclick: completeDump, title: fullSteps() ? `Request every kind of ${g.entry.model} data in turn and save it in the Branch Library (each bank of sounds as an entry)` : `Record a complete dump started on the ${g.entry.model}` }, 'Complete dump'),
+        h('button.btn', { onclick: () => record() }, 'Record a dump'),
         h('button.btn', {
           onclick: async () => {
             const files = await pickFiles('.syx,.mid,.midi,.bin', true);
@@ -321,6 +307,7 @@ export function librarianView(root, g) {
           },
         }, 'Import .syx'),
         h('button.btn', { title: 'Look inside a .syx file and send parts of it, without adding it to the library', onclick: openFile }, 'Open .syx file'),
+        (g.def?.objects || []).some((o) => o.init && o.params?.length) ? h('button.btn', { title: `Load Head Library patches (another model's through its translator) into the editor, the edit buffer or ${g.entry.model} memory slots`, onclick: () => importFromMainLibrary(g).catch((err) => g.error(err, 'Import from Head Library')) }, 'Import from Head Library...') : null,
         h('button.btn', {
           onclick: () => {
             if (!st.items.length) return;
@@ -330,7 +317,7 @@ export function librarianView(root, g) {
       h('div.row',
         reqSel, reqHex,
         h('button.btn', {
-          onclick: () => { try { startCapture(requestBytes()); } catch (err) { g.error(err, 'Request'); } },
+          onclick: () => { try { record(requestBytes()); } catch (err) { g.error(err, 'Request'); } },
         }, 'Send request and record')),
       h('div.small.muted', requests.length ? 'Dump requests come from the device definition.' : 'This device has no mapped dump requests yet. Most instruments can send a dump from their front panel; record it here.')),
     captureBox,
@@ -341,5 +328,12 @@ export function librarianView(root, g) {
   root.addEventListener('dragover', (e) => e.preventDefault());
   root.addEventListener('drop', (e) => { e.preventDefault(); const f = [...(e.dataTransfer?.files || [])]; if (f.length) importFiles(f); });
   refresh();
-  return { destroy() { st.capture?.stop(false); ml.destroy(); } };
+  renderJob(g.job);
+  const offs = [
+    g.on('job', renderJob),
+    // a dump saved itself: show it (the newest entry)
+    g.on('library', async () => { await refresh(); if (st.items[0] && !st.open) openEntry(st.items[0]); }),
+  ];
+  // leaving the page does not stop a dump (it belongs to the device)
+  return { destroy() { offs.forEach((off) => off?.()); ml.destroy(); } };
 }

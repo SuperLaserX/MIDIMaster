@@ -81,3 +81,28 @@ destination 32.
 | 169-171 | Unison, volume invert, memory protect | off |
 
 Defaults: 27 bytes copied from 0xB1A8 at cold start, then set at 0xDC41.
+
+## Translator (Head Library)
+
+`js/devices/defs/oberheim-matrix1000-translate.js` moves patches through the shared synth model
+(`docs/HEAD_LIBRARY.md`). The Matrix-6, 6R and 1000 share the 134-byte patch, so it is kept whole
+in `common.extra` (family `oberheim-matrix`) and comes back exactly.
+
+What the shared model reads: DCO 1/2 (Off/Pulse → square with its pulse width, Wave → saw or
+triangle by Waveshape, DCO 2 Noise → noise; PW by LFO 2 as PWM depth; Sync as OSC 2 sync), DCO 2's
+frequency as semitones from DCO 1's and its detune, Mix as the balance, the VCF (24 dB low pass:
+frequency, resonance, keyboard tracking on/off, VCF freq by Env 1 as the envelope depth, Env 1 as
+the filter envelope), VCA 1 level and Env 2 (which drives VCA 2 on every patch) as the amplifier,
+DCO freq by LFO 1 as the pitch LFO, LFO 1/2 speed and shape, portamento and legato, Unison. From
+the modulation matrix: an envelope to a DCO's frequency (pitch envelope), LFO 1/2 to the VCF
+(filter LFO depths) and to a VCA (amp LFO depths); the other slots stay in `extra`.
+
+Into a Matrix-1000 from another model: the same fields; a pitch envelope uses Env 3 through two
+matrix slots, filter and amp LFO depths one slot each. DCO 1 keeps the patch's frequency (the
+shared model has no absolute pitch). Reported as approximated or dropped: mono and legato (mono is
+a Master setting here), filter types other than low pass, bend range (Master), effects, tone, pan,
+ring and cross modulation, velocity and controller depths.
+
+Assumed, not traced in the firmware: Mix 0 is DCO 1 alone and 63 DCO 2 alone; Waveshape 0 is a
+sawtooth and 63 a triangle; Detune ±31 steps is read as ±50 cents. A hardware check (or the Matrix-6
+manual) should confirm them.

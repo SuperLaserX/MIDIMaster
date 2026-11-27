@@ -1,5 +1,5 @@
-// Main Library pieces shared by the global page (js/shell/mainlibrary.js) and the Main Library
-// panel of a device's Librarian: a patch's settings, import and translation reports, sample
+// Head Library pieces shared by the global page (js/shell/mainlibrary.js) and the Head Library
+// panel of a device's Branch Library: a patch's settings, import and translation reports, sample
 // playback, the patch filters and a sub-library chooser.
 
 import { h, toast, dialog } from './dom.js';

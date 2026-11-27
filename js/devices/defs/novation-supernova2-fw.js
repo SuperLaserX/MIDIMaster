@@ -14,3 +14,31 @@ export const VOC_INPUT = ["Input (1)", "Input (2)", "Part 1", "Part 2", "Part 3"
 export const VOC_INSERT = ["Part 1", "Part 2", "Part 3", "Part 4", "Part 5", "Part 6", "Part 7", "Part 8"];
 export const WHEEL_MODE = ["FX amount", "Threshold"];
 export const CLOCK_MULT = ["No", "2", "3", "4", "6", "8", "9", "12", "16", "18", "24", "32", "36", "48", "64", "72", "96", "128", "144", "192", "256", "288", "320", "384", "432", "448", "480", "512", "576", "672", "720", "768", "864", "1008", "1152"];
+// Pedal/breath (menu field 6CEC8)
+export const PEDAL_BREATH = ["Off", "MW", "A/T", "CC3", "CC4", "CC5", "CC6", "CC7", "CC8", "CC9", "CC10", "CC11", "CC12", "CC13", "CC14", "CC15", "CC16", "CC17", "CC18", "CC19", "CC20", "CC21", "CC22", "CC23", "CC24", "CC25", "CC26", "CC27", "CC28", "CC29", "CC30", "CC31", "CC32", "CC33", "CC34", "CC35", "CC36", "CC37", "CC38", "CC39", "CC40", "CC41", "CC42", "CC43", "CC44", "CC45", "CC46", "CC47", "CC48", "CC49", "CC50", "CC51", "CC52", "CC53", "CC54", "CC55", "CC56", "CC57", "CC58", "CC59", "CC60", "CC61", "CC62", "CC63", "CC64", "CC65", "CC66", "CC67", "CC68", "CC69", "CC70", "CC71", "CC72", "CC73", "CC74", "CC75", "CC76", "CC77", "CC78", "CC79", "CC80", "CC81", "CC82", "CC83", "CC84", "CC85", "CC86", "CC87", "CC88", "CC89", "CC90", "CC91", "CC92", "CC93", "CC94", "CC95", "CC96", "CC97", "CC98", "CC99", "CC100", "CC101", "CC102", "CC103", "CC104", "CC105", "CC106", "CC107", "CC108", "CC109", "CC110", "CC111", "CC112", "CC113", "CC114", "CC115", "CC116", "CC117", "CC118", "CC119", "Bend", "Bend+", "Bend-", "N75", "N76", "N77", "N95", "N96"];
+// Sysex transmission, in menu order (menu field 6CDDC)
+export const SYSEX_TX = ["Single program", "All programs", "Single prog request", "All progs request", "Single performance", "All performances", "Single perf request", "All perfs request", "Single arp pattern", "All arp patterns", "Single patt request", "All patts request", "Global parameters", "Globals request", "Program bank A", "Program bank B", "Program bank C", "Program bank D", "Program bank E", "Program bank F", "Program bank G", "Program bank H", "Prog bank A request", "Prog bank B request", "Prog bank C request", "Prog bank D request", "Prog bank E request", "Prog bank F request", "Prog bank G request", "Prog bank H request", "Performance bank A", "Performance bank B", "Performance bank C", "Performance bank D", "Perf bank A request", "Perf bank B request", "Perf bank C request", "Perf bank D request", "Drum map a", "Drum map b", "Drum map c", "Drum map d", "Drum map e", "Drum map f", "Drum map g", "Drum map h", "Drum map a request", "Drum map b request", "Drum map c request", "Drum map d request", "Drum map e request", "Drum map f request", "Drum map g request", "Drum map h request", "Patt bank U", "Patt bank V", "Patt bank W", "Patt bank U request", "Patt bank V request", "Patt bank W request", "Total data", "Total data request"];
+// Sysex reception, in menu order (menu field 6CE4E)
+export const SYSEX_RX = ["Disabled", "Normal (Rx as sent)", "All progs to bank A", "All progs to bank B", "All progs to bank C", "All progs to bank D", "All progs to bank E", "All progs to bank F", "All progs to bank G", "All progs to bank H", "All progs to Dmap a", "All progs to Dmap b", "All progs to Dmap c", "All progs to Dmap d", "All progs to Dmap e", "All progs to Dmap f", "All progs to Dmap g", "All progs to Dmap h", "All perfs to bank A", "All perfs to bank B", "All perfs to bank C", "All perfs to bank D", "All patts to user(U)", "All patts to user(V)", "All patts to user(W)"];
+// Breath mode (menu field 6CF10)
+export const BREATH_MODE = ["Absolute", "Mod. +", "Mod. -"];
+// Breath sensing, menu order (menu field 6CF44)
+export const BREATH_SENSING = ["-5", "-4", "-3", "-2", "-1", "Norm", "+1", "+2", "+3", "+4", "+5"];
+// Input/sw 1 and 2 (menu field 6D0FC)
+export const INPUT_SW = ["Audio in", "Switch", "Switch-I"];
+// Pedal/sw 3 (values 12-15) (menu field 6D174)
+export const PEDAL_SW3 = ["Pedal-R", "Pedal-T", "Switch", "Switch-I"];
+// Arp pattern editing via MIDI (menu field 6D5C4)
+export const VIA_MIDI = ["Off", "On", "Note only", "Vel only", "Gate only"];
+// Digital I/O option: sample rate (menu field 6DF90)
+export const SAMPLE_RATE = ["32Khz", "44.1Khz", "48Khz"];
+// Digital I/O option: sync (menu field 6DFBA)
+export const DIG_SYNC = ["Auto", "Internal", "Electrical", "Optical", "Word clock"];
+// Digital I/O option: optical in (menu field 6DFFE)
+export const OPT_IN = ["ADAT", "SPDIF 3 & 4"];
+// Digital I/O option: optical out (menu field 6E02A)
+export const OPT_OUT = ["ADAT", "SPDIF 1 & 2", "SPDIF 3 & 4", "SPDIF 5 & 6", "SPDIF 7 & 8"];
+// Digital I/O option: electrical in (menu field 6E070)
+export const ELECT_IN = ["Off", "SPDIF 1 & 2"];
+// Digital I/O option: electrical out (menu field 6E09E)
+export const ELECT_OUT = ["1 & 2", "3 & 4", "5 & 6", "7 & 8"];

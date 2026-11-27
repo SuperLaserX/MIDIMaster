@@ -6,7 +6,7 @@ const STORE = 'library';
 let dbPromise = null;
 const memory = new Map(); // fallback when IndexedDB is unavailable
 
-/** The app's IndexedDB database. Version 2 adds 'mainlib' (Main Library cache and folder handles). */
+/** The app's IndexedDB database. Version 2 adds 'mainlib' (Head Library cache and folder handles). */
 export function openDb() {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve) => {

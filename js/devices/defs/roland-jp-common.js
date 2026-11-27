@@ -27,7 +27,7 @@ const idx = (list, v, dflt = 0) => { const i = list.indexOf(v); return i < 0 ? d
  *      perfParts: [{address, offset, size}] (object layout), partSize, vmod (offset or undefined) }
  */
 /**
- * What the JP-8000 and JP-8080 share of a patch or performance, as one string (Main Library
+ * What the JP-8000 and JP-8080 share of a patch or performance, as one string (Head Library
  * duplicate search across models): patch bytes 10h-EEh (after the name; EFh and the JP-8080's
  * F0h-F7h left out), or performance common 10h-23h and the first 7 bytes of each part.
  */
@@ -248,7 +248,7 @@ export function jpModelOf(parsed) {
 }
 
 // ------------------------------------------------------------------ WinJPLib files
-// The JP-8000 librarian files (.pat, .pfm) found in third-party sound sets: a 128-byte header
+// The JP-8000 Branch Library files (.pat, .pfm) found in third-party sound sets: a 128-byte header
 // ("JP-8000 USER PATCH      0001" or "JP-8000 USER PERFORMANCE0001") and then fixed records:
 //   .pat  239 bytes per patch: patch bytes 00-EE (EFh, the last JP-8000 patch byte, is left out)
 //   .pfm  528 bytes per performance: common 24h, upper part 7, lower part 7, then the upper and

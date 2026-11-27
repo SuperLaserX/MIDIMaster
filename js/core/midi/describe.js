@@ -1,4 +1,4 @@
-// Human-readable descriptions of MIDI messages for the monitor and the librarian.
+// Human-readable descriptions of MIDI messages for the monitor and the Branch Library.
 
 import { hex } from '../bits.js';
 import { ccName, noteName } from '../music.js';

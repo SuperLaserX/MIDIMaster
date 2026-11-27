@@ -341,7 +341,11 @@ test('JV-2080 expansion boards: ROM names, bank sizes, wave lists, detection and
   d[tone('Wave group type').offset] = 0;
   d[tone('Wave group ID').offset] = 1;
   assert.deepEqual(tone('Wave group ID').dynamic(d, ctx).options, [[1, 'INT-A'], [2, 'INT-B']]);
-  assert.equal(tone('Wave number').dynamic(d, ctx).options.length, 256);
+  // the internal waves by name (owner's manual): INT-A 255, INT-B 193
+  const intA = tone('Wave number').dynamic(d, ctx).options;
+  assert.deepEqual([intA.length, intA[0]], [255, [0, '001 Ac Piano1 A']]);
+  d[tone('Wave group ID').offset] = 2;
+  assert.equal(tone('Wave number').dynamic(d, ctx).options.length, 193);
   const perf = jv.objects.find((o) => o.key === 'performance');
   const pd = T.defaults(T.perfBuilt);
   const part = (label) => perf.params.find((p) => p.label === label && p.section === 'p0');
@@ -489,7 +493,7 @@ test('Korg M1: dumps from an M1R decode (skipped when absent)', async (tt) => {
 });
 
 test('MIDI channels pages: every column names parameters that exist in each part', async () => {
-  for (const id of ['korg-m1', 'roland-jv2080', 'roland-jp8080', 'roland-jp8000']) {
+  for (const id of ['korg-m1', 'roland-jv2080', 'roland-jp8080', 'roland-jp8000', 'novation-supernova2']) {
     const def = (await import(`../js/devices/defs/${id}.js`)).default;
     for (const obj of def.objects.filter((o) => o.multi)) {
       const m = obj.multi;

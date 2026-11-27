@@ -1,0 +1,15 @@
+Analog Four|MKII 1.56|2026/10/Analog-Four_MKII_OS1.56_dist.zip|
+Analog Four|MKI/Keys 1.56|2026/10/Analog-Four_Analog-Keys_OS1.56_dist.zip|
+Analog Heat|MKII 1.22|2024/10/Analog-Heat_MKII_OS1.22_dist.zip|
+Analog Heat|MKI 1.22|2024/10/Analog-Heat_OS1.22_dist.zip|
+Analog Rytm|MKII 1.74|2026/10/Analog-Rytm_MKII_OS1.74_dist.zip|
+Analog Rytm|MKI 1.74|2026/10/Analog-Rytm_OS1.74_dist.zip|
+Digitakt|1.54|2026/10/Digitakt_OS1.54_dist.zip|
+Digitone|1.44|2026/10/Digitone_and_Digitone_Keys_OS1.44_dist.zip|
+Machinedrum|1.63 (UW)|2024/09/Elektron_SPS1-1UW_OS1.63.zip|
+Model:Cycles|1.13|2024/09/model-cycles_OS1.13.zip|
+Model:Samples|1.13|2024/09/model-samples_OS1.13.zip|
+Monomachine|1.32B|2024/09/Elektron_SFX6-60_OS1.32B.zip|
+Octatrack|1.40C|2025/03/OCTATRACK_OS1.40C_dist.zip|
+Syntakt|1.42|2026/10/Syntakt_OS1.42_dist.zip|
+Tonverk|1.5.0|2026/11/Tonverk-OS-1.5.0.zip|

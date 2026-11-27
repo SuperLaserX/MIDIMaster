@@ -21,6 +21,7 @@ export const KURZWEIL_FILE = /\.(krz|k25|k26)$/i;
 /** Every .KRZ/.K25/.K26 file in a disk volume. */
 export const findKurzweilFiles = (volume, opts) => findFiles(volume, KURZWEIL_FILE, opts);
 import { Program, TAG, segmentLength } from '../model/program.js';
+import { DEFAULT_PROGRAM } from '../model/fwparams.js';
 
 export function decodeHash(hash) {
   if (hash & 0x8000) {
@@ -96,6 +97,72 @@ const K2000_TAGS = new Set([
 ]);
 // Normal programs use up to 3 layers; drum programs up to 32.
 export const K2000_MAX_LAYERS = 32;
+
+// ------------------------------------------------------------ complete segment set
+// The K2000 (OS 3.87J, checked 2026-11-25) keeps every program with all its segments in one order:
+// program, the four program-level controls (GASR2, GFUN2, GLFO2, GFUN4), effect, then per layer
+// layer, ASR1, ASR2, FUN1, FUN2, LFO1, LFO2, FUN3, FUN4, env control, AMPENV, ENV2, ENV3,
+// keymap/pitch, F1-F4. A program written by SysEx without the complete set is not taken: the unit
+// stores an empty program instead (algorithm 0, no keymap, no sound). Program files (.KRZ) leave out
+// the segments a program does not use: none of 1080 programs in 23 files had the complete set. The
+// K2000's own disk loader fills them in; completeProgram does the same, with the values the OS gives
+// a new program (DEFAULT_PROGRAM in its ROM) and zeros for the program-level controls (as in every
+// ROM program). Nothing present is changed.
+export const PROGRAM_GLOBALS = [0x11, 0x19, 0x15, 0x1b];
+export const LAYER_ORDER = [0x09, 0x10, 0x11, 0x18, 0x19, 0x14, 0x15, 0x1a, 0x1b, 0x20, 0x21, 0x22, 0x23, 0x40, 0x50, 0x51, 0x52, 0x53];
+let defaultSegments = null;
+function defaults() {
+  if (defaultSegments) return defaultSegments;
+  const d = Uint8Array.from(DEFAULT_PROGRAM.match(/../g), (x) => parseInt(x, 16));
+  const p = new Program(d);
+  defaultSegments = new Map();
+  for (const s of p.segments) defaultSegments.set(s.layer === null ? `g${s.tag}` : s.tag, d.slice(s.offset, s.offset + s.length));
+  for (const t of PROGRAM_GLOBALS) defaultSegments.set(`g${t}`, Uint8Array.from([t, ...new Array(segmentLength(t) - 1).fill(0)]));
+  return defaultSegments;
+}
+
+/** Segments a K2000 program lacks for the K2000 to take it: {global: [tags], layers: [[tags]]}. */
+export function missingSegments(data) {
+  const p = new Program(data);
+  const have = new Set(p.common.map((s) => s.tag));
+  return {
+    global: [...PROGRAM_GLOBALS, 0x0f].filter((t) => !have.has(t)),
+    layers: p.layers.map((L) => { const tags = new Set(L.segments.map((s) => s.tag)); return LAYER_ORDER.filter((t) => !tags.has(t)); }),
+  };
+}
+
+/**
+ * The program with the complete segment set in the K2000's order (missing segments at their
+ * default values). Returns {data, added} (added = number of segments filled in).
+ */
+export function completeProgram(data) {
+  const p = new Program(data);
+  if (p.warnings.length) throw new Error(p.warnings[0]);
+  const D = defaults();
+  const seg = (s) => data.slice(s.offset, s.offset + s.length);
+  const out = [];
+  let added = 0;
+  const head = p.common.find((s) => s.tag === TAG.PROGRAM);
+  out.push(head ? seg(head) : D.get(`g${TAG.PROGRAM}`));
+  for (const t of [...PROGRAM_GLOBALS, 0x0f]) {
+    const s = p.common.find((x) => x.tag === t);
+    if (s) out.push(seg(s)); else { out.push(D.get(`g${t}`)); added++; }
+  }
+  // program-level segments of other kinds stay, after the effect
+  for (const s of p.common) if (s.tag !== TAG.PROGRAM && ![...PROGRAM_GLOBALS, 0x0f].includes(s.tag)) out.push(seg(s));
+  for (const L of p.layers) {
+    for (const t of LAYER_ORDER) {
+      const s = L.segments.find((x) => x.tag === t);
+      if (s) out.push(seg(s)); else { out.push(D.get(t)); added++; }
+    }
+    for (const s of L.segments) if (!LAYER_ORDER.includes(s.tag)) out.push(seg(s));
+  }
+  const total = out.reduce((n, b) => n + b.length, 0) + 2;
+  const res = new Uint8Array(total);
+  let o = 0;
+  for (const b of out) { res.set(b, o); o += b.length; }
+  return { data: res, added };
+}
 
 /** Why a program cannot be sent to a K2000 unchanged, or null if it can. */
 export function programIssue(data) {

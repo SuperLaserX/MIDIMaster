@@ -1,0 +1,17 @@
+Nord Drum|1.08|342/Nord%20Drum%20OS%20v1.08%20Update.zip|
+Nord Electro 2|3.04|338/Nord%20Electro%202%20OS%20v3.04%20Update.zip|
+Nord Electro 3|3.14|351/Update%20Nord%20Electro%203%20OS%20v3.14.zip|
+Nord Electro 3|3.16 (HP)|334/Update%20Nord%20Electro%203%20HP%20OS%20v3.16.zip|
+Nord Electro 4|1.22|333/Update%20Nord%20Electro%204%20OS%20v1.22.zip|
+Nord Electro 5|2.04|753/Update%20Nord%20Electro%205%20OS%20v2.04.zip|
+Nord Electro 6|2.66|765/Update%20Nord%20Electro%206%20OS%20v2.66.zip|
+Nord Lead 4|1.32|749/Update%20Nord%20Lead%204%20OS%20v1.32.zip|
+Nord Lead A1|1.36|763/Update%20Nord%20Lead%20A1%20OS%20v1.36.zip|
+Nord Modular G2|1.62|317/Nord%20Modular%20G2%20OS%20v1.62%20Update.zip|
+Nord Stage|5.08|307/Update%20Nord%20Stage%20OS%20v5.08.zip|
+Nord Stage|6.08 (EX)|297/Update%20Nord%20Stage%20EX%20OS%20v6.08.zip|
+Nord Stage 2|3.00|177/Update%20Nord%20Stage%202%20OS%20v3.00.zip|
+Nord Stage 3|2.64|757/Update%20Nord%20Stage%203%20OS%20v2.64.zip|
+Nord Stage 4|1.66|1042/Update%20Nord%20Stage%204%20OS%20v1.66.zip|
+Nord Wave|2.14|295/Update%20Nord%20Wave%20OS%20v2.14.zip|
+Nord Wave 2|1.24|87/Update%20Nord%20Wave%202%20OS%20v1.24.zip|

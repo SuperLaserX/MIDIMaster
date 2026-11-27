@@ -1,0 +1,3 @@
+VariOS|1.07|VariOSv107.zip|
+VariOS|VariOS-8 software 1.20|VariOS-8_Win120.zip|
+VariOS|VariOS-303 software 1.20|VariOS_303_Win120.zip|

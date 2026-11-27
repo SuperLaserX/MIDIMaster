@@ -1,0 +1,11 @@
+TD-50|1.09|td50_sys109.zip|
+TR-6S|2.00|tr6s_sys_v200.zip|
+TR-8|1.61|tr8_sys_v161.zip|
+TR-8S|3.00|tr8s_sys_v300.zip|
+TR-09|1.06|boutique2_sys_106.zip|TR-09, VP-03
+TR-1000|1.50|tr1000_sys_v150.zip|
+V-Accordion FR-8x|2.53|fr8x_sys_v253.zip|FR-8x
+VG-99|1.04|VG99v.104.zip|
+VS-1824CD|1.501|vs1824_v1501.zip|
+VS-2000CD|2.005|VS2000v2005.zip|
+VS-2400CD|1.504|VS2400v1.504.zip|

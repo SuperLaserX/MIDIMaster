@@ -23,6 +23,7 @@ export class MidiTransport extends Emitter {
     if (!this.supported) throw new Error('This browser does not support Web MIDI. Use Chrome or Edge.');
     this.access = await navigator.requestMIDIAccess({ sysex: true });
     this.access.onstatechange = () => this.emit('ports', this.ports());
+    this.emit('ready', this.access);
     return this.ports();
   }
 

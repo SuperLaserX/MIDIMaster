@@ -1,4 +1,4 @@
-// Device objects <-> Main Library patches (js/core/mainlib/format.js).
+// Device objects <-> Head Library patches (js/core/mainlib/format.js).
 //
 // patchFromObject: an object's data (a patch, performance, program...) becomes a patch file with
 // every setting by its label and shown value, the raw values, the exact data (for a bit-exact
@@ -10,8 +10,9 @@
 //   def.deviceIds: [catalog ids that share this definition's native format]
 //   obj.category(data) -> category id (core/mainlib/categories.js)
 //   obj.toCommon(data) -> shared model;  obj.fromCommon(common, base) -> {data, report}
-//   obj.patchKinds: [patch kinds this object accepts] (default: [obj.key])
-//   obj.setName(data, name): write a name (a translated patch keeps the Main Library patch's name)
+//   obj.patchKinds: [patch kinds this object accepts] (default: [obj.key]; patch and program,
+//                   performance and combination are taken as the same, see kindsOf)
+//   obj.setName(data, name): write a name (a translated patch keeps the Head Library patch's name)
 //   obj.setCategory(data, categoryId): write the device's nearest category
 
 import { readParam, formatParam } from '../core/model/memmap.js';
@@ -49,7 +50,7 @@ export function paramsOf(obj, data) {
   return out;
 }
 
-/** A Main Library patch from an object's data. meta: {name, source: {file, bank, slot}, tags}. */
+/** A Head Library patch from an object's data. meta: {name, source: {file, bank, slot}, tags}. */
 export function patchFromObject(entry, def, obj, data, meta = {}) {
   const d = Uint8Array.from(data);
   const name = (meta.name || obj.name?.(d) || entry.model).trim() || entry.model;
@@ -85,9 +86,15 @@ export function dataPatch(entry, label, msgs, meta = {}) {
   });
 }
 
+/** Kinds that name the same thing on different makers' instruments (a Korg "program", a Yamaha
+ *  "voice" and an Access "single" are a Roland "patch"; a "combination" or a "multi" is a "performance"). */
+const SAME_KIND = [['patch', 'program', 'voice', 'single'], ['performance', 'combination', 'multi']];
+/** Patch kinds an object takes: its own (obj.patchKinds or obj.key) and their equivalents. */
+export const kindsOf = (obj) => [...new Set((obj.patchKinds || [obj.key]).flatMap((k) => SAME_KIND.find((g) => g.includes(k)) || [k]))];
+
 /** How (if at all) `patch` can be loaded into object `obj` of device `entry`: 'native' | 'translate' | null. */
 export function loadMode(entry, def, obj, patch) {
-  const kinds = obj.patchKinds || [obj.key];
+  const kinds = kindsOf(obj);
   if (!kinds.includes(patch.kind)) return null;
   const native = patch.device.id === entry.id || (def.deviceIds || []).includes(patch.device.id);
   if (native && patch.native?.bytes) return 'native';

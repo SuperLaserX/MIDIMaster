@@ -60,9 +60,23 @@ export function pack7(events) {
 //   4  value 0-127                           5  0
 // The first event is a header (type 80h, bytes 3-5 = 02 0E 2A). Empty 80h events carry time:
 // the unit pads a motion to its full length with C0 FF 80 00 00 00. Erasing a knob turns its
-// events into 80h and leaves their slot and value bytes behind. Every motion on the test unit,
-// recorded with a loop length of 4, totals 10368 ticks.
-export const MOTION_TICKS = 10368;
+// events into 80h and leaves their slot and value bytes behind.
+//
+// Length (2026-11-25). Ticks are MIDI clocks: 24 a beat, 96 a measure. The player loops at the
+// loop point, Loop Length x 96 (3A11C -> 3A484; system 00 00 20 00 + m: 0 PLAY ONCE = 9504, no
+// loop; 1-8 measures). The unit's empty motion is the header and 50 empty events of 192 ticks
+// (356DC -> 5A714). A recording goes in front of it: knob events inside the loop, the last one
+// waiting until 192 ticks past the loop end. Every motion on the test unit and every factory motion
+// (8E6E0-8FFE1), at loop length 4 (the factory setting), has its knob events before tick 384 and
+// is 384 + 192 ticks of recording, then that tail (the header event, then 50 C0 events, 9792
+// ticks): 10368. Only the loop plays; the rest is never reached.
+export const MOTION_TICKS_PER_MEASURE = 96;
+export const MOTION_TAIL = 192 + 9792;
+export const MOTION_TICKS = 4 * MOTION_TICKS_PER_MEASURE + MOTION_TAIL; // 10368, at the factory loop length
+/** Ticks that play in a loop of `loop` measures (1-8); null for PLAY ONCE (0) or unknown. */
+export const motionLoopTicks = (loop) => (Number.isInteger(loop) && loop >= 1 && loop <= 8 ? loop * MOTION_TICKS_PER_MEASURE : null);
+/** The length the unit gives a motion recorded at loop length `loop` (PLAY ONCE / unknown: 10368). */
+export const motionLength = (loop) => (motionLoopTicks(loop) ?? 4 * MOTION_TICKS_PER_MEASURE) + MOTION_TAIL;
 /** Knob events of a motion as absolute times: {total, points: [{tick, slot, value}], header}. */
 export function motionTimeline(raw) {
   const ev = unpack7(raw);
@@ -226,6 +240,10 @@ export function buildJP(M) {
     if (own) return own;
     if (off >= 0x1000) return { label: `Motion ${['A[1]', 'A[2]', 'B[1]', 'B[2]'][off - 0x1000]} loop length`, group: 'Motion control', ...display(0xd, 0, 8, 0) };
     if (off === 1) return { label: 'Performance number', group: 'Current selection' };
+    // two menus show "Metronome": the Pattern REC menu (record 157, byte 10h, with Input Quantize and
+    // Gate Time Ratio) and the Motion REC menu (record 150, byte 11h, with Loop Length)
+    if (off === 0x10) return { label: 'Metronome (pattern recording)', group: 'Pattern and motion' };
+    if (off === 0x11) return { label: 'Metronome (motion recording)', group: 'Motion control' };
     if (off === 0 || off === 0x17) return { group: 'Current selection' };
     if (off === 0x09 || (off >= 0x12 && off <= 0x16)) return { group: 'JP-8000 settings' };
     if ([0x0b, 0x0c, 0x0e, 0x0f, 0x10, 0x11].includes(off)) return { group: 'Pattern and motion' };
@@ -416,12 +434,12 @@ export function buildJP(M) {
   // byte holding bit 7 of the 6 bytes after it. An empty motion sends nothing. RPS patterns (the 48
   // keys C#2-C6) use the same event lists inside the unit, but OS 1.04 has no SysEx for them: RQ1
   // returns nothing below 09 00 00 00 and DT1 handles only 09-0A (checked: a pattern written to
-  // 08 00 00 00 does not read back). The address names them for the librarian only.
+  // 08 00 00 00 does not read back). The address names them for the Branch Library only.
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   async function readPerfName(api) { return nameOf(await readBlock(api.g.client, MODEL, api.ctx.deviceId, intToAddr(A('01 00 00 00')), 16)); }
 
-  // ------------------------------------------------------------------ librarian and console
+  // ------------------------------------------------------------------ Branch Library and console
   function libraryItems(msgs) {
     const items = [];
     const byKey = new Map();
@@ -521,7 +539,7 @@ export function buildJP(M) {
   const PATCH_TARGETS = [['upper', 'Upper part patch (01 00 40 00)'], ['lower', 'Lower part patch (01 00 42 00)']];
   const CHANNELS = Array.from({ length: 17 }, (_, v) => [v, CHANNEL(v)]);
 
-  // Main Library: translation to and from the shared synth model (roland-jp-common.js).
+  // Head Library: translation to and from the shared synth model (roland-jp-common.js).
   const BLOCK_NAMES = { [A('01 00 00 00')]: 'Performance common', [A('01 00 08 00')]: 'Voice modulator', [A('01 00 10 00')]: 'Upper part', [A('01 00 11 00')]: 'Lower part' };
   const TR = jpTranslator({
     name: M.name, deviceId: M.id, patchSize: PATCH_SIZE, patchParams,
@@ -541,7 +559,7 @@ export function buildJP(M) {
     libraryItems,
     isIdentity: isJPIdentity,
     describeIdentity,
-    // Main Library import: messages this definition reads, and how sure it is that a set of them was
+    // Head Library import: messages this definition reads, and how sure it is that a set of them was
     // made for this model (JP-8000 and JP-8080 share model ID 00 06; the layout tells them apart).
     recognise: (raw) => !!parseDt1(raw, MODEL)?.ok,
     // Roland model 00 06 messages, readable or not (a damaged DT1 is still this device's data)
@@ -706,7 +724,7 @@ export function buildJP(M) {
         },
       },
     ],
-    // Librarian "Complete dump": everything the unit holds (checked on a JP-8080: user patches take
+    // Branch Library "Complete dump": everything the unit holds (checked on a JP-8080: user patches take
     // about 40 s, user performances about 80 s; an empty motion sends nothing).
     fullDump: [
       'System', `Temporary performance (common, ${VMOD === undefined ? '' : 'voice modulator, '}parts)`, 'Temporary patch, upper', 'Temporary patch, lower',

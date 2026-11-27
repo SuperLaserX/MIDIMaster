@@ -1,0 +1,9 @@
+Fantom-X|2.10|fantomXv210.zip|
+Fantom-X|XR 2.02|FantomXRv202.zip|
+Fantom-X|XA 1.05|FantomXAv105.zip|
+HandSonic HPD-20|1.04|hpd20_sys_v104.zip|HPD-20
+Juno-DS|2.11|juno_ds_sys_v211.zip|
+MV-1 Verselab|1.82|mv1_sys_v182.zip|MV-1
+Octapad SPD-30|2.04|spd30_sys_v204.zip|SPD-30
+TD-02|1.01|td02_sys_v101.zip|
+TD-07|2.00|td07_sys_v200.zip|

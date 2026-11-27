@@ -1,6 +1,6 @@
 # KEdit2000
 
-A web-based editor and librarian for the Kurzweil K2000 that works entirely over MIDI.
+A web-based editor and Branch Library for the Kurzweil K2000 that works entirely over MIDI.
 
 Sound edits are sent straight into the program stored on the K2000, one small SysEx message
 per change, so you hear each change on the next note. Nothing is done by simulating button
@@ -100,6 +100,8 @@ js/views/                   one module per screen
 tools/extract_rom_tables.py rebuilds js/model/romtables.js from the OS EPROMs
 tests/                      node --test suite (codecs, parsers, client, Sample Dump, disk import)
 docs/PROTOCOL.md            protocol and firmware notes
+docs/HEAD_LIBRARY.md        the Head Library (global patch store) and the Branch Library of each device
+docs/MIDI_INPUTS.md         controllers connected to MIDIMaster and their mappings
 ```
 
 Run the tests with `node --test tests/` (Node 20 or later). The app has no build step and no

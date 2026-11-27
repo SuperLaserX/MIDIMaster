@@ -1,0 +1,27 @@
+AX-Edge|1.11|ax_edge_sys_v111.zip|
+BK-5|1.05|bk5_sys_v105.zip|
+D-05|1.07|boutique3_sys_107.zip|
+E-A7|2.02|e_a7_sys_v202.zip|
+E-X50|1.0.9|e-x50_sys_v109.zip|
+Fantom-G|1.50|fantom-g_v150.zip|
+Fantom-S|1.09|FantomSv109.zip|
+G-70|2.02|G70v202.zip|
+GAIA 2|1.12|gaia2_sys_v112.zip|
+GAIA SH-01|1.04|sh01_sys_v104.zip|
+GR-55|1.50|gr55_sys_v150.zip|
+J-6|1.02|j6_sys_v102.zip|
+JD-08|1.03|jd08jx08_sys_v103.zip|JD-08, JX-08
+JP-08|1.21|boutique_sys_121.zip|JP-08, JU-06, JX-03
+Juno-D6|1.20|junod_sys_v120.zip|
+Juno-Di|1.12|junodi_sys_v112.zip|
+Juno-G|2.0|JUNO_G_V2.zip|
+Juno-Gi|1.11|junogi_sys_v111.zip|
+Juno-Stage|1.05|junost_sys_v105.zip|
+Juno-X|1.12|junox_sys_v112.zip|
+Jupiter-50|1.11|jp50_sys_v111.zip|
+Jupiter-80|2.11|jp80_sys_v211.zip|
+JD-XA|1.55|jd_xa_sys_v155.zip|
+JD-Xi|1.52|jdxi_sys_v152.zip|
+Fantom-0|1.50|fantom060708_sys_v150.zip|FANTOM-06, 07, 08
+Jupiter-X|3.03|jupiterx_sys_v303.zip|
+Integra-7|1.21|integra7_sys_121.zip|

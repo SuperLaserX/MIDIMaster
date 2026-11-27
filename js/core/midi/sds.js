@@ -7,7 +7,7 @@
 // For dump requests the K2000 uses bits 0-9 of the sample number as the sample
 // object ID and bits 10-13 as the sub-sample (e.g. the right side of a stereo pair).
 
-import { sleep } from '../bits.js';
+import { waitForSlot, waitUntil } from './schedule.js';
 
 const SUB = { HEADER: 0x01, PACKET: 0x02, REQUEST: 0x03, WAIT: 0x7c, CANCEL: 0x7d, NAK: 0x7e, ACK: 0x7f };
 
@@ -118,12 +118,16 @@ export class SampleDump {
     const packets = Math.ceil(samples.length / 40);
     let p = 0;
     let retries = 0;
+    let nextAt = performance.now(); // open loop: packets go out at timestamps (schedule.js)
     while (p < packets) {
       if (this.cancelled) throw new Error('Cancelled');
-      this.t.send(buildPacket(this.dev, p & 0x7f, samples, p * 40));
       if (openLoop) {
-        await sleep(this.packetGap ?? 45); // ~127 bytes at 31.25 kbaud
+        const at = Math.max(performance.now(), nextAt);
+        this.t.send(buildPacket(this.dev, p & 0x7f, samples, p * 40), at);
+        nextAt = at + (this.packetGap ?? 45); // ~127 bytes at 31.25 kbaud
+        await waitForSlot(nextAt);
       } else {
+        this.t.send(buildPacket(this.dev, p & 0x7f, samples, p * 40));
         reply = await this._waitUniversal(isHandshake, 2000);
         if (!reply) { openLoop = true; } else if (reply[3] === SUB.WAIT) {
           reply = await this._waitUniversal((r) => [SUB.ACK, SUB.NAK, SUB.CANCEL].includes(r[3]), 30000);
@@ -138,6 +142,7 @@ export class SampleDump {
       p++;
       onProgress?.(p / packets);
     }
+    if (openLoop) await waitUntil(nextAt); // the last scheduled packets have gone out
     return { packets, openLoop };
   }
 

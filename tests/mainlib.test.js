@@ -14,7 +14,7 @@ import { getDevice } from '../js/devices/registry.js';
 const LIVE = (f) => new URL(`../re/jp8080/live/${f}`, import.meta.url);
 const has = (u) => fs.existsSync(u);
 
-test('Main Library: categories from names and devices, device types', () => {
+test('Head Library: categories from names and devices, device types', () => {
   assert.equal(categorize('BA ActuallySkrlx').id, 'synth-bass');
   assert.equal(categorize('PD:Warm Strings').id, 'soft-pad', 'the prefix wins over words');
   assert.equal(categorize('LEADS').id, 'hard-lead');
@@ -28,7 +28,7 @@ test('Main Library: categories from names and devices, device types', () => {
   assert.deepEqual(deviceTypes({ id: 'x', type: 'drm' }), ['Drum machine']);
 });
 
-test('Main Library: base64 and the SMF SysEx reader', () => {
+test('Head Library: base64 and the SMF SysEx reader', () => {
   for (const n of [0, 1, 2, 3, 4, 255]) {
     const b = Uint8Array.from({ length: n }, (_, i) => (i * 37 + 11) & 255);
     assert.deepEqual(Array.from(fromBase64(toBase64(b))), Array.from(b), `length ${n}`);
@@ -39,7 +39,7 @@ test('Main Library: base64 and the SMF SysEx reader', () => {
   assert.deepEqual(smfSysex(smf).map((m) => Array.from(m)), [[0xf0, 0x41, 0x10, 0x00, 0x06, 0xf7]]);
 });
 
-test('Main Library store: cache before a folder, folder writes, permission lapse, unregister', async () => {
+test('Head Library store: cache before a folder, folder writes, permission lapse, unregister', async () => {
   const kv = new KvStore(null);
   const folder = new MemoryFolder();
   const lib = await new MainLibrary(kv, { pickFolder: async () => folder }).load();
@@ -85,7 +85,7 @@ test('Main Library store: cache before a folder, folder writes, permission lapse
   assert.ok(!JSON.parse(folder.files.get('mainlibrary.json')).sublibraries.some((s) => s.id === a));
 });
 
-test('Main Library import: device dumps become patches with readable settings', async () => {
+test('Head Library import: device dumps become patches with readable settings', async () => {
   if (has(LIVE('fulldump.syx'))) {
     const r = await importFiles([{ name: 'fulldump.syx', bytes: fs.readFileSync(LIVE('fulldump.syx')) }]);
     const k = (kind) => r.patches.filter((p) => p.kind === kind).length;
@@ -112,7 +112,7 @@ test('Main Library import: device dumps become patches with readable settings', 
   assert.equal((await importSysex([Uint8Array.from([0xf0, 0x43, 0x00, 0x09, 0x20, 0x00, 0xf7])])).patches[0].device.maker, 'Yamaha', 'unmapped SysEx is kept as data');
 });
 
-test('Main Library: JP-8080 <-> JP-8000 through the shared model', async () => {
+test('Head Library: JP-8080 <-> JP-8000 through the shared model', async () => {
   const jp80 = (await import('../js/devices/defs/roland-jp8080.js')).default;
   const jp00 = (await import('../js/devices/defs/roland-jp8000.js')).default;
   const e80 = getDevice('roland-jp8080');
@@ -139,7 +139,7 @@ test('Main Library: JP-8080 <-> JP-8000 through the shared model', async () => {
   for (const o of [0x10, 0x17, 0x1e, 0x23, 0x24, 0x27, 0x29, 0x2a, 0x2f, 0x36, 0x3d, 0x40, 0x45, 0x47, 0x48, 0x6a]) assert.equal(fromSem.data[o], raw[o], `semantic byte ${o.toString(16)}`);
 });
 
-test('Main Library import: real collections (skipped when absent)', { skip: !has('D:/midi/jp8080/AlanM/Alan_M_JP80x0_v1.0.mid') }, async () => {
+test('Head Library import: real collections (skipped when absent)', { skip: !has('D:/midi/jp8080/AlanM/Alan_M_JP80x0_v1.0.mid') }, async () => {
   const r = await importFiles([{ name: 'a.mid', bytes: fs.readFileSync('D:/midi/jp8080/AlanM/Alan_M_JP80x0_v1.0.mid') }]);
   assert.equal(r.patches.length, 128);
   assert.ok(r.patches.every((p) => p.device.id === 'roland-jp8000'));
@@ -162,7 +162,7 @@ test('Main Library import: real collections (skipped when absent)', { skip: !has
   }
 });
 
-test('Main Library import: JP .pat, .pfm and .j8k files (skipped when absent)', { skip: !has('D:/midi/jp8080/JP-8000 Light Perfs Vol 1.pfm') }, async () => {
+test('Head Library import: JP .pat, .pfm and .j8k files (skipped when absent)', { skip: !has('D:/midi/jp8080/JP-8000 Light Perfs Vol 1.pfm') }, async () => {
   const { fromBase64 } = await import('../js/core/mainlib/format.js');
   const read = async (f) => importFiles([{ name: f.split('/').pop(), bytes: fs.readFileSync(`D:/midi/jp8080/${f}`) }]);
   // .pat: the same 128 patches as the set's .mid, byte for byte (00-EE)
@@ -202,7 +202,7 @@ test('SysEx from files: MIDI files, and messages cut out of one as raw SysEx', a
   const trk = msgs.flatMap((m) => [0x00, 0xf0, ...vl(m.length - 1), ...m.subarray(1)]).concat([0x00, 0xff, 0x2f, 0x00]);
   const smf = Uint8Array.from([0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, 0, 96, 0x4d, 0x54, 0x72, 0x6b, 0, 0, trk.length >> 8, trk.length & 255, ...trk]);
   assert.deepEqual(sysexMessages(smf).map((m) => Array.from(m)), msgs.map((m) => Array.from(m)), 'a MIDI file is read as MIDI');
-  const raw = splitSysex(smf); // what the Librarian used to store: F0 <length> 41 10 ...
+  const raw = splitSysex(smf); // what the Branch Library used to store: F0 <length> 41 10 ...
   assert.equal(raw[0][1], 30, 'the event length (30 bytes after F0) sits where the maker ID should be: 1Eh');
   assert.deepEqual(repairSmfLengths(raw).map((m) => Array.from(m)), msgs.map((m) => Array.from(m)));
   assert.equal(repairSmfLengths(msgs), msgs, 'proper messages are left alone');
@@ -211,7 +211,7 @@ test('SysEx from files: MIDI files, and messages cut out of one as raw SysEx', a
   assert.ok(r.report.some((e) => /length bytes/.test(e.note || '')));
 });
 
-test('Main Library import: damaged messages, the device a dump came from, ZIP archives', async () => {
+test('Head Library import: damaged messages, the device a dump came from, ZIP archives', async () => {
   const { dt1 } = await import('../js/core/midi/roland.js');
   const good = Uint8Array.from(dt1([0x00, 0x06], 0x10, [0x02, 0, 0, 0], Array.from({ length: 0xf0 }, (_, i) => (i < 16 ? 'BA Good         '.charCodeAt(i) : 0))));
   const bad = Uint8Array.from(good.subarray(0, 60));
@@ -219,7 +219,7 @@ test('Main Library import: damaged messages, the device a dump came from, ZIP ar
   const r = await importSysex([good, bad], { file: 'x.syx' });
   assert.deepEqual(r.patches.map((p) => [p.device.id, p.kind]), [['roland-jp8000', 'patch'], ['roland-jp8000', 'data']]);
   assert.match(r.patches[1].name, /Damaged JP-8000/);
-  // Roland SysEx no editor reads, from the JP-8080's Librarian: the JP-8080's data
+  // Roland SysEx no editor reads, from the JP-8080's Branch Library: the JP-8080's data
   const other = Uint8Array.from([0xf0, 0x41, 0x10, 0x42, 0x12, 0x40, 0x00, 0x7f, 0x00, 0x41, 0xf7]);
   assert.equal((await importSysex([other])).patches[0].device.id, 'unknown');
   assert.equal((await importSysex([other], { device: 'roland-jp8080' })).patches[0].device.id, 'roland-jp8080');
@@ -256,7 +256,7 @@ function makeZip(entries) {
   return Uint8Array.from([...parts, ...cd, ...le(0x06054b50, 4), 0, 0, 0, 0, ...le(entries.length, 2), ...le(entries.length, 2), ...le(cd.length, 4), ...le(off, 4), 0, 0]);
 }
 
-test('Main Library store: a sub-library device, edit, merge with samples', async () => {
+test('Head Library store: a sub-library device, edit, merge with samples', async () => {
   const folder = new MemoryFolder();
   const lib = await new MainLibrary(new KvStore(null), { pickFolder: async () => folder }).load();
   await lib.chooseFolder();
@@ -283,7 +283,7 @@ test('Main Library store: a sub-library device, edit, merge with samples', async
   assert.equal(niceName('Alan__M_ JP80x0'), 'Alan M JP80x0');
 });
 
-test('Main Library duplicates: by name, by settings, across models, and performance links', async () => {
+test('Head Library duplicates: by name, by settings, across models, and performance links', async () => {
   const { findDuplicates, applyDedup } = await import('../js/core/mainlib/dedup.js');
   const jp80 = (await import('../js/devices/defs/roland-jp8080.js')).default;
   const jp00 = (await import('../js/devices/defs/roland-jp8000.js')).default;
@@ -325,7 +325,7 @@ test('Main Library duplicates: by name, by settings, across models, and performa
 test('Every device definition translates its sounds (the backlog shrinks, never grows)', async () => {
   const { DEF_IDS, loadDef } = await import('../js/devices/registry.js');
   // Definitions from before translators were required; remove an entry once its translator exists.
-  const BACKLOG = { 'oberheim-matrix1000': ['patch'], 'roland-jv2080': ['patch', 'performance', 'rhythm'], 'korg-m1': ['program', 'combination'], 'korg-m1r': ['program', 'combination'] };
+  const BACKLOG = {};
   const SETTINGS = /^(system|global|master|setup|utility)$/; // device settings, not sounds
   for (const id of DEF_IDS) {
     const def = await loadDef(id);
@@ -333,7 +333,7 @@ test('Every device definition translates its sounds (the backlog shrinks, never 
       if (SETTINGS.test(obj.key)) continue;
       const done = !!(obj.toCommon && obj.fromCommon);
       const listed = (BACKLOG[id] || []).includes(obj.key);
-      assert.ok(done || listed, `${id} ${obj.key}: a new device needs obj.toCommon / obj.fromCommon (docs/MAIN_LIBRARY.md)`);
+      assert.ok(done || listed, `${id} ${obj.key}: a new device needs obj.toCommon / obj.fromCommon (docs/HEAD_LIBRARY.md)`);
       assert.ok(!(done && listed), `${id} ${obj.key} has a translator now: take it off the backlog`);
     }
   }

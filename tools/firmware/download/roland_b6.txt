@@ -1,0 +1,4 @@
+V-Synth|2.00|VSYNTHv200.zip|
+V-Synth GT|2.00|V_Synth_GT_Ver_200.zip|
+Aerophone AE-10|3.12|ae10_sys_v312.zip|AE-10
+Aerophone AE-30|3.20|ae30_sys_v320.zip|AE-30

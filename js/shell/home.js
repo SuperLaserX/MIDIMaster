@@ -2,6 +2,8 @@
 
 import { h, clear } from '../core/ui/dom.js';
 import { DEVICES, MIDI_LABEL, appLogo } from '../devices/registry.js';
+import { isFullEditor } from '../devices/levels.js';
+import { FAMILIES, deviceFamily } from '../devices/families.js';
 import { recentDevices } from '../core/settings.js';
 
 const TYPE_NAMES = {
@@ -31,7 +33,7 @@ export function homeView(root, shell) {
 
   function card(d) {
     const badges = [
-      d.hasModule ? h('span.badge.live', 'Full editor') : d.hasDef ? h('span.badge.ram', 'Mapped') : d.openable ? h('span.badge', 'Generic MIDI') : null,
+      isFullEditor(d) ? h('span.badge.live', 'Full editor') : d.hasModule || d.hasDef ? h('span.badge.ram', 'Mapped') : d.openable ? h('span.badge', 'Generic MIDI') : null,
       !['Y', 'R'].includes(d.midi) ? h('span.badge' + (d.openable ? '.warn' : ''), MIDI_LABEL[d.midi] || d.midi) : d.midi === 'R' ? h('span.badge.warn', MIDI_LABEL.R) : null,
     ];
     return h('button.dev-card' + (d.openable ? '' : '.off'), {
@@ -46,7 +48,7 @@ export function homeView(root, shell) {
   const available = (d) => d.hasModule || d.hasDef;
 
   function row(d) {
-    const tag = d.hasModule ? h('span.badge.live', 'Editor') : d.hasDef ? h('span.badge.ram', 'Mapped')
+    const tag = isFullEditor(d) ? h('span.badge.live', 'Full editor') : d.hasModule || d.hasDef ? h('span.badge.ram', 'Mapped')
       : !['Y', 'R'].includes(d.midi) ? h('span.badge' + (d.openable ? '.warn' : ''), MIDI_LABEL[d.midi] || d.midi) : null;
     const cls = d.openable ? (available(d) ? '' : '.pending') : '.off';
     return h('button.dev-row' + cls, {
@@ -86,13 +88,18 @@ ${MIDI_LABEL[d.midi] || d.midi}, ${d.archives.length} firmware file(s)${d.openab
     const rest = list.filter((d) => !available(d));
     clear(grid);
     if (ready.length) {
+      // grouped by what each instrument is (devices/families.js): grooveboxes, FM, analog, VA, effects...
+      const byFamily = new Map(FAMILIES.map((f) => [f.key, []]));
+      for (const d of ready) byFamily.get(deviceFamily(d))?.push(d);
       grid.append(h('section.dev-section',
         h('h2.dev-section-head', 'Available editors', h('span.small.muted', ` ${ready.length}`)),
-        h('div.dev-grid', ready.map(card))));
+        ...FAMILIES.filter((f) => byFamily.get(f.key).length).map((f) => h('div.dev-family',
+          h('h3.dev-family-head', f.label, h('span.small.muted', ` ${byFamily.get(f.key).length}`)),
+          h('div.dev-grid', byFamily.get(f.key).map(card))))));
     }
     if (rest.length) {
       grid.append(h('section.dev-section.pending',
-        h('h2.dev-section-head', 'Not yet available', h('span.small.muted', ` ${rest.length}: open the generic MIDI tools (controllers, programs, SysEx librarian and console) until an editor is built`)),
+        h('h2.dev-section-head', 'Not yet available', h('span.small.muted', ` ${rest.length}: open the generic MIDI tools (controllers, programs, SysEx Branch Library and console) until an editor is built`)),
         h('div.dev-groups', byMaker(rest))));
     }
     if (!list.length) grid.append(h('div.empty', 'No device matches.'));
@@ -108,7 +115,7 @@ ${MIDI_LABEL[d.midi] || d.midi}, ${d.archives.length} firmware file(s)${d.openab
   root.append(
     h('div.hero',
       h('pre.ascii-logo.app-logo', appLogo()),
-      h('div.sub', `Choose a device to edit. ${stats.total} devices from the firmware collection, ${stats.midi} with MIDI; ${stats.editors} with a complete editor so far. Every MIDI device opens at least the generic editor: controllers, programs, SysEx librarian, Sample Dump and a SysEx console.`)),
+      h('div.sub', `Choose a device to edit. ${stats.total} devices from the firmware collection, ${stats.midi} with MIDI; ${stats.editors} with a complete editor so far. Every MIDI device opens at least the generic editor: controllers, programs, SysEx Branch Library, Sample Dump and a SysEx console.`)),
     recent.length ? h('div.card.col', h('h2', 'Recent'), h('div.dev-grid', recent.map(card))) : null,
     h('div.row.dev-filters', q, makerSel, typeSel, statusSel, count),
     grid);

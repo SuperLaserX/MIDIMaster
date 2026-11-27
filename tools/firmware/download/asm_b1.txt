@@ -1,0 +1,6 @@
+Hydrasynth|2.2.0 (Keyboard)|Hydrasynth_Keyboard_Firmware_Pack_2.2.0.zip|
+Hydrasynth|2.2.0 (Desktop)|Hydrasynth_Desktop_Firmware_Pack_2.2.0.zip|
+Hydrasynth|2.2.0 (Explorer)|Hydrasynth_Explorer_Firmware_Pack_2.2.0.zip|
+Hydrasynth|2.2.0 (Deluxe)|Hydrasynth_Deluxe_Firmware_Pack_2.2.0.zip|
+Leviasynth|1.2.0 (Keyboard)|Leviasynth_Keyboard_Firmware_Pack_1.2.0.zip|
+Leviasynth|1.2.0 (Desktop)|Leviasynth_Desktop_Firmware_Pack_1.2.0.zip|

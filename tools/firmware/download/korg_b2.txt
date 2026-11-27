@@ -1,0 +1,26 @@
+Nautilus|Sub-System firmware 1.10|NAUTILUS_Sub-System_win_V01R10.zip|
+nts-1|1.20|NTS-1_digital_kit_updater_v120_windows.zip|
+OASYS|1.11|OASYS_V111.zip|
+Pa1X|3.01|Pa1X_os_v301_PC.zip|
+Pa3X|1.63|Pa3X_Operating_System_v163.zip|
+Pa4X|3.1.0|Pa4X_Operating_System_v310.zip|
+Pa5X|1.5.0|Pa5X_Operating_System_v150.zip|
+Pa80|3.06|Pa80_os_v306.zip|
+Pa300|2.1.1|Pa300_Operating_System_v211.zip|
+Pa500|1.19|pa500_os_v119.zip|
+Pa700|1.5.1|Pa700_Operating_System_v151.zip|
+Pa800|2.03|Pa800_os_v203.zip|
+Pa900|1.3.0|Pa900_Operating_System_v130.zip|
+phase8|1.3|phase8_Updater_v1_3_Windows.zip|
+prologue|2.10|prologue_Updater_0210_win.zip|
+Radias|2.00|RADIAS_Updater_V200.zip|
+RK-100S|1.0.2|RK100S_Updater_0102.zip|
+SQ-64|2.03|sq_64_updater_0203_win.zip|
+SV-1|1.3|sv1-os-v13.zip|
+SV-2|1.0.3|SV-2_Operating_System_v103.zip|
+TR|1.04|TR_V104.ZIP|
+Triton|2.5.3|TRITON_V253.zip|
+Triton Extreme|1.06|TExtreme_V106.zip|
+Triton Le|1.51|TLe_V151.zip|
+Triton Rack|1.52|TRack_V152.ZIP|
+Triton Studio|2.02e|TStudio_V202e_Win.zip|

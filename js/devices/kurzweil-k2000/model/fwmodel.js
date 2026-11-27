@@ -261,6 +261,22 @@ export function algorithmSelectors(alg) {
   return out.sort((a, b) => a.block - b.block);
 }
 
+/**
+ * The block functions to set when a layer changes to algorithm `alg`: each block of the new algorithm
+ * keeps its function if the algorithm takes it there, otherwise gets the first function of the
+ * block's list (the order the K2000 offers them). Returns [{block, p, value}] for the blocks that change.
+ */
+export function blocksForAlgorithm(map, layer, alg) {
+  const out = [];
+  for (const { block, p } of algorithmSelectors(alg)) {
+    const allowed = paramValues(p) || [];
+    const cur = map.read(p, layer, block);
+    if (cur === null || !allowed.length || allowed.includes(cur)) continue;
+    out.push({ block, p, value: allowed[0] });
+  }
+  return out;
+}
+
 export function algorithmParam(alg = 1) {
   return (GROUPS[0x27 + alg] || GROUPS[0x28]).find((p) => p.loc === 0x11f && p.off === 30) || null;
 }

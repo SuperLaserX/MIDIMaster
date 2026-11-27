@@ -5,6 +5,7 @@ import { h, clear, toast } from '../../../core/ui/dom.js';
 import { portPicker } from '../../../core/ui/ports.js';
 import { describeUniversal, manufacturerName } from '../../../core/midi/describe.js';
 import { deviceLogo, MIDI_LABEL } from '../../registry.js';
+import { measureSpeed, speedObject, SPEED_GAPS } from '../speedtest.js';
 
 const TYPE_NAMES = {
   syn: 'Synthesizer / sound module', smp: 'Sampler', drm: 'Drum machine', fx: 'Effects processor', seq: 'Sequencer',
@@ -30,14 +31,16 @@ export function introView(root, g) {
     output: host.device.value.output,
     label: `the ${entry.model}`,
     onEnable: () => host.ensureMidi(),
-    onChange: (names) => { host.rememberPorts(names); g.renderStatus(); if (names.output) g.identify().then(showIdentity); },
+    // choosing the ports connects as starting with remembered ports does: identity, then the
+    // settings, edit buffers and memory names the definition reads (errors say what did not answer)
+    onChange: (names) => { host.rememberPorts(names); g.renderStatus(); if (names.output) g.identify().then((r) => { showIdentity(r); g.loadStandard(); }); },
   });
 
   const sysexName = entry.sysex ? `${manufacturerName(entry.sysex)} (${entry.sysex})` : 'unknown';
   const status = def
     ? h('div.notice', h('b', 'Mapped from the firmware. '), def.coverage || 'Device-specific SysEx parameters and dumps are available on their own pages.')
     : h('div.notice', h('b', 'Generic MIDI editor. '),
-      `The ${entry.model}'s own SysEx messages have not been mapped from its firmware yet. Everything that works on any instrument is available: programs, controllers, RPN/NRPN, a librarian that records and sends back SysEx dumps, ${entry.type === 'smp' ? 'Sample Dump Standard transfers, ' : ''}and a SysEx console.`);
+      `The ${entry.model}'s own SysEx messages have not been mapped from its firmware yet. Everything that works on any instrument is available: programs, controllers, RPN/NRPN, a Branch Library that records and sends back SysEx dumps, ${entry.type === 'smp' ? 'Sample Dump Standard transfers, ' : ''}and a SysEx console.`);
   const facts = [
     ['Maker', entry.maker],
     ['Model', entry.model],
@@ -47,6 +50,46 @@ export function introView(root, g) {
     ['CPU (from the firmware)', entry.cpu?.length ? entry.cpu.join(', ') : 'not detected'],
     ['Firmware files', `${entry.archives.length}`],
   ];
+
+  // MIDI speed: the device's measured pace instead of DIN-MIDI defaults (speedtest.js)
+  function speedCard() {
+    const box = h('div.col');
+    const obj = speedObject(def);
+    const draw = (extra = null) => {
+      const sp = host.device.value.speed;
+      const m = host.settings.value.midi;
+      clear(box).append(
+        h('h2', 'MIDI speed'),
+        h('div.small', sp
+          ? `Measured ${new Date(sp.measured).toLocaleString()}: messages go ${g.client.s.minGap} ms apart${sp.sendGap !== g.client.s.minGap ? ` (the ${entry.model} needs at least ${def?.minGap} ms)` : ''}; ${sp.bulkGap === 0 ? 'whole sounds go back to back: the link is faster than DIN MIDI' : sp.bulkGap ? `a whole sound needs ${sp.bulkGap} ms before the next message` : `long messages wait for their bytes at ${g.client.s.bytesPerSecond} bytes/s`}. A reply took ${sp.receiveBps} bytes/s (the ${entry.model}'s own pace answering).`
+          : `Default pace: ${g.client.s.minGap} ms between SysEx messages and ${m.bytesPerSecond} bytes/s (DIN MIDI carries at most 3125). A device on USB is often much faster.`),
+        obj ? h('div.small.muted', `Measure: reads the ${obj.label} edit buffer, sends bursts of parameter changes to it at shrinking gaps (${SPEED_GAPS.join(', ')} ms), reads it back after each to see what arrived, and puts it back as it was. Nothing in memory is written.`)
+          : h('div.small.muted', 'This editor has no edit buffer the measurement can use.'),
+        h('div.row',
+          obj ? h('button.btn', { disabled: !g.connected || g.demo, onclick: run }, 'Measure speed') : null,
+          sp ? h('button.btn', { onclick: () => { host.device.update({ speed: null }); g.client.setSettings(g.clientSettings()); draw(); } }, 'Use the defaults') : null),
+        extra);
+    };
+    async function run() {
+      const msg = h('div.small.mono');
+      draw(msg);
+      try {
+        g.setBusy(1, 'Measuring MIDI speed');
+        const r = await measureSpeed(g, { onProgress: (t) => { msg.textContent = t; } });
+        const runs = r.runs.map((x) => `${x.bulk ? 'whole sound ' : ''}${x.gap} ms: ${x.ok}/${x.total}`).join(', ');
+        if (r.sendGap === null) {
+          draw(h('div.notice.warn', `Even ${SPEED_GAPS[SPEED_GAPS.length - 1]} ms apart some changes were lost (${runs}); the defaults stay. ${r.restored ? 'The edit buffer is back as it was.' : 'Check the edit buffer: it was not read back as before.'}`));
+          return;
+        }
+        host.device.update({ speed: { sendGap: r.sendGap, receiveBps: r.receiveBps, sendBps: r.sendBps, bulkGap: r.bulkGap, measured: Date.now(), object: r.object } });
+        g.client.setSettings(g.clientSettings());
+        draw(h('div.small', `${r.params} changes per burst: ${runs}. Replies: ${r.bytes} bytes in ${r.seconds.toFixed(2)} s. ${r.restored ? `The edit buffer is back as it was${r.diff.length ? ` (bytes ${r.diff.slice(0, 8).join(', ')} differ: kept by the ${entry.model} itself)` : ', byte for byte'}.` : 'Check the edit buffer: it was not read back as before.'}`));
+        toast(`${entry.model}: ${g.client.s.minGap} ms between messages from now on`, 'good');
+      } catch (err) { g.error(err, 'Measure speed'); draw(); } finally { g.setBusy(0); }
+    }
+    draw();
+    return h('div.card.col', box);
+  }
 
   root.append(
     h('div.intro',
@@ -76,7 +119,8 @@ export function introView(root, g) {
         h('h2', 'From the firmware collection'),
         h('table.list.small', h('tbody', facts.map(([k, v]) => h('tr', h('td.muted', k), h('td', v))))),
         entry.strings?.length ? h('details', h('summary.small', 'Text found in the firmware'), h('pre.small.mono.wrap', entry.strings.join('\n'))) : null,
-        h('details', h('summary.small', 'Firmware archives'), h('ul.small', entry.archives.map((a) => h('li', a)))))));
+        h('details', h('summary.small', 'Firmware archives'), h('ul.small', entry.archives.map((a) => h('li', a))))),
+      speedCard()));
 
   if (g.identityReply) showIdentity(g.identityReply);
   const off = g.on('identity', showIdentity);

@@ -5,6 +5,7 @@
 
 import { Emitter } from '../emitter.js';
 import { sleep } from '../bits.js';
+import { waitForSlot } from './schedule.js';
 
 export const CLIENT_DEFAULTS = {
   deviceId: 0,
@@ -25,7 +26,7 @@ export class DeviceClient extends Emitter {
     this.deviceName = deviceName;
     this.queue = [];
     this.current = null;
-    this.lastSend = 0;
+    this.lastSend = -Infinity; // the first message goes out at once
     this.running = false;
     this.stats = { sent: 0, received: 0, timeouts: 0, naks: 0 };
     this._off = transport.on('sysex', (data) => this._onSysex(data));
@@ -60,9 +61,14 @@ export class DeviceClient extends Emitter {
    * opts.key             -> coalescing key; an unsent item with the same key is replaced
    * opts.timeout         -> ms to wait for the reply
    * opts.front           -> jump the queue
-   * opts.noReply         -> resolve as soon as the message is sent
+   * opts.noReply         -> resolve as soon as the message is sent (scheduled: it may go out up to
+   *                         schedule.js's look-ahead later, in order)
+   * opts.gapAfter        -> extra ms before the next message (e.g. the time a long message takes)
+   * While `hold` is set (a text: why), requests that wait for a reply are refused with it; messages
+   * sent without one still go out (a complete dump sets it: another request would cut it short).
    */
   request(bytes, opts = {}) {
+    if (this.hold && !opts.noReply) return Promise.reject(this.makeError(this.hold));
     return new Promise((resolve, reject) => {
       const item = { bytes, opts, resolve, reject, collected: [] };
       if (opts.key) {
@@ -106,20 +112,30 @@ export class DeviceClient extends Emitter {
     this.running = true;
     try {
       while (this.queue.length) {
+        // Live edits that replace each other while queued (opts.key) wait in the queue as before, so a
+        // knob drag is coalesced. Everything else is given the time it is due and sent with a Web MIDI
+        // timestamp (see schedule.js: page timers are throttled in background tabs).
+        const head = this.queue[0];
+        const due = this.lastSend + this.s.minGap;
+        if (head.opts.key) { const wait = due - performance.now(); if (wait > 0) await sleep(wait); }
+        else await waitForSlot(due);
         const item = this.queue.shift();
-        const wait = this.lastSend + this.s.minGap - performance.now();
-        if (wait > 0) await sleep(wait);
+        if (!item) continue;
         this.emit('busy', this.pending);
         try {
           this.current = item;
-          this.t.send(item.bytes);
+          const now = performance.now();
+          const at = Math.max(now, this.lastSend + this.s.minGap);
+          if (at > now + 1) this.t.send(item.bytes, at); else this.t.send(item.bytes);
           this.stats.sent++;
-          this.lastSend = performance.now();
+          this.lastSend = at + (item.opts.gapAfter || 0);
           if (item.opts.noReply) {
             this.current = null;
-            item.resolve({ sent: true });
+            item.resolve({ sent: true, at });
             continue;
           }
+          // the reply cannot come before the message goes out
+          if (at > now + 1) item.opts = { ...item.opts, timeout: (item.opts.timeout ?? this.s.timeout) + (at - now) };
           const result = await this._awaitReply(item);
           item.resolve(result);
         } catch (err) {

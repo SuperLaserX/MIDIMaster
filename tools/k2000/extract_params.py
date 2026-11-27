@@ -351,6 +351,24 @@ mbytes = rom[master['addr'] - ROM_BASE:master['addr'] - ROM_BASE + master['size'
 lines.append('// Factory Master table (Table 100:16) as stored in ROM: used by the demo K2000.')
 lines.append(f'export const MASTER_DEFAULT = {js_str(mbytes.hex())};')
 lines.append('')
+# The default program the OS starts a new program from: program segment, effect, one layer with
+# every layer segment (ASR, FUN, LFO, envelopes, keymap/pitch, F1-F4) at its default value. Found by
+# its layout: 08 02 01 00 37 40, then the effect (0F) and layer (09) segments and the full layer set.
+DEFAULT_LAYOUT = [0x08, 0x0f, 0x09, 0x10, 0x11, 0x18, 0x19, 0x14, 0x15, 0x1a, 0x1b, 0x20, 0x21, 0x22, 0x23, 0x40, 0x50, 0x51, 0x52, 0x53]
+SEGLEN = lambda t: 16 if t in (8, 9) else 8 if t == 0x0f else {0x10: 8, 0x18: 4, 0x20: 16, 0x40: 32, 0x50: 16}.get(t & 0xf8, 0)
+default_program = None
+for start in [i for i in range(len(rom) - 300) if rom[i:i + 6] == bytes.fromhex('080201003740')]:
+    p, tags = start, []
+    while len(tags) < len(DEFAULT_LAYOUT) and SEGLEN(rom[p]):
+        tags.append(rom[p]); p += SEGLEN(rom[p])
+    if tags == DEFAULT_LAYOUT:
+        default_program = rom[start:p] + b'\x00\x00'
+        break
+assert default_program, 'default program not found in the OS image'
+lines.append('// The OS\'s default program (a new program): one layer with every segment at its default value. A program')
+lines.append('// sent by SysEx is accepted only with the complete segment set (see disk/krz.js completeProgram).')
+lines.append(f'export const DEFAULT_PROGRAM = {js_str(default_program.hex())};')
+lines.append('')
 lines.append('export const ROM_NAMES = {')
 for typ, names in sorted(rom_names.items()):
     lines.append(f'  {typ}: {json.dumps({str(k): v for k, v in sorted(names.items())}, ensure_ascii=False)},')
