@@ -131,3 +131,11 @@ models.
 - The preset micro tuning tables other than Equal temperament (L 84DA-8582 and the key rotation
   L 9BE0-9C3A) are not offered as presets.
 - Not checked on a DX7II: everything above.
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- Micro tuning >Table select (names: table 859C; groups as the display at 98E2 shows them): Preset 1-11, the two internal user tables, the cartridge's.
+- Maximum 3, initial 3 (tables ED39, 0CA4); no screen or code reads it by name. Sent only with the whole setup.
+- The initial system setup: the DX7II's at lower bank 8CA4, the DX7s's at B186.

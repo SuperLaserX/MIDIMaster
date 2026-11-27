@@ -29,5 +29,12 @@ test('speed test: the fastest pace with nothing lost, then the edit buffer back 
   const s = g.clientSettings();
   assert.equal(s.minGap, def.minGap ?? 0);
   assert.equal(s.bytesPerSecond, 1000000);
+  // measured on one port only: another port (DIN through an interface) keeps the defaults
+  host.device.update({ speed: { sendGap: 0, sendBps: 1000000, port: 'Virus TI Synth' } });
+  g.transport.output = { name: 'Virus TI Synth' };
+  assert.equal(g.clientSettings().bytesPerSecond, 1000000);
+  g.transport.output = { name: 'MIDI (OCTA-CAPTURE)' };
+  assert.equal(g.clientSettings().bytesPerSecond, 2900, 'USB speed is not used over DIN');
+  assert.equal(g.clientSettings().minGap, 150);
   g.destroy();
 });

@@ -18,7 +18,8 @@ export function fwControl(opts) {
   const { p, name } = opts;
   const vals = paramValues(p);
   const fmt = (v) => formatParam(p, v, opts.names);
-  const title = opts.title || `${name}: ${p.l || name} at offset ${p.off}${p.t & 8 ? ` bits ${p.sh}-${p.sh + p.w - 1}` : ''}`;
+  const shown = String(p.l || '').trim();
+  const title = opts.title || (shown && shown !== name ? `${name} ("${shown}" on the K2000 display)` : name);
   let el;
 
   if (p.s && p.s.obj && PICK_FROM_ROM.has(p.s.obj) && vals) {

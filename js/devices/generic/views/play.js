@@ -100,7 +100,7 @@ export function playView(root, g) {
 
   root.append(
     h('h1', 'Controllers'),
-    h('div.sub', `Sends on MIDI channel ${ch() + 1} (change it on the Connect page). Controller numbers and names follow the MIDI standard; the ${g.entry.model} may respond to only some of them.`),
+    h('div.sub', `Standard MIDI controllers on channel ${ch() + 1}. The ${g.entry.model} may respond to only some of them.`),
     h('div.grid.cols-2',
       h('div.card.col',
         h('h2', 'Program'),

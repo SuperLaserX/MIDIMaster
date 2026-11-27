@@ -57,7 +57,7 @@ test('Matrix-1000 against its simulator: read, live edits, matrix, store and mas
 
   const id = await c.identity(0x7f, 400);
   assert.deepEqual([...id.slice(5, 10)], [0x10, 0x06, 0x00, 0x02, 0x00], 'Oberheim, family 6, member 2');
-  assert.equal(String.fromCharCode(...id.slice(10, 13)), '113');
+  assert.equal(String.fromCharCode(...id.slice(10, 14)), ' 113', 'version as the 1000 sends it (space first; checked in the emulated OS)');
 
   const raw = (await c.request(Uint8Array.from(patch.request()), { match: (_m, r) => patch.match(r) })).raw;
   const data = patch.decode(raw);
@@ -355,7 +355,9 @@ test('JV-2080 expansion boards: ROM names, bank sizes, wave lists, detection and
   const sys = jv.objects.find((o) => o.key === 'system');
   const sysPerf = sys.params.find((p) => p.label === 'Current performance');
   assert.equal(sysPerf.dynamic(T.defaults(T.sysBuilt), ctx).options[64][1].slice(0, 8), 'PR-A 01 ');
-  assert.equal(sys.params.filter((p) => p.input === 'number').length, 0x62 - 0x28, 'unused bytes are typed values');
+  // 28h-5Fh: the JV-1080 / XP-80 settings by the names in Roland's address map; nothing unnamed
+  assert.equal(sys.params.filter((p) => p.group === 'JV-1080 / XP-80 settings').length, 0x60 - 0x28);
+  assert.ok(sys.params.every((p) => !/^[0-9A-F]{2}h$/.test(p.label) && !/unknown/i.test(p.help || '')), 'every system byte named');
 
   // Library: a dump splits into the objects it holds.
   'Lib Test'.split('').forEach((ch, i) => { d[i] = ch.charCodeAt(0); });

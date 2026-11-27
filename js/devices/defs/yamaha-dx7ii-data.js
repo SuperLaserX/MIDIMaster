@@ -93,7 +93,7 @@ function sysParams() {
     set: (d, v) => { if (v >= 16) { d[o] = 15; d[o + 1] = 0; } else { d[o] = v; d[o + 1] = 1; } },
     pair: true,
   });
-  pair(0, 'Transmit channel', 'Channel', 'Channel >Trns ch (bytes 0-1): the channel the keyboard sends on, or off.');
+  pair(0, 'Transmit channel', 'Channel', 'Channel >Trns ch: the channel the keyboard sends on, or off.');
   P(2, 'Receive channel A', 'Channel', { options: chOpts, help: 'Channel Rcv ch >A: voice A (or the single voice) plays on this channel.' });
   P(3, 'Receive channel B', 'Channel', { options: chOpts, help: 'Channel Rcv ch >B: voice B of a dual or split performance.' });
   P(4, 'Omni messages', 'Channel', { options: opts(OFFON), help: 'Channel >Omni messages: obey omni on/off messages.' });
@@ -104,12 +104,12 @@ function sysParams() {
   P(9, 'Note on/off', 'MIDI', { options: opts([V.FC4F, V.FC54, V.FC59]), help: 'MIDI >Note on/off: send all notes, or the odd or even ones only.' });
   P(10, 'PC trns mode', 'MIDI', { options: opts([V.FC5E, V.FC6B, V.FC78]), help: 'MIDI >PC trns mode: send no program change, the memory number, or the number in the program change table below.' });
   P(11, 'Local', 'MIDI', { options: opts(OFFON) });
-  pair(14, 'Device number', 'MIDI', 'MIDI >Device number (bytes 14-15): the SysEx channel; off: no bulk dumps or requests are taken (the editor needs it on, on its channel).');
+  pair(14, 'Device number', 'MIDI', 'MIDI >Device number: the channel for SysEx. Off: no voices, banks or requests are taken; the editor needs it on, set to the editor\'s channel.');
   P(13, 'Receive block', 'MIDI', { options: opts([V.FC85, V.FC8B]), help: 'MIDI >Receive block: where a received 32-voice bulk goes (internal 1-32 or 33-64).' });
   P(12, 'MIDI out voice bank', 'MIDI', { options: opts([V.FC85, V.FC8B]), help: 'MIDI out Voice >1-32 >33-64: the 32 voices a bulk sends, and a dump request answers.' });
-  P(20, 'Master tuning', 'Tuning', { format: (v) => `${v >= 64 ? '+' : '-'}${Math.abs(v - 64)}`, help: '>Master tuning: 64 = centre (sent as F0 43 1n 04 40 vv F7).' });
+  P(20, 'Master tuning', 'Tuning', { format: (v) => `${v >= 64 ? '+' : '-'}${Math.abs(v - 64)}`, help: '>Master tuning: 64 = centre.' });
   ['Voice & Perf.', 'Fractional SC.', 'Micro tuning'].forEach((t, i) => P(16 + i, `Bank ${t}`, 'Cartridge', { format: (v) => String(v + 1), help: `Cartridge >Bank for ${t} (1-16, as the cartridge's size allows).` }));
-  P(19, 'Byte 19', 'Cartridge', { input: 'number', help: 'Maximum 3, initial 3 (tables ED39, 0CA4); no screen or code reads it by name. Sent only with the whole setup.' });
+  P(19, 'Byte 19', 'Cartridge', { input: 'number', help: 'A value (0-3, initially 3) that no page shows; kept as it is and sent only with the whole setup.' });
   for (let i = 0; i < 64; i++) P(21 + i, `Memory ${i + 1}`, 'Program change table', { input: 'number', format: (v) => String(v + 1), help: 'Program sw:[ ] change trns #: the program number (1-128) sent for this memory when PC trns mode is programmable.' });
   return ps;
 }
@@ -129,13 +129,13 @@ export function systemObject(variant, ch) {
     request: (ctx) => dumpRequestHeader(ch(ctx), SYS),
     match: isSys,
     decode: (raw) => Uint8Array.from(parseBulk(raw).body),
-    note: `The ${variant.name}'s MIDI and cartridge settings (MIDI and Cartridge pages). Bytes 0-18 go as parameter changes (19h, 40h + byte), the master tuning as 04h 40h; the program change table and byte 19 have none, so a change there sends the whole setup.`,
+    note: `The ${variant.name}'s MIDI and cartridge settings (MIDI and Cartridge pages). Most changes are sent on their own as you make them; a change in the program change table or in Byte 19 sends the whole setup.`,
     sendParam: (p, _v, d, ctx) => {
       const c = ch(ctx);
       if (p.pair) return [sendOne(p.offset, d, c), sendOne(p.offset + 1, d, c)];
       return sendOne(p.offset, d, c) || bulkHeader(c, SYS, d);
     },
-    sendAll: { label: 'Send', title: 'Send the system setup ("LM  8973S ")', build: (d, ctx) => bulkHeader(ch(ctx), SYS, d) },
+    sendAll: { label: 'Send', title: 'Send the whole system setup to the unit', build: (d, ctx) => bulkHeader(ch(ctx), SYS, d) },
     toSyx: (d, ctx) => bulkHeader(ch(ctx), SYS, d),
     fromSyx: (msgs) => { const m = msgs.find(isSys); return m ? Uint8Array.from(parseBulk(m).body) : null; },
     receive: (raw, d, ctx) => {
@@ -149,8 +149,8 @@ export function systemObject(variant, ch) {
       return next;
     },
     actions: [
-      { label: 'Init', title: `The ${variant.name}'s initial system setup (${variant.sysInit ? 'B186' : 'lower bank 8CA4'}; not sent until you press Send)`, run: (api) => api.setData(init()) },
-      { label: 'Memory protect off', title: 'Turn internal and cartridge memory protect off (F0 43 1n 19 53 00 F7): needed before a bulk or Store writes memory', run: (api) => { api.send(paramChange(ch(api.ctx), 6, sysNum(0x13), 0)); api.toast('Memory protect INT and CRT off', 'good', 2000); } },
+      { label: 'Init', title: `The ${variant.name}'s initial system setup (not sent until you press Send)`, run: (api) => api.setData(init()) },
+      { label: 'Memory protect off', title: 'Turn internal and cartridge memory protect off: needed before sending a bank or using Store', run: (api) => { api.send(paramChange(ch(api.ctx), 6, sysNum(0x13), 0)); api.toast('Memory protect INT and CRT off', 'good', 2000); } },
     ],
   };
 }
@@ -210,9 +210,9 @@ export function microTuningObject(variant, ch) {
     request: (ctx) => dumpRequestHeader(ch(ctx), MCRYE),
     match: isMt,
     decode: (raw) => Uint8Array.from(parseBulk(raw).body),
-    note: `The micro tuning edit buffer: each key's pitch in 1/1024 octave (0 = C#-2; 1024 an octave), shown as the ${variant.name}'s page does, as the nearest note and the distance. A performance plays it when its micro tuning table is the edit buffer's; Send as user table stores it in internal table 1 or 2 (memory protect off).`,
+    note: `The micro tuning being edited: each key's pitch (in steps of 1/1024 octave), shown as the ${variant.name} shows it: the nearest note and the distance from it. A performance plays it when its micro tuning table is set to the edit buffer; Send as user table stores it in internal table 1 or 2 (memory protect off).`,
     sendParam: (p, _v, d, ctx) => mtParam(ch(ctx), p.offset / 2, d),
-    sendAll: { label: 'Send', title: 'Send the micro tuning edit buffer ("LM  MCRYE ")', build: (d, ctx) => bulkHeader(ch(ctx), MCRYE, d) },
+    sendAll: { label: 'Send', title: 'Send the micro tuning to the unit\'s edit buffer', build: (d, ctx) => bulkHeader(ch(ctx), MCRYE, d) },
     toSyx: (d, ctx) => bulkHeader(ch(ctx), MCRYE, d),
     fromSyx: (msgs) => { const m = msgs.find((x) => mtHeader(x)); return m ? Uint8Array.from(parseBulk(m).body) : null; },
     receive: (raw, d, ctx) => {
@@ -227,14 +227,14 @@ export function microTuningObject(variant, ch) {
     actions: [
       { label: 'Equal temperament', title: 'Preset 1, Equal temperament, as the unit lays it out (not sent until you press Send)', run: (api) => api.setData(equalTemperament()) },
       ...[0, 1].map((t) => ({
-        label: `Get user table ${t + 1}`, title: `Read internal micro tuning table ${t + 1} ("LM  MCRYM" ${t})`,
+        label: `Get user table ${t + 1}`, title: `Read internal micro tuning table ${t + 1} from the unit`,
         run: async (api) => {
           const raw = await api.request(dumpRequestHeader(ch(api.ctx), mcrym(t)), (r) => mtHeader(r) === mcrym(t), (r) => r);
           api.setData(Uint8Array.from(parseBulk(raw).body));
         },
       })),
       ...[0, 1].map((t) => ({
-        label: `Send as user table ${t + 1}`, title: `Store the edited tuning in internal table ${t + 1} ("LM  MCRYM" ${t}; memory protect INT off)`,
+        label: `Send as user table ${t + 1}`, title: `Store the edited tuning in internal table ${t + 1} (memory protect INT must be off)`,
         run: async (api) => {
           if (!(await api.confirm('Store micro tuning', `Replace internal micro tuning table ${t + 1} (Programmed tune) of the ${variant.name}?`, 'Send', true))) return;
           api.send(bulkHeader(ch(api.ctx), mcrym(t), api.data));
@@ -325,9 +325,9 @@ export function fractionalObject(variant, ch) {
     request: (ctx) => dumpRequestHeader(ch(ctx), FKSYE),
     match: isFks,
     decode: (raw) => parseFks(raw).body,
-    note: `The fractional scaling of the voice being edited: per operator an offset and an output level for each of 40 key groups, used instead of the keyboard level scaling when the operator's Scaling mode (additional voice data) is fractional; the ${variant.name} ignores a change for an operator in normal mode.`,
+    note: `The fractional scaling of the voice being edited. For each operator, an offset and an output level for each of 40 key groups, used instead of the keyboard level scaling when the operator's Scaling mode (additional voice data) is fractional; the ${variant.name} ignores a change for an operator in normal mode.`,
     sendParam: (p, _v, d, ctx) => fksParam(ch(ctx), p.fks[0], p.fks[1], d[p.offset]),
-    sendAll: { label: 'Send', title: 'Send the fractional scaling ("LM  FKSYE ")', build: (d, ctx) => fksBulk(ch(ctx), FKSYE, d) },
+    sendAll: { label: 'Send', title: 'Send the fractional scaling to the unit', build: (d, ctx) => fksBulk(ch(ctx), FKSYE, d) },
     toSyx: (d, ctx) => fksBulk(ch(ctx), FKSYE, d),
     fromSyx: (msgs) => { const m = msgs.find((x) => parseFks(x)); return m ? parseFks(m).body : null; },
     receive: (raw, d, ctx) => {

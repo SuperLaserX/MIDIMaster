@@ -52,11 +52,16 @@ through banks 20h-5Fh, 3D64): the editor's multi store sends the same messages.
 - Global page: Virus Control's Snow globals with the Snow's ranges (sent only: no global request).
 - Translator (`access-virus-snow-translate.js`): singles as the TI2 (exact within the TI family); multis with 4 parts,
   exact between Snows through `extra`.
+- USB and DIN: as the TI (access-virus-ti2.md, "DIN and USB"): the same `def.link` (`TI_CONNECTION`), needs and DIN
+  warning, without the Remote mode (the Snow has none). The Snow's host build routes MIDI the same way: USB MIDI mode
+  is bit 25h (set by the global 82 "USB MidiPort active" handler at bank 2 A839, cleared at 12E5 / 61F3); while it is
+  set the MIDI In receive (2A5D) passes the socket's bytes to USB instead of the synth, and the Virus answers over USB;
+  while it is clear everything works through a MIDI interface on the MIDI In / Out sockets. Firmware only.
 
 ## Open
 
 - Everything needs a check on a Snow (bank numbering and the 64-sound halves, the multi store with its singles,
-  which parts 34 00 leaves out, the output selects).
+  which parts 34 00 leaves out, the output selects, its USB port names and DIN).
 - The multi part Bank parameter (internal 0353) still shows the TI's bank list (list 67, RAM-A ... ROM-Z) as the value
   table says; whether the Snow's screen shows list 68 (RAM 1 ... ROM 8) for it is not traced.
 - Patch numbers within a bank are shown 01-64 (not seen on the Snow's screen).

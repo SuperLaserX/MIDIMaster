@@ -22,6 +22,44 @@ export const CATALOG_EXTRA = [
     id: 'roland-system8', maker: 'Roland', model: 'SYSTEM-8', type: 'syn', midi: 'Y', sysex: '41',
     cpu: ['Roland BMC', 'STM32F103'], archives: ['Roland System 8_sys_v132 .zip'], evidence: { added: 'by hand, 2026-11-26' }, strings: [],
   },
+  // The PLUG-OUT engines of the SYSTEM-8 (Roland Cloud plug-outs installed into its slots 1-3): one editor each for
+  // their patches (js/devices/defs/roland-system8-engines.js).
+  {
+    id: 'roland-system8-jupiter8', maker: 'Roland', model: 'SYSTEM-8 PLUG-OUT JUPITER-8', type: 'syn', midi: 'Y', sysex: '41',
+    cpu: ['Roland BMC'], archives: ['Roland System 8_sys_v132 .zip'], evidence: { added: 'by hand, 2026-11-27; from the plug-out region 0 image and plugin script' }, strings: [],
+  },
+  {
+    id: 'roland-system8-sh101', maker: 'Roland', model: 'SYSTEM-8 PLUG-OUT SH-101', type: 'syn', midi: 'Y', sysex: '41',
+    cpu: ['Roland BMC'], archives: ['Roland System 8_sys_v132 .zip'], evidence: { added: 'by hand, 2026-11-27; from the plug-out region 0 image and plugin script' }, strings: [],
+  },
+  {
+    id: 'roland-system8-juno106', maker: 'Roland', model: 'SYSTEM-8 PLUG-OUT JUNO-106', type: 'syn', midi: 'Y', sysex: '41',
+    cpu: ['Roland BMC'], archives: ['Roland System 8_sys_v132 .zip'], evidence: { added: 'by hand, 2026-11-27; from the plug-out region 0 image and plugin script' }, strings: [],
+  },
+  {
+    id: 'roland-system8-jx3p', maker: 'Roland', model: 'SYSTEM-8 PLUG-OUT JX-3P', type: 'syn', midi: 'Y', sysex: '41',
+    cpu: ['Roland BMC'], archives: ['Roland System 8_sys_v132 .zip'], evidence: { added: 'by hand, 2026-11-27; from the plug-out region 0 image and plugin script' }, strings: [],
+  },
+  {
+    id: 'roland-system8-juno60', maker: 'Roland', model: 'SYSTEM-8 PLUG-OUT JUNO-60', type: 'syn', midi: 'Y', sysex: '41',
+    cpu: ['Roland BMC'], archives: ['Roland System 8_sys_v132 .zip'], evidence: { added: 'by hand, 2026-11-27; from the plug-out region 0 image and plugin script' }, strings: [],
+  },
+  {
+    id: 'roland-system8-jupiter4', maker: 'Roland', model: 'SYSTEM-8 PLUG-OUT JUPITER-4', type: 'syn', midi: 'Y', sysex: '41',
+    cpu: ['Roland BMC'], archives: ['Roland System 8_sys_v132 .zip'], evidence: { added: 'by hand, 2026-11-27; from the plug-out region 0 image and plugin script' }, strings: [],
+  },
+  {
+    id: 'roland-system8-promars', maker: 'Roland', model: 'SYSTEM-8 PLUG-OUT PROMARS', type: 'syn', midi: 'Y', sysex: '41',
+    cpu: ['Roland BMC'], archives: ['Roland System 8_sys_v132 .zip'], evidence: { added: 'by hand, 2026-11-27; from the plug-out region 0 image and plugin script' }, strings: [],
+  },
+  {
+    id: 'roland-system8-sh2', maker: 'Roland', model: 'SYSTEM-8 PLUG-OUT SH-2', type: 'syn', midi: 'Y', sysex: '41',
+    cpu: ['Roland BMC'], archives: ['Roland System 8_sys_v132 .zip'], evidence: { added: 'by hand, 2026-11-27; from the plug-out region 0 image and plugin script' }, strings: [],
+  },
+  {
+    id: 'roland-system8-system100', maker: 'Roland', model: 'SYSTEM-8 PLUG-OUT SYSTEM-100', type: 'syn', midi: 'Y', sysex: '41',
+    cpu: ['Roland BMC'], archives: ['Roland System 8_sys_v132 .zip'], evidence: { added: 'by hand, 2026-11-27; from the plug-out region 0 image and plugin script' }, strings: [],
+  },
   // The first SuperNova (1998) and the Nova family: Novation's OS-update MIDI files, decoded with
   // tools/novation/os_mid.py (docs/devices/novation-supernova.md, novation-nova.md, novation-nova2.md).
   {

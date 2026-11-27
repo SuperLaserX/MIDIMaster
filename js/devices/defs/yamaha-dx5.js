@@ -35,7 +35,7 @@ const FW = {
   DETUNE: Array.from({ length: 15 }, (_, v) => `${v < 7 ? '-' : '+'}${Math.abs(v - 7)}`),
   TRANSPOSE: Array.from({ length: 49 }, (_, v) => `${v < 24 ? '-' : '+'}${Math.abs(v - 24)}`),
 };
-const HELP = { ...DX7_HELP, trnp: 'Transpose in semitones, as the DX5 shows it (BB38): -24..+24 (24 = +0).' };
+const HELP = { ...DX7_HELP, trnp: 'Transpose in semitones, as the DX5 shows it: -24..+24 (24 = +0).' };
 
 // ------------------------------------------------------------------ performance (format 1)
 const half = (o) => (o < 30 ? 'A' : o < 60 ? 'B' : 'common');
@@ -130,7 +130,7 @@ function statusParams() {
   const onoff = [[0, 'off'], [1, 'on']];
   const P = (offset, label, extra) => ps.push({ key: `st${ps.length}`, label, offset, min: 0, max: 127, group: 'MIDI', readOnly: true, ...extra });
   const B = (offset, shift, label, extra = {}) => P(offset, label, { shift, bits: 1, max: 1, options: onoff, ...extra });
-  B(3, 0, 'MIDI switch', { help: 'Off: the DX5 sends and takes no MIDI (7402).' });
+  B(3, 0, 'MIDI switch', { help: 'Off: the DX5 sends and takes no MIDI.' });
   B(3, 1, SUB(1, 'Basic event data output'));
   B(3, 2, SUB(2, 'Other event data output'));
   B(4, 0, SUB(3, 'After touch data output'));
@@ -140,11 +140,11 @@ function statusParams() {
   P(4, SUB(6, 'Transmit channel'), { shift: 1, bits: 4, max: 15, options: Array.from({ length: 16 }, (_, c) => [c, String(c + 1)]) });
   B(3, 6, SUB(7, 'Prog. change mode'), { options: [[0, 'VOICE'], [1, 'PERFORMANCE']], help: 'What a received program change selects.' });
   P(5, SUB(8, 'Y/N switch assign'), { options: [[0, 'off'], ...Array.from({ length: 32 }, (_, i) => [0x40 + i, String(0x40 + i)])], help: 'The control number the panel\'s YES / NO switches send (64-95).' });
-  B(2, 5, 'M prot', { group: 'FUNCTION', help: 'Internal memory write protect: the DX5 sets it on at every power-on (919E) and then refuses bulk data. It cannot be changed over MIDI.' });
-  P(2, 'Play state (RAM 76EA bits 3-7)', { group: 'FUNCTION', shift: 0, bits: 5, max: 31, input: 'number', help: 'The play-mode bits the panel switches toggle (08h, 10h and 20h are reported as group 1 numbers 1Dh, 1Eh and 1Fh when they change).' });
-  B(2, 6, 'Flag 7720 (routine A92D running)', { group: 'FUNCTION' });
-  P(0, 'Version (ROM 8000h)', { group: 'FUNCTION', input: 'number' });
-  P(1, 'Version, second byte (ROM 8001h)', { group: 'FUNCTION', input: 'number' });
+  B(2, 5, 'M prot', { group: 'FUNCTION', help: 'Internal memory write protect: the DX5 sets it on at every power-on and then refuses voices and banks sent to it. It cannot be changed over MIDI.' });
+  P(2, 'Play state', { group: 'FUNCTION', shift: 0, bits: 5, max: 31, input: 'number', help: 'The play-mode switches of the panel, as one number; shown for information.' });
+  B(2, 6, 'Internal routine running', { group: 'FUNCTION', help: 'On while the DX5 runs one of its internal routines (with MIDI and SysEx off and master tune centred); shown for information.' });
+  P(0, 'Version', { group: 'FUNCTION', input: 'number', help: 'The software version the DX5 reports (6 for version 6).' });
+  P(1, 'Version, second byte', { group: 'FUNCTION', input: 'number' });
   return ps;
 }
 
@@ -160,7 +160,7 @@ const def = buildDX({
   functionParams: null,
   formats: [1, 2, 0x7d],
   bankNote: 'Internal memory write protect (FUNCTION, M prot) must be off; the 32 voices go to INT 01-32 when channel A is current, 33-64 when B is.',
-  coverage: 'The voice of the current channel (DX7 format; labels from the DX5 v6 edit records, curve, oscillator mode, detune, Off/On, transpose and LFO wave texts from its displays) with the 32-voice Branch Library, the System page (its status message 7Dh: MIDI switch, SUBJOB1-8 settings, M prot; read only, as the DX5 takes none of them over MIDI), and every byte of the 94-byte performance (channels A and B, key assign, dual detune, split, name) with the DX5\'s labels, maxima and value texts, sent as group 1 parameter changes; MIDI channels page for A and B. The 64 performance memories (format 2) are split by the Branch Library and read and written back from the Performance page\'s slot list, packed and unpacked as the DX5 does. Not yet checked on a DX5.',
+  coverage: 'Edits the DX5\'s voices and performances and shows its system settings. The voice of the current channel (the DX7 voice, with the DX5\'s own names and display texts) with the 32-voice Branch Library; the System page (MIDI switch, SUBJOB1-8 settings, M prot: read only, as the DX5 takes none of them over MIDI); and the whole performance (channels A and B, key assign, dual detune, split, name) with the DX5\'s names, ranges and value texts, each change sent as you make it; a MIDI channels page for A and B. The 64 performance memories are read and written back from the Performance page\'s slot list (and the Branch Library). Not yet checked on a DX5.',
   notes: { voice: 'The DX5 takes SysEx on the Source channel of its current channel (A or B: the performance\'s Single channel). The voice page edits that channel\'s voice.' },
   moreRequests: [
     { label: 'Performance', bytes: (ctx) => dumpRequest(ctx?.channel ?? 0, 1) },
@@ -172,7 +172,7 @@ const def = buildDX({
     if (isPerf(m)) { const d = parseBulk(m).data; return [{ key: `p${k}`, label: `Performance "${perfName(d)}"`, name: perfName(d), object: 'performance', data: Uint8Array.from(d), msgs: [m] }]; }
     // format 2: the 64 memories at 6000h, unpacked as F999 does
     if (isPmem(m)) return fmemItems(parseBulk(m), k, { name: perfName, build: (c, d) => bulk(c, 1, d) });
-    if (isStatus(m)) return [{ key: `s${k}`, label: 'DX5 status (7Dh)', name: '', object: 'system', data: Uint8Array.from(parseBulk(m).data.subarray(10, 16)), msgs: [m] }];
+    if (isStatus(m)) return [{ key: `s${k}`, label: 'DX5 status', name: '', object: 'system', data: Uint8Array.from(parseBulk(m).data.subarray(10, 16)), msgs: [m] }];
     return null;
   },
   simulateRequest: (unit, d) => {
@@ -194,9 +194,9 @@ const def = buildDX({
       decode: (raw) => Uint8Array.from(parseBulk(raw).data),
       name: perfName,
       setName: (d, n) => { for (let i = 0; i < 30; i++) d[64 + i] = Math.max(32, Math.min(126, String(n ?? '').charCodeAt(i) || 32)); return d; },
-      note: 'Channels A and B, the key assign mode and the name. Changes are group 1 parameter changes, which the DX5 applies to its current channel (Single channel); changes to the other channel send the whole performance.',
+      note: 'Channels A and B, the key assign mode and the name. A change to the current channel (Single channel) is sent on its own as you make it; a change to the other channel sends the whole performance.',
       sendParam: (p, _v, d, c2) => sendPerf(p, d, ch(c2)),
-      sendAll: { label: 'Send', title: 'Send the performance (format 1)', build: (d, c2) => bulk(ch(c2), 1, d) },
+      sendAll: { label: 'Send', title: 'Send the performance to the DX5', build: (d, c2) => bulk(ch(c2), 1, d) },
       toSyx: (d, c2) => bulk(ch(c2), 1, d),
       fromSyx: (msgs) => { const m = msgs.find(isPerf); return m ? Uint8Array.from(parseBulk(m).data) : null; },
       actions: [{
@@ -234,7 +234,7 @@ const def = buildDX({
       decode: (raw) => Uint8Array.from(parseBulk(raw).data.subarray(10, 16)),
       receive: (raw) => (isStatus(raw) ? Uint8Array.from(parseBulk(raw).data.subarray(10, 16)) : null),
       fromSyx: (msgs) => { const m = msgs.find(isStatus); return m ? Uint8Array.from(parseBulk(m).data.subarray(10, 16)) : null; },
-      note: 'The DX5\'s FUNCTION / MIDI settings as its status message (7Dh, "LM  DX5   ") reports them; Get from device asks for it (the DX5 answers while System exclu. communication is on). The DX5 takes none of them over MIDI (no 7Dh bulk, no parameter change), so they are shown only: change them on its panel (MIDI switch, SUBJOB1-8, M prot). M tune is in no message. Before Get, the page shows MIDI and System exclu. communication on and M prot off (your usual setting; the DX5 turns it on at power-on).',
+      note: 'The DX5\'s FUNCTION / MIDI settings as it reports them; Get from device reads them (while System exclu. communication is on). The DX5 cannot take them over MIDI, so they are shown only: change them on its panel (MIDI switch, SUBJOB1-8, M prot). M tune cannot be read at all. Before Get, the page shows MIDI and System exclu. communication on and M prot off (your usual setting; the DX5 turns it on at power-on).',
     });
   },
 });

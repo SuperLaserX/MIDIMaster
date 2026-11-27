@@ -6,5 +6,5 @@ import * as T from './access-virus-rack-xl-os.js';
 
 export default abcModel({
   model: 'Virus Rack XL', id: 'access-virus-rack-xl', T, banks: BANKS_AH, format: 7, panel: RXL_PANEL,
-  note: 'mapped from its own OS 6.5 build 079 (docs/devices/access-virus-rack-xl.md).',
+  note: 'built from its own system software (OS 6.5).',
 });

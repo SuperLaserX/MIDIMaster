@@ -138,13 +138,13 @@ const systemParams = [
   { key: 'ampX', section: 'global', group: 'Modulators', label: 'AmpX', offset: 7, options: modAmt, send: sendGlobal, sendKey: 'global', help: 'Amplitude of modulator X (-99 to +98; 00 = off)' },
   { key: 'modY', section: 'global', group: 'Modulators', label: 'Mod#Y', offset: 8, options: modSrc, send: sendGlobal, sendKey: 'global', help: 'MIDI source of modulator Y' },
   { key: 'ampY', section: 'global', group: 'Modulators', label: 'AmpY', offset: 9, options: modAmt, send: sendGlobal, sendKey: 'global', help: 'Amplitude of modulator Y' },
-  { key: 'foot', section: 'global', group: 'MIDI and modes', label: 'Footswitch', offset: 10, options: FOOTSWITCH.slice(0, 2).map((t, v) => [v, t]), send: sendGlobal, sendKey: 'global', help: 'Util Footswitch page (column B, D423): Adu, byP; the page also offers CtL, which the receiver refuses' },
-  flag('thru', 'Thru', 0, 'MIDI page "Thru" (D62D)'),
-  flag('omni', 'Omni', 1, 'Receive on every channel (CC 125 / 124; a reset turns it on, D2DC)'),
-  flag('dry', 'Dry defeat switch', 2, 'State of the dry-signal switch: the Footswitch / Dry Defeat page keeps it in step with its Dry Defeat setting (D40E), C12A toggles it and drives the switch'),
-  flag('cascade', 'Cascade', 3, 'Util "Dual Programs: Cascade" page (D466)'),
-  flag('display', 'Program display flag', 5, 'Set at reset (D2DE); C60A and C769 test it before drawing the program display', true),
-  flag('edited', 'Program edited', 6, 'Set when a parameter changes (CA0B), cleared by store and recall', true),
+  { key: 'foot', section: 'global', group: 'MIDI and modes', label: 'Footswitch', offset: 10, options: FOOTSWITCH.slice(0, 2).map((t, v) => [v, t]), send: sendGlobal, sendKey: 'global', help: 'Util Footswitch page (column B): Adu or byP. The page also offers CtL, but the MIDIVerb 4 refuses it over MIDI' },
+  flag('thru', 'Thru', 0, 'MIDI page "Thru": pass everything from MIDI In on to MIDI Out'),
+  flag('omni', 'Omni', 1, 'Receive on every channel (CC 125 turns it on, CC 124 off; a reset turns it on)'),
+  flag('dry', 'Dry defeat switch', 2, 'State of the dry-signal switch; it follows the Dry Defeat setting of the Footswitch / Dry Defeat page'),
+  flag('cascade', 'Cascade', 3, 'Util "Dual Programs: Cascade" page'),
+  flag('display', 'Program display flag', 5, 'Set by the MIDIVerb 4 at power-on; it decides when the program display is redrawn. Shown for information', true),
+  flag('edited', 'Program edited', 6, 'Set when a parameter changes, cleared by store and recall', true),
   ...Array.from({ length: 128 }, (_, n) => ({
     key: `t${n}`, section: 'table', group: 'Program change table', label: `MIDI ${pad3(n)}`, offset: TABLE_AT + n, options: tableOptions,
     send: sendTable, sendKey: 'table', help: `Program recalled by program change ${n} when PChg is tbL`,
@@ -245,7 +245,7 @@ const TR = wedgeTranslator({ ALGORITHMS, paramInfo, presetData, fitProgram, setN
 const PRESET_NAMES = PRESETS.map((h) => nameOf(hex(h)));
 
 export default {
-  coverage: `Every byte of programs (32 configurations, each parameter with the LCD text of its firmware display routine), the global settings and the program change table, from ${FIRMWARE}. Edit buffer, user bank and program dumps, store. Not checked on hardware.`,
+  coverage: 'Edits the MIDIVerb 4\'s programs (32 configurations, each value shown as its display shows it), its global settings and its program change table. Reads the current program and the user bank, sends programs and stores them into user slots. Not checked on hardware.',
   sysex: { manufacturer: [0x00, 0x00, 0x0e], model: 0x11 },
   minGap: 20,
   describe,
@@ -270,8 +270,8 @@ export default {
       fromCommon: (c, base) => TR.fromCommon(c, base),
       cols: 4,
       layout: [{ group: 'Program' }, ...Array.from({ length: 4 }, (_, p) => ({ group: `Page ${p + 1}` }))],
-      note: 'The MIDIVerb 4 has no parameter-change message: each change sends the whole program (50 bytes) to the edit buffer. Store writes the program into a user slot.',
-      sendAll: { label: 'Send to edit buffer', title: 'Send the whole program to the edit buffer (opcode 02)', build: (data, ctx) => msg.edit(ctx, fitted(data)) },
+      note: 'The MIDIVerb 4 cannot take single values over MIDI, so each change sends the whole program to the program it is playing. Store writes the program into a user slot.',
+      sendAll: { label: 'Send to edit buffer', title: 'Send the whole program to the MIDIVerb 4 (it plays it but does not store it)', build: (data, ctx) => msg.edit(ctx, fitted(data)) },
       toSyx: (data, ctx) => msg.edit(ctx, fitted(data)),
       fromSyx: programFromSyx,
       actions: [
@@ -283,7 +283,7 @@ export default {
           api.send(msg.edit(api.ctx, fitted(d)));
           api.setData(d);
         } },
-        { label: 'Store via MIDIVerb', title: 'Send the program to the edit buffer, then have the MIDIVerb 4 store it (opcode 05)', run: async (api) => {
+        { label: 'Store via MIDIVerb', title: 'Send the program to the MIDIVerb 4, then have it store the program into a user slot', run: async (api) => {
           const r = await api.form('Store into user program', [{ key: 'n', label: 'User program (0-127)', value: '0', type: 'number', min: 0, max: 127 }]);
           if (!r) return;
           const n = Math.max(0, Math.min(127, Math.round(Number(r.n) || 0)));
@@ -293,7 +293,7 @@ export default {
       slots: {
         label: 'Programs', banks: [[0, 'User'], [1, 'Preset']], count: 128,
         slotLabel: (bank, i) => `${bank ? 'Pset' : 'User'} ${pad3(i)}`,
-        note: (bank) => (bank ? 'Preset programs are in ROM: their contents come from the firmware. ' : 'Reading a user program reads the whole user bank (single-program requests are not answered). ')
+        note: (bank) => (bank ? 'Preset programs are built into the MIDIVerb 4: the editor shows them from its own copy. ' : 'Reading one user program reads the whole user bank (the MIDIVerb 4 cannot send single programs). ')
           + 'Play sends Controller 0 (0 = Preset, 1 = User bank) and a program change.',
         names: (bank) => (bank === 1 ? PRESET_NAMES : null),
         writable: (bank) => bank === 0,
@@ -318,7 +318,7 @@ export default {
       sections: [{ key: 'global', label: 'Levels, modulators, MIDI' }, { key: 'table', label: 'Program change table' }],
       params: systemParams,
       cols: 3,
-      note: 'Global settings go out together (opcode 00), the table as a whole (opcode 01). The MIDI channel, PChg mode and Dry Defeat are front-panel settings that no message carries.',
+      note: 'The global settings are sent together, the program change table as a whole. The MIDI channel, PChg mode and Dry Defeat can only be set on the MIDIVerb 4\'s front panel.',
       toSyx: (data, ctx) => [msg.global(ctx, data), msg.table(ctx, data)],
       fromSyx: systemFromSyx,
     },

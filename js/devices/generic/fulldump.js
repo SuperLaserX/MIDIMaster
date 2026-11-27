@@ -8,7 +8,9 @@
 //            the step usually takes, for the estimate), group (steps listed under one name in the
 //            start dialog), optional (with group: steps the user may leave out together, e.g. 'ROM banks'),
 //            accept(raw) (the replies that belong to this step; others, e.g. a knob the user turns or
-//            the answer to another page's request, are not recorded and do not count)
+//            the answer to another page's request, are not recorded and do not count),
+//            record(msg) -> true for the step's own request messages that belong in the dump: kept first,
+//            so sending the dump back repeats them (e.g. a Matrix-1000 bank select before the bank's patches)
 // Without fullDump, a definition's requests are all used. Each request is sent and every SysEx
 // reply recorded until the expected replies are in, or `quiet` ms pass without one (the first reply
 // may take `timeout` ms); a request with no reply (e.g. an empty memory) is noted and skipped.
@@ -44,6 +46,8 @@ export function requestAndRecord({ transport, client, ctx }, step, { cancelled =
     const parts = list.flatMap((b) => (b[0] === 0xf0 ? splitSysex(b) : [b]));
     // A request coming back (MIDI thru or a merging interface) is not part of the dump.
     const sent = new Set(parts.map((b) => b.join(',')));
+    // the step's own messages that belong in the dump (step.record), kept before the replies
+    if (step.record) for (const b of parts) if (step.record(b)) got.push(Uint8Array.from(b));
     const complete = typeof step.expect === 'function' ? step.expect : step.expect ? (list) => list.length >= step.expect : null;
     const off = transport.on('sysex', (d) => {
       if (isHandshake(d) || sent.has(Array.from(d).join(',')) || (step.accept && !step.accept(d))) return;

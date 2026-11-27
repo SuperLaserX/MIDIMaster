@@ -1,6 +1,6 @@
 // Yamaha DX7 (mark I): voice editor and Branch Library from the v1.8 firmware (HD6303, 16 KB at C000h,
 // DX7-V1-8.OBJ; tables in yamaha-dx7-fw.js, made by tools/yamaha/dx_fw.py) and Yamaha's published
-// voice format. Shared code for the DX family: yamaha-dx.js. Not yet checked on a DX7.
+// voice format. Shared code for the DX family: yamaha-dx.js. Checked in an emulator of its v1.8 OS (tools/yamaha/check_editor.mjs), not on a DX7.
 //
 // What the v1.8 firmware does with MIDI (parser at ED95, transmitter E9BC/EA5C; docs/devices/yamaha-dx7.md):
 //   receives  F0 43 0n 00 01 1B <155> cs F7   one voice into the edit buffer
@@ -56,7 +56,7 @@ const functionParams = [
   { num: 65, label: fnLabel(2), max: 12 },
   { num: 66, label: fnLabel(3), max: 12, help: '0: smooth bend; 1-12: the bend moves in steps of this many semitones.' },
   {
-    num: 67, label: 'PORTAMENTO MODE', max: 1, help: 'Function button 5: what the portamento does, by POLY/MONO (the display texts at F847).',
+    num: 67, label: 'PORTAMENTO MODE', max: 1, help: 'Function button 5: what the portamento does; the choices depend on POLY/MONO.',
     dynamic: (d) => ({ options: d[0] ? [[0, MODES[4]], [1, MODES[5]]] : [[0, MODES[2]], [1, MODES[3]]] }),
   },
   { num: 68, label: fnLabel(5), max: 1, options: OFFON.map((t, i) => [i, t]) },
@@ -65,7 +65,7 @@ const functionParams = [
     { num: 70 + c * 2, key: `f${70 + c * 2}`, label: `${CTL[c]} ${CTL[4]}`, max: 99, group: CTL[c] },
     ...['PITCH', 'AMP', 'EG B.'].map((t, b) => ({
       num: 71 + c * 2, key: `f${71 + c * 2}_${b}`, label: `${CTL[c]} ${clean(CTL[5 + b])}`, max: 1, shift: b, bits: 1, options: OFFON.map((x, i) => [i, x]), group: CTL[c],
-      help: `Whether the ${CTL[c].toLowerCase()} controls ${['pitch (LFO PM)', 'amplitude (LFO AM)', 'EG bias'][b]} (parameter ${71 + c * 2}, bit ${b}).`,
+      help: `Whether the ${['modulation wheel', 'foot controller', 'breath controller', 'aftertouch'][c]} controls ${['pitch (LFO PM)', 'amplitude (LFO AM)', 'EG bias'][b]}.`,
     })),
   ]),
 ];
@@ -88,10 +88,10 @@ const def = buildDX({
   deviceIds: ['yamaha-tx7'], // same voice data: their voices load natively
   functionParams,
   bankNote: 'MEMORY PROTECT INTERNAL must be off and SYS INFO AVAIL on.',
-  coverage: 'Every voice parameter (VCED: 6 operators, pitch EG, algorithm, LFO, transpose, name, operator on/off) with the labels, ranges and value displays of the v1.8 firmware (frequency display, break point and MIDDLE C notes, curves, LFO waves); the 32-voice memory (packed VMEM) as a bank the editor keeps; function parameters 64-77; the algorithm diagram and EG graphs. The DX7 answers no dump requests: it sends a voice when one is selected (SYS INFO AVAIL) and its 32 voices with MIDI TRANSMIT. Not yet checked on a DX7.',
+  coverage: 'Edits the DX7\'s voices, its 32-voice bank and its function settings. Every voice parameter (6 operators, pitch EG, algorithm, LFO, transpose, name, operator on/off) with the DX7\'s own names, ranges and value displays; its 32 voices as a bank the editor keeps; the function settings; the algorithm diagram and envelope graphs. The DX7 cannot be asked for its data: it sends a voice when you select one (with SYS INFO AVAIL on) and its 32 voices with MIDI TRANSMIT. Checked against the DX7\'s own software running in an emulator, not yet on a real DX7.',
   notes: {
-    voice: 'Every change goes to the DX7\'s edit buffer as a parameter change (SYS INFO AVAIL and, for bulk data, MEMORY PROTECT INTERNAL off). Selecting a voice on the DX7 sends it here.',
-    function: 'The DX7 cannot be asked for its function values: these are the editor\'s, sent one by one (parameter changes, group 2). Changes made on the DX7 panel arrive here while SYS INFO AVAIL is on.',
+    voice: 'Each change is sent to the DX7 as you make it: SYS INFO AVAIL must be on (and MEMORY PROTECT INTERNAL off to send whole voices or banks). Selecting a voice on the DX7 sends it here.',
+    function: 'The DX7 cannot report its function settings, so these are the editor\'s own values, sent one by one as you change them. Changes made on the DX7\'s panel show up here while SYS INFO AVAIL is on.',
   },
   midiNotes: [
     'Program change 0-31: internal voices 1-32; 32-63: cartridge voices (when a cartridge is inserted).',

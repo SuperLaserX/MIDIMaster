@@ -23,6 +23,15 @@ const DEFS = {
   'roland-vsynth-xt-vc1': () => import('./defs/roland-vsynthxt-vc1.js'),
   'roland-vsynth-xt-vc2': () => import('./defs/roland-vsynthxt-vc2.js'),
   'roland-system8': () => import('./defs/roland-system8.js'),
+  'roland-system8-jupiter8': () => import('./defs/roland-system8-jupiter8.js'),
+  'roland-system8-sh101': () => import('./defs/roland-system8-sh101.js'),
+  'roland-system8-juno106': () => import('./defs/roland-system8-juno106.js'),
+  'roland-system8-jx3p': () => import('./defs/roland-system8-jx3p.js'),
+  'roland-system8-juno60': () => import('./defs/roland-system8-juno60.js'),
+  'roland-system8-jupiter4': () => import('./defs/roland-system8-jupiter4.js'),
+  'roland-system8-promars': () => import('./defs/roland-system8-promars.js'),
+  'roland-system8-sh2': () => import('./defs/roland-system8-sh2.js'),
+  'roland-system8-system100': () => import('./defs/roland-system8-system100.js'),
   'novation-supernova2': () => import('./defs/novation-supernova2.js'),
   'novation-supernova': () => import('./defs/novation-supernova.js'),
   'novation-nova': () => import('./defs/novation-nova.js'),
@@ -62,13 +71,20 @@ const DEFS = {
   'alesis-quadraverb': () => import('./defs/alesis-quadraverb.js'),
   'alesis-quadraverb-plus': () => import('./defs/alesis-quadraverb-plus.js'),
   'alesis-quadraverb-gt': () => import('./defs/alesis-quadraverb-gt.js'),
+  'alesis-quadraverb2': () => import('./defs/alesis-quadraverb2.js'),
   'rocktron-intellifex': () => import('./defs/rocktron-intellifex.js'),
   'alesis-midiverb3': () => import('./defs/alesis-midiverb3.js'),
   'art-multiverb-alpha2': () => import('./defs/art-multiverb-alpha2.js'),
   'art-multiverb-alpha2-se': () => import('./defs/art-multiverb-alpha2-se.js'),
   'art-multiverb-alpha-se': () => import('./defs/art-multiverb-alpha2-se.js'), // the catalog's v1.04 entry: the same unit
   'viscount-efx10': () => import('./defs/viscount-efx10.js'),
-};
+  'lexicon-lxp15': () => import('./defs/lexicon-lxp15.js'),
+  'lexicon-lxp1': () => import('./defs/lexicon-lxp1.js'),
+  'lexicon-lxp5': () => import('./defs/lexicon-lxp5.js'),
+  'digitech-dsp256': () => import('./defs/digitech-dsp256.js'),
+  'digitech-dsp256xl': () => import('./defs/digitech-dsp256xl.js'),
+  'digitech-dsp128plus': () => import('./defs/digitech-dsp128plus.js'),
+  'digitech-meq': () => import('./defs/digitech-meq.js'),};
 
 /** Hand-picked logo styles; the rest are assigned in catalog order without repeats. */
 const RESERVED = {

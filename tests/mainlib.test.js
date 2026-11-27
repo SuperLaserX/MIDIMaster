@@ -333,7 +333,7 @@ test('Every device definition translates its sounds (the backlog shrinks, never 
       if (SETTINGS.test(obj.key)) continue;
       const done = !!(obj.toCommon && obj.fromCommon);
       const listed = (BACKLOG[id] || []).includes(obj.key);
-      assert.ok(done || listed, `${id} ${obj.key}: a new device needs obj.toCommon / obj.fromCommon (docs/HEAD_LIBRARY.md)`);
+      assert.ok(done || listed, `${id} ${obj.key}: a new device needs obj.toCommon / obj.fromCommon (intdocs/HEAD_LIBRARY.md)`);
       assert.ok(!(done && listed), `${id} ${obj.key} has a translator now: take it off the backlog`);
     }
   }

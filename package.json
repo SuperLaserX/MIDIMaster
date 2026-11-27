@@ -1,12 +1,92 @@
 {
   "name": "midimaster",
-  "version": "0.2.0",
+  "productName": "MIDIMaster",
+  "version": "1.0.0",
   "description": "Editors and librarians for MIDI instruments and effects, entirely over MIDI",
   "private": true,
   "type": "module",
+  "main": "electron/main.mjs",
   "scripts": {
     "start": "node serve.js",
-    "test": "node --test tests/"
+    "test": "node --test tests/",
+    "app": "electron .",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "build": {
+    "appId": "io.midimaster.app",
+    "productName": "MIDIMaster",
+    "copyright": "MIDIMaster",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "index.html",
+      "css/**",
+      "js/**",
+      "vendor/**",
+      "electron/**",
+      "build/icon.png",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "MIDIMaster-Setup-${version}-${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "MIDIMaster-${version}-portable.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "category": "public.app-category.music"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Audio",
+      "maintainer": "MIDIMaster"
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.5.0",
+    "electron-builder": "^26.18.0"
+  }
 }

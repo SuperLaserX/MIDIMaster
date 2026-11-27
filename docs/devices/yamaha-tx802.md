@@ -166,3 +166,11 @@ it before the 32 voices (A961). The editor's bank reads and writes it as on the 
 Also open: selecting a performance memory from the editor (the TX802 selects them with program
 changes on its "Perform select channel"); the cartridge tables ("LM  MCRYC", "LM  FKSYC") are read
 by the Branch Library only.
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- SYSTEM7 (E4AE): 64 = centre; sent as F0 43 1n 04 40 vv F7.
+- micro tuning (RAM 3000h + TG x 100h: the bulk sender AB04, receiver A039 and the 18h 7Eh key change A7AB all use the TG being edited)
+- Eight tone generators of two notes each. A TG that starts a group plays its voice on its receive channel; the TGs that join it add notes. Changes are parameter changes (1Ah, number = byte; a link change starts or ends a group).

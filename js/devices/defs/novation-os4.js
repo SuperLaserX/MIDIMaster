@@ -57,11 +57,11 @@ const CHORUS_TYPES = ['Quad chorus', 'Chorus/flanger', 'Phaser']; // menu 'Type'
 
 function programParams(V) {
   const base = SN2.programParams.filter((p) => p.offset < PROG && p.group !== 'Spare bytes' && !PROG_DROP.has(p.label))
-    .map((p) => ({ ...p, label: rename(p.label), ...(p.offset === 239 ? { help: 'The OS 4.1 CC 9 handler does not write it, but the factory programs carry values (0, 56, 64, 65...): the arpeggio speed a program keeps, as on the SuperNova II' } : {}) }));
+    .map((p) => ({ ...p, label: rename(p.label), ...(p.label === 'Osc page' ? { options: p.options.map(([v, n]) => [v, n === 'Harden' ? 'Soften' : n]) } : {}), ...(p.offset === 239 ? { help: 'The arpeggio speed a program keeps, as on the SuperNova II (on this model CC 9 does not change it; the factory programs carry values)' } : {}) }));
   const voice = 'voice';
   return [
     ...base,
-    P(17, 'Category', 'Program', voice, { options: opts(CATEGORIES), help: 'Menu "Category -" (fe07, 0-19): User 1-5 where the SuperNova II has Brass and User 1-4' }),
+    P(17, 'Category', 'Program', voice, { options: opts(CATEGORIES), help: 'Menu "Category -" (0-19): User 1-5 where the SuperNova II has Brass and User 1-4' }),
     P(209, 'Filter width', 'Filter', 'filter', { bits: 3, options: opts(['00', '08', '16', '24', '32', '40', '48', '56']), help: 'Menu values 102-109. The SuperNova II derives this byte from its own 0-127 filter width' }),
     P(209, 'DCO / VCO mode', 'Voice', voice, { shift: 3, bits: 1, options: opts(['DCO', 'VCO']), help: 'Menu values 92/93' }),
     ...(V.constantGate ? [P(237, 'Constant gate', 'Voice', voice, { shift: 3, bits: 1, options: opts(['Off', 'On']), help: 'Nova menu values 79/80' })] : []),
@@ -70,8 +70,8 @@ function programParams(V) {
     P(253, 'Gate time', 'Arpeggiator', 'arp', { options: opts(['25%', '50%', '75%', '99%']), help: 'Menu values 5-8' }),
     P(249, 'Mute status', 'Arpeggiator', 'arp', { bits: 1, options: opts(['Sounding', 'Muted']), help: 'Menu values 90/91' }),
     P(254 + 21, 'Type', 'Chorus', 'fx', { bits: 2, options: opts(CHORUS_TYPES), help: 'Menu values 52-54' }),
-    P(238, 'Format marker', 'Format', voice, { shift: 6, bits: 1, readOnly: true, options: opts(['Off', 'On']), help: 'Set before a program is sent (SuperNova 15568), as on the SuperNova II' }),
-    P(249, 'Format marker (2)', 'Format', voice, { shift: 2, bits: 1, readOnly: true, options: opts(['Off', 'On']), help: 'Set on programs in the OS 4 value scale; without it the OS converts the program (Nova 176D2 / 1763C)' }),
+    P(238, 'Format marker', 'Format', voice, { shift: 6, bits: 1, readOnly: true, options: opts(['Off', 'On']), help: 'Set before a program is sent, as on the SuperNova II; shown for information' }),
+    P(249, 'Format marker (2)', 'Format', voice, { shift: 2, bits: 1, readOnly: true, options: opts(['Off', 'On']), help: 'Marks programs in the newer value scale; without it the synth converts the program when it arrives' }),
     RES(16, '00: 10h', 'Reserved', voice, 'The SuperNova II\'s program-mode vocoder balance (NRPN 102); OS 4.1 has no handler for NRPN 102'),
   ];
 }
@@ -95,21 +95,21 @@ function performanceParams(V) {
   for (let i = 0; i < 8; i++) {
     const ro = i >= V.parts ? { readOnly: true } : {};
     out.push(P(PART(i) + 12 + 21, 'Type', 'FX Chorus', `part${i}`, { bits: 2, options: opts(CHORUS_TYPES), ...ro }));
-    if (V.vocoder) out.push(P(PART(i) + 10, 'Expression pedal', 'MIDI', `part${i}`, { shift: 5, bits: 1, options: opts(['Off', 'On']), help: 'Nova menu values 118/119 (setter B492: part byte 10 bit 5)', ...ro }));
+    if (V.vocoder) out.push(P(PART(i) + 10, 'Expression pedal', 'MIDI', `part${i}`, { shift: 5, bits: 1, options: opts(['Off', 'On']), help: 'Nova menu values 118/119', ...ro }));
   }
   if (V.vocoder) {
     const X = PERF;
     const parts = Array.from({ length: V.parts }, (_, i) => `Part ${i + 1}`);
     out.push(
       P(X, 'Format', 'Vocoder', 'common', { input: 'number', readOnly: true, help: '21h in the Nova\'s factory data' }),
-      P(X + 1, 'Voc input', 'Vocoder', 'common', { options: opts(['Input (1)', 'Input (2)', ...parts], 18), help: 'Menu values 18-25; the receiver limits it to 25 (1761C)' }),
-      P(X + 2, 'Voc insert', 'Vocoder', 'common', { options: opts(parts, 28), help: 'Menu values 28-33; the receiver limits it to 33 (1761C)' }),
+      P(X + 1, 'Voc input', 'Vocoder', 'common', { options: opts(['Input (1)', 'Input (2)', ...parts], 18), help: 'Menu values 18-25 (a higher value is taken as 25)' }),
+      P(X + 2, 'Voc insert', 'Vocoder', 'common', { options: opts(parts, 28), help: 'Menu values 28-33 (a higher value is taken as 33)' }),
       P(X + 3, 'Vocoder width', 'Vocoder', 'common', { bias: 112, min: 0, max: 15, help: 'Menu values 112-127' }),
       P(X + 4, 'Vocoder balance', 'Vocoder', 'common', { min: 0, max: 127 }),
       P(X + 6, 'Sibilance level', 'Vocoder', 'common', { bias: 96, min: 0, max: 15, help: 'Menu values 96-111' }),
       P(X + 7, 'Sibilance type', 'Vocoder', 'common', { options: opts(['Hpass', 'Noise']), help: 'Menu values 16/17' }),
-      RES(X + 5, '1B: 05h', 'Reserved', 'common', 'No Nova menu field or setter found for it; 3 or 4 in the factory performances'),
-      ...Array.from({ length: 8 }, (_, i) => RES(X + 8 + i, `1B: ${(8 + i).toString(16).toUpperCase().padStart(2, '0')}h`, 'Reserved', 'common', 'No Nova menu field or setter found for it; 0 in the factory performances')),
+      RES(X + 5, '1B: 05h', 'Reserved', 'common', 'No Nova menu field, CC or NRPN writes it; 3 or 4 in the factory performances. The transmitter (16EE0) takes the block from the performance at +148h and sends this byte as stored; the receiver fix-up (1761C) limits bytes 1-2 only; no other code addresses the block at a fixed offset'),
+      ...Array.from({ length: 8 }, (_, i) => RES(X + 8 + i, `1B: ${(8 + i).toString(16).toUpperCase().padStart(2, '0')}h`, 'Reserved', 'common', i === 0 ? 'No Nova menu field, CC or NRPN writes it; sent as stored (transmitter 16EE0); 0 in the factory performances' : 'The transmitter clears it before sending (Nova 16F18-16F34): never sent other than 0')),
     );
   }
   return out;
@@ -126,8 +126,8 @@ function globalParams(V) {
     const q = { ...p };
     if (q.label === 'Pedal/breath') q.label = 'Breath control';
     if (q.label === 'MIDI clock') q.options = opts(['Int', 'Ext'], 105);
-    if (q.label === 'Sysex transmission') Object.assign(q, { options: within(q, V.sysexTx), help: `The dump the MIDI button sends. Stored ${V.sysexTx.join('-')} (packed NRPN 84), the order of the OS 4.1 string list` });
-    if (q.label === 'Sysex reception') Object.assign(q, { options: within(q, V.sysexRx), help: `Stored ${V.sysexRx.join('-')} (packed NRPN 109), the order of the OS 4.1 string list` });
+    if (q.label === 'Sysex transmission') Object.assign(q, { options: within(q, V.sysexTx), help: `The dump the MIDI button sends (menu values ${V.sysexTx.join('-')})` });
+    if (q.label === 'Sysex reception') Object.assign(q, { options: within(q, V.sysexRx), help: `Menu values ${V.sysexRx.join('-')}` });
     if (q.label === 'Power-up program bank') Object.assign(q, { options: V.progBanks, get: undefined, set: undefined });
     if (q.label === 'Power-up performance bank') q.options = V.perfBanks;
     if (/^Map \d+ bank$/.test(q.label)) q.options = mapBanks;
@@ -136,30 +136,30 @@ function globalParams(V) {
   const rs = (k, help, mask) => RES(G2 + k, `15 ${k}${mask ? `: bits` : ''}`, 'Reserved', G, help, mask);
   return [
     ...base,
-    P(G2, 'Format', 'MIDI', G, { input: 'number', readOnly: true, help: 'Always 21h: the OS 4.1 transmitter writes it (SuperNova 1591E)' }),
+    P(G2, 'Format', 'MIDI', G, { input: 'number', readOnly: true, help: 'Always 21h: marks global settings of this system (OS 4.1)' }),
     ...(V.vocoder ? [
-      P(G2 + 12, 'Pedal mode', 'Inputs', G, { options: opts(['Off', 'Breath-R', 'Breath-T', 'Sustain', 'Sustain-I'], 11), help: 'Menu values 11-15, stored as sent (B750)' }),
-      P(G2 + 13, 'Headphones out', 'Inputs', G, { options: opts(['1 & 2', '3 & 4', '5 & 6', 'Mix'], 92), help: 'Menu values 92-95, stored as sent (BCBC)' }),
-      P(G2 + 24, 'Trim1', 'Inputs', G, { bias: 64, min: -10, max: 10, format: (v) => `${v > 0 ? '+' : ''}${v}`, help: 'Menu values 54-74 (handler ABC4)' }),
+      P(G2 + 12, 'Pedal mode', 'Inputs', G, { options: opts(['Off', 'Breath-R', 'Breath-T', 'Sustain', 'Sustain-I'], 11), help: 'Menu values 11-15' }),
+      P(G2 + 13, 'Headphones out', 'Inputs', G, { options: opts(['1 & 2', '3 & 4', '5 & 6', 'Mix'], 92), help: 'Menu values 92-95' }),
+      P(G2 + 24, 'Trim1', 'Inputs', G, { bias: 64, min: -10, max: 10, format: (v) => `${v > 0 ? '+' : ''}${v}`, help: 'Menu values 54-74' }),
       P(G2 + 25, 'Trim2', 'Inputs', G, { bias: 64, min: -10, max: 10, format: (v) => `${v > 0 ? '+' : ''}${v}` }),
     ] : [
-      rs(12, 'The SuperNova transmitter always writes 0Bh (15938): no pedal setting on this model'),
-      rs(13, 'The SuperNova transmitter always writes 5Fh (1593E)'),
-      ...[24, 25].map((k) => rs(k, 'The SuperNova transmitter writes 40h')),
+      rs(12, 'Always 0Bh on the SuperNova: it has no pedal setting'),
+      rs(13, 'Always 5Fh on the SuperNova (not used)'),
+      ...[24, 25].map((k) => rs(k, 'Always 40h on the SuperNova (not used)')),
     ]),
     RES(10, '0F 10: bits 2-6', 'Reserved', G, 'Always 0: message 0F carries the low bits; the rest travels in message 15 byte 1', 0x7c),
     RES(11, '0F 11: bits 4-6', 'Reserved', G, 'Always 0: the high bits travel in message 15 byte 2', 0x70),
     RES(13, '0F 13: bits 4-6', 'Reserved', G, 'Always 0: the high bits travel in message 15 byte 3', 0x70),
-    RES(G2 + 1, '15 1: bits 0-1', 'Reserved', G, 'Masked off by the transmitter', 0x03),
-    RES(G2 + 2, '15 2: bits 0-3, 6', 'Reserved', G, 'Masked off by the transmitter / not used', 0x4f),
-    RES(G2 + 3, '15 3: bits 0-3', 'Reserved', G, 'Masked off by the transmitter', 0x0f),
-    ...[4, 5, 6, 7, 8, 9, 10, 11].map((k) => rs(k, 'The transmitter clears it')),
+    RES(G2 + 1, '15 1: bits 0-1', 'Reserved', G, 'Always 0 (not used)', 0x03),
+    RES(G2 + 2, '15 2: bits 0-3, 6', 'Reserved', G, 'Always 0 (not used)', 0x4f),
+    RES(G2 + 3, '15 3: bits 0-3', 'Reserved', G, 'Always 0 (not used)', 0x0f),
+    ...[4, 5, 6, 7, 8, 9, 10, 11].map((k) => rs(k, 'Always 0 (not used)')),
     RES(G2 + 14, '15 14: bits 5-6', 'Reserved', G, 'Cleared when the global settings are written; no menu field', 0x60),
     rs(15, 'No OS 4.1 menu field (the SuperNova II Keyboard keeps its favourites slot here)'),
     RES(G2 + 16, '15 16: bits 3-6', 'Reserved', G, 'Keyboard Tx flags and button clicks on the SuperNova II; no OS 4.1 menu field', 0x78),
-    ...[17, 18, 19, 20, 21, 22, 23].map((k) => rs(k, 'Copied from RAM by the transmitter; no OS 4.1 menu field reads or sets it (SuperNova II: inputs, Sysex Tx delay, display time, user pattern bank, digital I/O)')),
-    ...[26, 27].map((k) => rs(k, 'The transmitter writes 40h')),
-    ...[28, 29, 30, 31].map((k) => rs(k, 'The transmitter writes 0')),
+    ...[17, 18, 19, 20, 21, 22, 23].map((k) => rs(k, 'No menu of this model sets it; sent as it is (the SuperNova II keeps inputs, Sysex Tx delay, display time, user pattern bank and digital I/O here)')),
+    ...[26, 27].map((k) => rs(k, 'Always 40h (not used)')),
+    ...[28, 29, 30, 31].map((k) => rs(k, 'Always 0 (not used)')),
   ];
 }
 
@@ -260,7 +260,7 @@ export function buildOS4(V) {
   const first = (msgs, types) => msgs.find((x) => types.includes(typeOf(x)));
   const progSlots = { label: 'Programs', banks: V.progBanks, count: 128, slotLabel: (b, i) => `${progLetter(b)}${num(i)}`, name: nameOf };
   const perfSlots = { label: 'Performances', banks: V.perfBanks, count: 128, slotLabel: (b, i) => `${perfLetter(b)}${num(i)}`, name: nameOf };
-  const UNVERIFIED = `From the ${V.name} OS 4.1 image; not checked on a ${V.name} (none was available).`;
+  const UNVERIFIED = `Built from the ${V.name}'s system software (OS 4.1); not checked on a ${V.name} (none was available).`;
   const partSections = Array.from({ length: 8 }, (_, i) => ({ key: `part${i}`, label: i < V.parts ? `Part ${i + 1}` : `Part ${i + 1} (unused)` }));
 
   // Arpeggio patterns: the SuperNova II's 194-byte format (same receivers and lengths: 0A/0C 204
@@ -288,8 +288,8 @@ export function buildOS4(V) {
     ...SN2PAT,
     fetch: (api) => fetchPattern(api, msg.patternRequest(api.ctx), 0x0a),
     sendParam: (_p, _v, d, ctx) => msg.pattern(ctx, d),
-    note: `Changes go to the pattern edit buffer (message 0A), which the arpeggiator plays when a program or part uses this user pattern. Store writes it into user bank U (message 0C, Memory protect Off). ${UNVERIFIED}`,
-    sendAll: { label: `Send to ${V.name}`, title: 'Into the pattern edit buffer (message 0A)', build: (d, ctx) => msg.pattern(ctx, d) },
+    note: `Changes go to the pattern edit buffer, which the arpeggiator plays when a program or part uses this user pattern. Store writes it into user bank U (Memory protect Off). ${UNVERIFIED}`,
+    sendAll: { label: `Send to ${V.name}`, title: 'Send the pattern into the pattern edit buffer', build: (d, ctx) => msg.pattern(ctx, d) },
     toSyx: (d, ctx) => [msg.pattern(ctx, d)],
     fromSyx: (msgs) => { const m = first(msgs, [0x0a, 0x0c]); return m ? patternOf(m) : null; },
     slots: {
@@ -298,12 +298,12 @@ export function buildOS4(V) {
       fetch: (api, _b, i) => fetchPattern(api, msg.patternSlotRequest(api.ctx, i), 0x0c),
       store: (_b, i, ctx, d) => { const x = Uint8Array.from(d); x[0] = i; return msg.storePattern(ctx, i, x); },
       writable: () => true,
-      note: () => 'Read asks for one pattern (message 14). Store sends it into bank U (message 0C: a memory write, Memory protect Off). Patterns 000-063 are mono, 064-127 poly.',
+      note: () => 'Read reads one pattern. Store writes it into bank U (Memory protect Off). Patterns 000-063 are mono, 064-127 poly.',
     },
   };
 
   const def = {
-    coverage: `Programs (oscillators, mixer, LFOs, envelopes, filter, voice, arpeggiator, effects), performances (${V.parts} parts, MIDI channels page${V.vocoder ? ', vocoder' : ''}) and global settings of the ${V.name}, from its OS 4.1 firmware. ${UNVERIFIED}`,
+    coverage: `Edits the ${V.name}'s programs, performances and global settings. Programs (oscillators, mixer, LFOs, envelopes, filter, voice, arpeggiator, effects), performances (${V.parts} parts, MIDI channels page${V.vocoder ? ', vocoder' : ''}) and global settings. ${UNVERIFIED}`,
     sysex: { manufacturer: [0x00, 0x20, 0x29], model: V.model, deviceIdDefault: 0x7f },
     minGap: 40,
     describe,
@@ -313,9 +313,9 @@ export function buildOS4(V) {
         key: 'program', page: 'Program', icon: '◆', label: 'Program', size: PROG, autoLoad: true,
         init: initProgram, fetch: (api) => fetchProgram(api), params: finish(programParams(V), 'p', 'program'), name: nameOf, cols: 3,
         sections: [{ key: 'osc', label: 'Oscillators' }, { key: 'mix', label: 'Mixer' }, { key: 'lfo', label: 'LFOs' }, { key: 'env', label: 'Envelopes' }, { key: 'filter', label: 'Filter' }, { key: 'voice', label: 'Voice' }, { key: 'arp', label: 'Arpeggiator' }, { key: 'fx', label: 'Effects' }],
-        groupInfo: { Reserved: { note: 'Bytes OS 4.1 neither sets nor reads. Kept so a backup restores exactly.', table: true } },
+        groupInfo: { Reserved: { note: 'Values this model does not use. Kept so a backup restores exactly.', table: true } },
         sendParam: (_p, _v, d, ctx) => msg.program(ctx, d),
-        note: `Every change sends the program to the edit buffer (message 00). ${UNVERIFIED}`,
+        note: `Every change sends the program to the edit buffer, so it is heard at once. ${UNVERIFIED}`,
         sendAll: { label: `Send to ${V.name}`, build: (d, ctx) => msg.program(ctx, d) },
         toSyx: (d, ctx) => [msg.program(ctx, d)],
         fromSyx: (msgs) => { const m = first(msgs, [0x00, 0x02]); return m ? programOf(m) : null; },
@@ -334,9 +334,9 @@ export function buildOS4(V) {
         key: 'performance', page: 'Performance', icon: '▦', label: 'Performance', size: PSIZE, autoLoad: false,
         init: () => initPerformance(V), fetch: (api) => fetchPerformance(api), params: finish(performanceParams(V), 'f', 'performance'), name: nameOf, cols: 3,
         sections: [{ key: 'common', label: 'Common' }, ...partSections],
-        groupInfo: { Reserved: { note: 'Bytes OS 4.1 neither sets nor reads. Kept so a backup restores exactly.', table: true } },
+        groupInfo: { Reserved: { note: 'Values this model does not use. Kept so a backup restores exactly.', table: true } },
         sendParam: (_p, _v, d, ctx) => msg.performance(ctx, d),
-        note: `Every change sends the performance to the edit buffer (message 05${V.vocoder ? ' and 1B' : ''}). ${UNVERIFIED}`,
+        note: `Every change sends the performance to the edit buffer. ${UNVERIFIED}`,
         sendAll: { label: `Send to ${V.name}`, build: (d, ctx) => msg.performance(ctx, d) },
         toSyx: (d, ctx) => msg.performance(ctx, d),
         fromSyx: (msgs) => { const m = first(msgs, [0x05, 0x07]); return m ? performanceOf(m, first(msgs, [0x1b, 0x1c])) : null; },
@@ -371,12 +371,12 @@ export function buildOS4(V) {
         key: 'global', page: 'Global', icon: '⚙', label: 'Global', size: GLOB + GLOB_EXT,
         init: initGlobal, fetch: fetchGlobal, params: finish(globalParams(V), 'g', 'global'), cols: 3,
         sections: [{ key: 'global', label: 'Settings' }, { key: 'map', label: 'Program change map' }],
-        groupInfo: { 'Program change map': { table: true, wide: true }, Reserved: { note: 'What OS 4.1 never sets or reads. Kept so a backup restores exactly.', table: true } },
-        note: `Global data (messages 0F and 15) is a memory write: use Write global settings (Memory protect Off). ${UNVERIFIED}`,
+        groupInfo: { 'Program change map': { table: true, wide: true }, Reserved: { note: 'Values this model does not use. Kept so a backup restores exactly.', table: true } },
+        note: `Changes here are not sent as you make them, because sending global settings writes them into memory: use Write global settings (Memory protect Off). ${UNVERIFIED}`,
         actions: [
           { label: 'Write global settings', run: async (api) => { if (await api.confirm('Write global settings', `Replace the ${V.name}'s global settings?`, 'Write', true)) api.send(msg.global(api.ctx, api.data)); } },
-          ...(V.copyBanks ? [{ label: 'Copy banks (message 1D)', title: 'Copies program banks A-B into C-D and performance bank A into B, once', run: async (api) => {
-            if (await api.confirm('Copy banks', 'The Nova copies program banks A-B over its banks C-D and performance bank A over bank B (message 1D, handler 1675A). It does this only once: afterwards it ignores 1D. Continue?', 'Copy', true)) api.send(msg.copyBanks(api.ctx));
+          ...(V.copyBanks ? [{ label: 'Copy banks', title: 'Copies program banks A-B into C-D and performance bank A into B, once', run: async (api) => {
+            if (await api.confirm('Copy banks', 'The Nova copies program banks A-B over its banks C-D and performance bank A over bank B. It does this only once: afterwards it ignores the command. Continue?', 'Copy', true)) api.send(msg.copyBanks(api.ctx));
           } }] : []),
         ],
         toSyx: (d, ctx) => msg.global(ctx, d),

@@ -25,9 +25,9 @@ const initAe = () => Uint8Array.from([0, 0, 50, 0, 0, 0, 0, 0, 0, 0]);
 const aeParams = () => [
   { key: 'atp', label: 'AT Pitch', offset: 0, min: 0, max: 99, group: 'After touch', help: 'Aftertouch to pitch.' },
   { key: 'ata', label: 'AT Amplitude', offset: 1, min: 0, max: 99, group: 'After touch' },
-  { key: 'atpb', label: 'AT P. Bias', offset: 2, min: 0, max: 100, group: 'After touch', format: (v) => `${v > 50 ? '+' : ''}${v - 50}`, help: 'Pitch bias: 50 = none (INIT DFF0).' },
+  { key: 'atpb', label: 'AT P. Bias', offset: 2, min: 0, max: 100, group: 'After touch', format: (v) => `${v > 50 ? '+' : ''}${v - 50}`, help: 'Pitch bias: 50 = none.' },
   { key: 'ateb', label: 'AT EG Bias', offset: 3, min: 0, max: 99, group: 'After touch' },
-  ...Array.from({ length: 6 }, (_, i) => ({ key: `atx${i}`, label: `Byte ${4 + i}`, offset: 4 + i, min: 0, max: 127, group: 'Not used', readOnly: true, help: 'Sent as 0 by the DX11 (EE5A), ignored when received (DE17).' })),
+  ...Array.from({ length: 6 }, (_, i) => ({ key: `atx${i}`, label: `Byte ${4 + i}`, offset: 4 + i, min: 0, max: 127, group: 'Not used', readOnly: true, help: 'Not used: the DX11 sends 0 here and ignores it when received.' })),
 ];
 
 const def = buildTX81Z({
@@ -47,9 +47,9 @@ const def = buildTX81Z({
       request: (ctx) => dumpRequestHeader(ch(ctx), AE),
       match: isAe,
       decode: (raw) => Uint8Array.from(parseBulk(raw).body),
-      note: 'The aftertouch settings of the voice being edited, a message of their own ("LM  8023AE"); no parameter change for them is known, so every change sends the whole message.',
+      note: 'The aftertouch settings of the voice being edited. They have no single-value message, so every change sends all of them together.',
       sendParam: (_p, _v, d, ctx) => bulkHeader(ch(ctx), AE, d),
-      sendAll: { label: 'Send', title: 'Send the after touch data ("LM  8023AE")', build: (d, ctx) => bulkHeader(ch(ctx), AE, d) },
+      sendAll: { label: 'Send', title: 'Send the after touch settings to the DX11', build: (d, ctx) => bulkHeader(ch(ctx), AE, d) },
       toSyx: (d, ctx) => bulkHeader(ch(ctx), AE, d),
       fromSyx: (msgs) => { const m = msgs.find(isAe); return m ? Uint8Array.from(parseBulk(m).body) : null; },
       receive: (raw) => (isAe(raw) ? Uint8Array.from(parseBulk(raw).body) : null),
@@ -62,7 +62,7 @@ const def = buildTX81Z({
       },
     });
   },
-  coverage: 'The TX81Z definition (voice with additional data, 32 voices, performance with MIDI channels page), which the DX11 shares (same headers and maximum tables in its firmware), and its own after touch data ("LM  8023AE": AT Pitch, AT Amplitude, AT P. Bias, AT EG Bias, from its sender, receiver and screens). Not yet checked on a DX11.',
+  coverage: 'Edits the DX11\'s voices, performances and aftertouch settings. The TX81Z editor (voice with its additional settings, 32 voices, performance with a MIDI channels page), which the DX11 shares, and the DX11\'s own aftertouch settings (AT Pitch, AT Amplitude, AT P. Bias, AT EG Bias). Not yet checked on a DX11.',
 });
 
 export default def;

@@ -8,3 +8,9 @@ The DX11 firmware (`z:/firmwares/Yamaha DX11.zip`, 64 KB) holds the TX81Z's bulk
 - "LM  8023S0" (system) is recognised and kept by the Branch Library, not edited yet.
 
 Listings: `re/dx/dx11_lower.lst`, `re/dx/dx11_upper.lst` (the two 32 KB halves at 8000h, `--auto`). Open: the DX11 system data; whether the 32-voice bulk carries the aftertouch bytes; a hardware check.
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- Sent as 0 by the DX11 (EE5A), ignored when received (DE17).

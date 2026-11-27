@@ -107,8 +107,8 @@ export const text = (el) => el.textContent;
 export function byText(root, tag, label) {
   return root.findAll((e) => e.tagName === tag.toUpperCase() && e.textContent.includes(label))[0] || null;
 }
-/** The open dialog (the last one added to the body). */
-export const openDialog = () => document.body.findAll((e) => e.tagName === 'DIALOG' && e.open).pop() || null;
+/** The open dialog (the last one added to the body): core/ui/dom.js dialog() makes a <wa-dialog>. */
+export const openDialog = () => document.body.findAll((e) => (e.tagName === 'DIALOG' || e.tagName === 'WA-DIALOG') && e.open).pop() || null;
 /** Click a dialog button by its label. */
 export async function answer(label) {
   await settle(2);

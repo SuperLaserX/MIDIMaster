@@ -1,6 +1,8 @@
-// SYSTEM-8 patch <-> the shared synth model (js/core/mainlib/common.js). Within the family the whole
-// 640-byte patch struct travels in extra.data, so SYSTEM-8 -> SYSTEM-8 is exact; other instruments get
-// the semantic sections (oscillators, mixer, filter, envelopes, LFO, effects levels, voice).
+// SYSTEM-8 sounds <-> the shared synth model (js/core/mainlib/common.js). Within the family the whole sound
+// (patch, patch2 and patch3 structs, 20195 bytes) travels in extra.data, so SYSTEM-8 -> SYSTEM-8 is exact;
+// other instruments get the semantic sections (oscillators, mixer, filter, envelopes, LFO, effects levels,
+// voice, tempo). PLUG-OUT patches (raw until their engine editors exist) carry their bytes and the slot's
+// model only; performances map to the shared performance shape (key mode, tempo, two parts).
 
 import { readParam, writeParam } from '../../core/model/memmap.js';
 import { unit, fromUnit, bipolar, fromBipolar, emptyReport } from '../../core/mainlib/common.js';
@@ -35,8 +37,9 @@ export function toCommon(d) {
     ...(n === 2 ? { sync: get(d, 'osc2_sync') === 1 } : {}),
   });
   const mono = get(d, 'mono_sw');
+  const tempo = get(d, 'patch_tempo');
   return {
-    model: 1, kind: 'patch',
+    model: 1, kind: 'patch', ...(tempo ? { tempo: tempo / 10 } : {}),
     voice: { mode: mono === 0 ? 'poly' : mono === 1 ? 'mono' : 'unison', portamento: { on: get(d, 'portamento') > 0, time: unit(get(d, 'portamento'), 255) }, bendUp: get(d, 'bend_range') + 1, bendDown: get(d, 'bend_range') + 1 },
     osc: [osc(1), osc(2)],
     mix: { ring: get(d, 'osc2_ring') ? 1 : 0, crossMod: unit(get(d, 'osc1_cross_mod'), 255), noise: unit(get(d, 'mixer_noise'), 255), sub: unit(get(d, 'mixer_osc3_sub_osc'), 255) },
@@ -55,8 +58,65 @@ export function toCommon(d) {
       delay: { level: unit(get(d, 'delay_level'), 255), time: unit(get(d, 'delay_time'), 255) },
       modulation: { level: unit(get(d, 'effect_depth'), 255) },
     },
-    extra: { family: FAMILY, model: 'SYSTEM-8', data: hex(d), match: hex(d.slice(0, 0x80)) + hex(d.slice(0x100)) },
+    extra: { family: FAMILY, model: 'SYSTEM-8', data: hex(d), match: hex(d.slice(0, 0x80)) + hex(d.slice(0x100, 640)) + hex(d.slice(640)) },
   };
+}
+
+/** A PLUG-OUT patch (raw): exact within the family, nothing semantic until its engine editor exists. */
+export function rawToCommon(d) {
+  return { model: 1, kind: 'patch', extra: { family: `${FAMILY}-plugout`, model: 'PLUG-OUT', data: hex(d), match: hex(d.slice(0, 0x80)) + hex(d.slice(0x100)) } };
+}
+export function rawFromCommon(c, base) {
+  const report = emptyReport();
+  if (c?.extra?.family === `${FAMILY}-plugout` && c.extra.data) { report.mapped.push('the whole PLUG-OUT patch'); return { data: unhex(c.extra.data), report }; }
+  report.dropped.push('a PLUG-OUT patch takes only PLUG-OUT patch data (its engine editor is not mapped yet)');
+  return { data: Uint8Array.from(base), report };
+}
+
+const perfIO = (ps) => io(ps);
+/** Performance -> shared performance shape (keys of the OS catalog parameters, roland-system8.js PERF_PARAMS). */
+export function perfToCommon(d, ps) {
+  const { get } = perfIO(ps);
+  const part = (pre) => ({
+    on: !!get(d, `${pre}_part_sw`), channel: 0,
+    program: get(d, `${pre}_part_slot`) * 64 + get(d, `${pre}_part_memory`),
+    level: unit(get(d, `${pre}_level`), 127), pan: (get(d, `${pre}_pan`) - 5) / 5,
+    transpose: get(d, `${pre}_transpose`) + 12 * get(d, `${pre}_octave`), fine: get(d, `${pre}_fine_tune`),
+    low: get(d, `${pre}_range_lower`), high: get(d, `${pre}_range_upper`), velLow: 0, velHigh: 127,
+  });
+  const up = part('up'); const lw = part('lw');
+  const split = up.low > lw.high || lw.low > up.high;
+  return {
+    model: 1, kind: 'performance',
+    keyMode: get(d, 'perf_mode') === 1 ? 'single' : split ? 'split' : 'dual',
+    splitPoint: split ? Math.max(up.low, lw.low) : undefined,
+    tempo: get(d, 'perf_tempo') / 10,
+    parts: [up, lw],
+    extra: { family: `${FAMILY}-perf`, model: 'SYSTEM-8', data: hex(d), match: hex(d) },
+  };
+}
+export function perfFromCommon(c, base, ps) {
+  const report = emptyReport();
+  if (c?.extra?.family === `${FAMILY}-perf` && c.extra.data) { report.mapped.push('the whole SYSTEM-8 performance'); return { data: unhex(c.extra.data), report }; }
+  const d = Uint8Array.from(base);
+  const { set } = perfIO(ps);
+  if (c.keyMode) { set(d, 'perf_mode', c.keyMode === 'single' ? 1 : 0); report.mapped.push('key mode'); }
+  if (c.tempo) set(d, 'perf_tempo', Math.round(Math.max(40, Math.min(300, c.tempo)) * 10));
+  (c.parts || []).slice(0, 2).forEach((p, i) => {
+    const pre = i === 0 ? 'up' : 'lw';
+    if (p.on !== undefined) set(d, `${pre}_part_sw`, p.on ? 1 : 0);
+    if (typeof p.program === 'number') { set(d, `${pre}_part_slot`, Math.min(3, p.program >> 6)); set(d, `${pre}_part_memory`, p.program & 63); }
+    else if (p.program !== undefined) report.dropped.push(`part ${i + 1}: program ${JSON.stringify(p.program)} has no SYSTEM-8 number`);
+    if (p.level !== undefined) set(d, `${pre}_level`, fromUnit(p.level, 127));
+    if (p.pan !== undefined) set(d, `${pre}_pan`, 5 + Math.round(p.pan * 5));
+    if (p.transpose !== undefined) { const oct = Math.max(-3, Math.min(3, Math.trunc(p.transpose / 12))); set(d, `${pre}_octave`, oct); set(d, `${pre}_transpose`, Math.max(-12, Math.min(12, p.transpose - 12 * oct))); }
+    if (p.fine !== undefined) set(d, `${pre}_fine_tune`, Math.max(-100, Math.min(100, Math.round(p.fine))));
+    if (p.low !== undefined) set(d, `${pre}_range_lower`, p.low);
+    if (p.high !== undefined) set(d, `${pre}_range_upper`, p.high);
+    report.mapped.push(`part ${i + 1}`);
+  });
+  if ((c.parts || []).length > 2) report.dropped.push(`${c.parts.length - 2} parts beyond the SYSTEM-8's upper and lower`);
+  return { data: d, report: tidy(report) };
 }
 
 export function fromCommon(c, base) {
@@ -65,7 +125,9 @@ export function fromCommon(c, base) {
   const { set } = io(ps);
   const report = emptyReport();
   if (c?.extra?.family === FAMILY && c.extra.data) {
-    const d = unhex(c.extra.data);
+    const src = unhex(c.extra.data);
+    const d = src.length >= base.length ? src : Uint8Array.from(base); // a 640-byte patch saved before phase 2
+    if (d !== src) d.set(src);
     report.mapped.push('the whole SYSTEM-8 patch');
     return { data: d, report };
   }

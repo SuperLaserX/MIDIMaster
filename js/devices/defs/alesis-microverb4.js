@@ -77,16 +77,16 @@ const params = [
     help: 'User program number 00-99; the program builds on the preset or factory program of this number',
     dynamic: (d) => ({ options: Array.from({ length: 100 }, (_, n) => [n, `${pad2(n)} ${recName(baseRecord(n, d[1]))}`]) }) },
   { key: 'base', group: 'Program', label: 'Builds on', offset: 1, sendKey: 'cur', send: sendCurrent, relayout: true,
-    help: 'Bit 7 of the stored Edit A byte: which ROM program the user program uses (BA75: table C2A2 or CFA2)',
+    help: 'Which built-in program the user program starts from: the preset or the factory program of the same number',
     dynamic: (d) => ({ options: [[0, `Preset ${pad2(d[0])} ${recName(baseRecord(d[0], 0))}`], [1, `User factory ${pad2(d[0])} ${recName(baseRecord(d[0], 1))}`]] }),
     after: (d) => (fitProgram(d) ? 'Edit A / B limited to the new configuration\'s maxima.' : null) },
   { key: 'config', group: 'Program', label: 'Configuration', offset: 0, readOnly: true, get: (d) => baseRecord(d[0], d[1])[1], set: () => {},
-    options: ALGORITHMS.map((a, n) => [n, a.name]), help: 'The configuration of the program it builds on (byte 1 of the ROM program)' },
+    options: ALGORITHMS.map((a, n) => [n, a.name]), help: 'The configuration of the program it builds on (set by that program, not editable)' },
   ...[0, 1].map((k) => ({
     key: k ? 'editB' : 'editA', group: 'Edit knobs', label: k ? 'Edit B' : 'Edit A', offset: 2 + k, min: 0, max: 127, sendKey: 'cur', send: sendCurrent,
     dynamic: (d) => {
       const kn = knobInfo(algOf(d), k);
-      return { label: `Edit ${'AB'[k]}: ${kn.label}`, max: kn.max, options: kn.texts.map((t, v) => [v, t]), help: `Edit ${'AB'[k]} knob, ${kn.texts[0]} to ${kn.texts[kn.max]} as the LED shows it` };
+      return { label: `Edit ${'AB'[k]}: ${kn.label}`, max: kn.max, options: kn.texts.map((t, v) => [v, t]), help: `Edit ${'AB'[k]} knob, ${kn.texts[0]} to ${kn.texts[kn.max]} as the display shows it` };
     },
   })),
 ];
@@ -189,7 +189,7 @@ function fromCommon(c, base) {
 
 // ------------------------------------------------------------------ definition
 export default {
-  coverage: `User programs (Edit A, Edit B and the program they build on, with the LED text of each knob value and the parameter it drives) and the current program, from ${FIRMWARE}. Preset and factory program names and configurations from the ROM tables. Not checked on hardware.`,
+  coverage: 'Edits the user programs and the current program: Edit A, Edit B and the program they build on, each knob value shown as the display shows it, with the setting it changes. Names and configurations of the presets and factory programs are built in. Not checked on hardware.',
   sysex: { manufacturer: [0x00, 0x00, 0x0e], model: 0x12 },
   minGap: 20,
   describe,
@@ -212,15 +212,15 @@ export default {
       toCommon,
       fromCommon,
       cols: 3,
-      note: 'The Microverb 4 edits two values per program, Edit A and Edit B; the rest of the program is the preset or factory program it builds on. Each change sends the current program (opcode 00). Store keeps it in its user number.',
-      sendAll: { label: 'Send current program', title: 'Send program number, base, Edit A and Edit B (opcode 00)', build: (data, ctx) => msg.current(ctx, fitted(data)) },
+      note: 'The Microverb 4 edits two values per program, Edit A and Edit B; the rest of the program is the preset or factory program it builds on. Each change is sent at once to the current program. Store keeps it in its user number.',
+      sendAll: { label: 'Send current program', title: 'Send program number, the program it builds on, Edit A and Edit B to the Microverb 4', build: (data, ctx) => msg.current(ctx, fitted(data)) },
       toSyx: (data, ctx) => msg.current(ctx, fitted(data)),
       fromSyx: (msgs) => { const m = msgs.find((r) => isMicroverb4(r) && (op(r) === 0 || op(r) === 2)); return m ? fromCurrent(m) : null; },
-      actions: [{ label: 'Store', title: 'Store the current program into its user number (opcode 03)', run: (api) => api.send(msg.store(api.ctx)) }],
+      actions: [{ label: 'Store', title: 'Store the current program into its user number', run: (api) => api.send(msg.store(api.ctx)) }],
       slots: {
         label: 'Programs', banks: [[0, 'User'], [1, 'Preset']], count: 100,
         slotLabel: (bank, i) => `${bank ? 'Pset' : 'User'} ${pad2(i)}`,
-        note: (bank) => (bank ? 'Presets are in ROM; Edit loads one as the start of user program of the same number. ' : 'A user program n always builds on preset n or factory program n. ')
+        note: (bank) => (bank ? 'Presets are built into the Microverb 4; Edit loads one as the start of the user program of the same number. ' : 'User program n always builds on preset n or factory program n. ')
           + 'Play sends Controller 0 (0 = Preset, 1 = User bank) and a program change.',
         names: (bank) => (bank === 1 ? PRESETS.map((h) => recName(hex(h))) : null),
         writable: (bank) => bank === 0,

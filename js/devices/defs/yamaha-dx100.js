@@ -34,8 +34,8 @@ const def = buildDX4({
   id: 'yamaha-dx100', name: 'DX100', T: DX100_TEXTS, init: INIT, aced: false, peg: false, chorus: false, requests: true,
   bcpbMax: 99, // maximum table 186B (the TX81Z allows 100)
   deviceIds: ['yamaha-dx21', 'yamaha-tx81z', 'yamaha-dx11'],
-  coverage: 'Every voice parameter of the 4-operator voice (VCED; the pitch EG and chorus bytes are kept, the DX100/DX27 do not use them), 32 internal voices (VMEM) read by request, the algorithm diagram and EG graphs. Ranges from the v1.1 firmware\'s maximum table; labels are the DX100\'s own short screen texts with its display tokens expanded (LFS, LFD, PMD, AMD, PMS, AMS, MW Pitch, BC E Bias...). Not yet checked on a DX100 or DX27.',
-  notes: { voice: 'The DX100 and DX27 answer dump requests (formats 3 and 4). Every change is a parameter change (12h).' },
+  coverage: 'Edits the voices of the DX100 and DX27 and their 32-voice bank. Every voice parameter of the 4-operator voice (the pitch EG and chorus settings are kept; the DX100 and DX27 do not use them), the 32 internal voices read from the unit, the algorithm diagram and envelope graphs. Ranges and names are the DX100\'s own (its short screen names written out: LFS, LFD, PMD, AMD, PMS, AMS, MW Pitch, BC E Bias...). Not yet checked on a DX100 or DX27.',
+  notes: { voice: 'The voice and the 32-voice bank can be read from the DX100 or DX27; each change is sent as you make it.' },
   prefer: () => 0.9,
 });
 

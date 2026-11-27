@@ -31,26 +31,26 @@ const NOT_SHOWN = (what) => ({ readOnly: true, help: `Not shown or read by the D
 export function dx7sPced(names) {
   const set = (ps, key, x) => { const p = ps.find((q) => q.key === key); if (p) Object.assign(p, x); };
   return (ps) => {
-    set(ps, 'p0', { readOnly: true, help: 'Voice mode: the DX7s has single only and sets 0 when it loads a performance (8C91).' });
-    set(ps, 'p1', { label: 'Voice number', help: 'Voice number= (E51B): I01-I64 internal, C01-C64 cartridge.' });
+    set(ps, 'p0', { readOnly: true, help: 'Voice mode: the DX7s has single only and sets it when it loads a performance.' });
+    set(ps, 'p1', { label: 'Voice number', help: 'Voice number=: I01-I64 internal, C01-C64 cartridge.' });
     set(ps, 'p2', NOT_SHOWN('voice B'));
-    set(ps, 'p3', { label: 'Micro tune', max: MICRO_MAX_DX7S, options: Array.from({ length: MICRO_MAX_DX7S + 1 }, (_, v) => [v, microText(v)]), help: `>Micro tune< (D6A6): ${names.slice(0, 11).join(', ')}; User 1-2 internal, 3-65 the cartridge's 1-63.` });
-    set(ps, 'p4', { label: 'Key', dynamic: (d) => ({ hidden: !(d[3] >= 1 && d[3] <= 4), options: (d[3] === 2 ? SHARPS : FLATS).map((t, i) => [i, t]) }), help: 'Key (E54D): shown for Pure(major), Pure(minor), Mean tone and Pythagorean; Pure(minor) names the minor key (from A).' });
-    set(ps, 'p5', { readOnly: true, help: 'Micro tuning A/B: the DX7s sets 1 when it loads a performance (8C91).' });
+    set(ps, 'p3', { label: 'Micro tune', max: MICRO_MAX_DX7S, options: Array.from({ length: MICRO_MAX_DX7S + 1 }, (_, v) => [v, microText(v)]), help: `>Micro tune<: ${names.slice(0, 11).join(', ')}; User 1-2 internal, 3-65 the cartridge's 1-63.` });
+    set(ps, 'p4', { label: 'Key', dynamic: (d) => ({ hidden: !(d[3] >= 1 && d[3] <= 4), options: (d[3] === 2 ? SHARPS : FLATS).map((t, i) => [i, t]) }), help: 'Key: shown for Pure(major), Pure(minor), Mean tone and Pythagorean; Pure(minor) names the minor key (from A).' });
+    set(ps, 'p5', { readOnly: true, help: 'Micro tuning A/B: the DX7s sets 1 when it loads a performance.' });
     set(ps, 'p6', NOT_SHOWN('dual detune'));
     set(ps, 'p7', NOT_SHOWN('split point'));
     set(ps, 'p8', { label: 'Forced damp', options: [[0, 'off'], [1, 'on']] });
-    set(ps, 'p9', { readOnly: true, help: 'Sustain foot switch A/B: the DX7s sets 1 when it loads a performance (8C91).' });
-    set(ps, 'p10', { label: 'FS', options: [[0, 'sustain'], [1, 'portamento'], [2, 'key hold'], [3, 'Soft']], help: 'FS : (E4AC): what the foot switch does (texts E4F2).' });
-    set(ps, 'p11', { readOnly: true, help: 'Foot switch A/B: the DX7s sets 1 when it loads a performance (8C91).' });
-    set(ps, 'p12', { label: 'FS soft', dynamic: () => ({ hidden: false }), help: 'FS soft = (E4B1): the soft pedal range 0-7.' });
-    set(ps, 'p13', { label: 'Key shift', help: 'Key shift = (E529): 24 = none.' });
+    set(ps, 'p9', { readOnly: true, help: 'Sustain foot switch A/B: the DX7s sets 1 when it loads a performance.' });
+    set(ps, 'p10', { label: 'FS', options: [[0, 'sustain'], [1, 'portamento'], [2, 'key hold'], [3, 'Soft']], help: 'FS : what the foot switch does.' });
+    set(ps, 'p11', { readOnly: true, help: 'Foot switch A/B: the DX7s sets 1 when it loads a performance.' });
+    set(ps, 'p12', { label: 'FS soft', dynamic: () => ({ hidden: false }), help: 'FS soft =: the soft pedal range 0-7.' });
+    set(ps, 'p13', { label: 'Key shift', help: 'Key shift =: 24 = none.' });
     set(ps, 'p14', NOT_SHOWN('note shift B'));
     set(ps, 'p15', NOT_SHOWN('balance'));
     set(ps, 'p16', { label: 'Total volume' });
     set(ps, 'p17', { label: 'CS1', options: Array.from({ length: 106 }, (_, v) => [v, csText(v)]) });
     set(ps, 'p18', { label: 'CS2', options: Array.from({ length: 106 }, (_, v) => [v, csText(v)]) });
-    set(ps, 'p19', { readOnly: true, help: 'Continuous slider switches: the DX7s sets 5 when it loads a performance (8C91).' });
+    set(ps, 'p19', { readOnly: true, help: 'Continuous slider switches: the DX7s sets 5 when it loads a performance.' });
     for (let o = 20; o <= 30; o++) set(ps, `p${o}`, NOT_SHOWN('PAN'));
   };
 }
@@ -63,26 +63,26 @@ export const SYS_INIT_DX7S = [0, 1, 0, 0, 1, 12, 13, 14, 15, 0, 1, 1, 0, 0, 0, 1
 export function dx7sSysParams({ chOpts, opts, OFFON }) {
   const ps = [];
   const P = (o, label, group, extra = {}) => ps.push({ key: `s${o}`, label, offset: o, min: 0, max: SYS_MAX[o] ?? 127, group, ...extra });
-  const unused = (what) => ({ readOnly: true, input: 'number', help: `No DX7s page and no reference in v1.3 (${what}); sent only with the whole setup.` });
-  P(0, 'Trns ch', 'Midi edit', { options: chOpts, help: 'Trns ch = (E5FB): 1-16, or off (stored as 16; 8750, D9D1).' });
+  const unused = (what) => ({ readOnly: true, input: 'number', help: `The DX7s has no page for it and does not use it (${what}); sent only with the whole setup.` });
+  P(0, 'Trns ch', 'Midi edit', { options: chOpts, help: 'Trns ch =: 1-16, or off.' });
   P(1, 'Transmit on (DX7II)', 'Midi edit', unused('the DX7II\'s transmit on/off; the DX7s uses Trns ch off'));
-  P(2, 'Recv ch', 'Midi edit', { options: chOpts, help: 'Recv ch = (E609): 1-16, or off (16).' });
+  P(2, 'Recv ch', 'Midi edit', { options: chOpts, help: 'Recv ch =: 1-16, or off.' });
   P(3, 'Receive channel B (DX7II)', 'Midi edit', unused('the DX7II\'s voice B channel'));
   P(4, 'Omni mode', 'Midi edit', { options: opts(OFFON) });
   P(11, 'Local', 'Midi edit', { options: opts(OFFON) });
-  P(5, 'IN control#', 'Midi edit', { min: 11, help: 'IN control# = (E633): the control number (11-31) the voice parameter MC follows.' });
+  P(5, 'IN control#', 'Midi edit', { min: 11, help: 'IN control# =: the control number (11-31) the voice parameter MC follows.' });
   P(6, 'MIDI IN control B (DX7II)', 'Midi edit', unused('the DX7II\'s voice B control number'));
   P(7, 'CS1 control#', 'Midi edit', { min: 5 });
   P(8, 'CS2 control#', 'Midi edit', { min: 5 });
   P(9, 'Note on/off', 'Midi edit', { options: opts(['all', 'odd', 'even']) }); // E6C1
-  P(10, 'PC trns', 'Midi edit', { options: opts(['off', 'Normal', 'Memory']), help: 'PC trns: (E66D, texts E6D5): no program change, the memory number, or the number in the table below.' });
-  P(15, 'Exclusive', 'Exclusive', { options: opts(OFFON), help: 'Exclusive: (E6DB): off = no bulk dumps, requests or parameter changes.' });
+  P(10, 'PC trns', 'Midi edit', { options: opts(['off', 'Normal', 'Memory']), help: 'PC trns: no program change, the memory number, or the number in the table below.' });
+  P(15, 'Exclusive', 'Exclusive', { options: opts(OFFON), help: 'Exclusive: off = the DX7s takes no SysEx at all (no voices, banks, requests or single changes).' });
   P(14, 'Device number', 'Exclusive', { format: (v) => String(v + 1) });
-  P(13, 'Recv block', 'Exclusive', { options: opts(['1-32', '33-64']), help: 'Recv block: (E6F5): where a received 32-voice bulk goes.' });
-  P(12, 'Trns block', 'Exclusive', { options: opts(['1-32', '33-64']), help: 'Trns block: (E768 + E701): the 32 voices a bulk sends and a request answers.' });
-  P(20, 'Master tune', 'Utility', { format: (v) => `${v >= 64 ? '+' : '-'}${Math.abs(v - 64)}`, help: 'Master tune = (E0FE): 64 = centre (sent as F0 43 1n 04 40 vv F7).' });
-  ['>VP', '>FS', '>MT'].forEach((t, i) => P(16 + i, `Set bank ${t}`, 'Cartridge', { format: (v) => String(v + 1), help: 'Set bank >VP >FS >MT (E1A7, E1C9): the cartridge bank for voices and performances, fractional scaling, micro tuning.' }));
-  P(19, 'Byte 19 (DX7II)', 'Cartridge', unused('maximum 3, initial 1 (B186)'));
-  for (let i = 0; i < 64; i++) P(21 + i, `Program SW [${i + 1}] Trns #`, 'Program change table', { input: 'number', format: (v) => String(v + 1), help: 'Program SW [ ] Trns # (E676, DA1D): the program number (1-128) sent for this memory when PC trns is Memory.' });
+  P(13, 'Recv block', 'Exclusive', { options: opts(['1-32', '33-64']), help: 'Recv block: where a received bank of 32 voices goes.' });
+  P(12, 'Trns block', 'Exclusive', { options: opts(['1-32', '33-64']), help: 'Trns block: which 32 voices the DX7s sends as a bank.' });
+  P(20, 'Master tune', 'Utility', { format: (v) => `${v >= 64 ? '+' : '-'}${Math.abs(v - 64)}`, help: 'Master tune =: 64 = centre.' });
+  ['>VP', '>FS', '>MT'].forEach((t, i) => P(16 + i, `Set bank ${t}`, 'Cartridge', { format: (v) => String(v + 1), help: 'Set bank >VP >FS >MT: the cartridge bank for voices and performances, fractional scaling, micro tuning.' }));
+  P(19, 'Byte 19 (DX7II)', 'Cartridge', unused('0-3, initially 1'));
+  for (let i = 0; i < 64; i++) P(21 + i, `Program SW [${i + 1}] Trns #`, 'Program change table', { input: 'number', format: (v) => String(v + 1), help: 'Program SW [ ] Trns #: the program number (1-128) sent for this memory when PC trns is Memory.' });
   return ps;
 }

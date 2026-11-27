@@ -644,7 +644,7 @@ function renameAction(label, build) {
 }
 
 export default {
-  coverage: 'Every byte of programs, combinations, global settings and drum kits, labelled, ranged and displayed as the M1R v1.06 firmware shows them (including the per-type effect pages and the M1 keyboard damper polarity), read from and sent to the M1 by dump and checked on an M1R. Program and combination memories with names from one bulk dump each, store, card banks, mode handling, and a MIDI channel page for MULTI combinations.',
+  coverage: 'Edits the M1\'s programs, combinations, global settings and drum kits. Every setting is named and shown as the M1 shows it (including the effect pages of each effect type and the M1 keyboard\'s damper polarity). Read from and sent to the M1, and checked on an M1R. The program and combination memories with their names, Store, card banks, and a MIDI channel page for MULTI combinations.',
   sysex: { manufacturer: [0x42], model: MODEL, deviceIdDefault: 0 },
   minGap: 30,
   describe,
@@ -659,8 +659,8 @@ export default {
       init: initProgram, fetch: fetchProgram, params: programParams, name: nameOf, cols: 3,
       sections: [{ key: 'common', label: 'Common' }, { key: 'osc1', label: 'OSC1 / VDF1 / VDA1' }, { key: 'osc2', label: 'OSC2 / VDF2 / VDA2' }],
       sendParam: (_p, _v, data, ctx) => [...needMode(ctx, 'program'), msg.program(ctx, data)],
-      note: 'Every change sends the whole program (143 bytes) to the M1 edit buffer, so it is heard at once. Store writes it into a memory (turn off program memory protect on the M1 first).',
-      sendAll: { label: 'Send to M1', title: 'Send the whole program to the edit buffer', build: (data, ctx) => [...needMode(ctx, 'program'), msg.program(ctx, data)] },
+      note: 'Every change sends the whole program to the M1, so it is heard at once. Store writes it into a memory (turn off program memory protect on the M1 first).',
+      sendAll: { label: 'Send to M1', title: 'Send the whole program to the M1 to hear it', build: (data, ctx) => [...needMode(ctx, 'program'), msg.program(ctx, data)] },
       toSyx: (data, ctx) => msg.program(ctx, data),
       fromSyx: fromSyx(0x40, 0x4c, PROGRAM_SIZE),
       // Head Library: the shared synth model (any model's program or patch translates into it)
@@ -701,7 +701,7 @@ export default {
         note: 'Each timbre plays its program on its MIDI channel (Program OFF switches a timbre off). Changes go to the combination edit buffer; store the combination on the Combination page to keep the setup.',
       },
       sendParam: (_p, _v, data, ctx) => [...needMode(ctx, 'combination'), msg.combi(ctx, data)],
-      note: 'Reading or editing switches the M1 to combination mode. Every change sends the whole combination (124 bytes).',
+      note: 'Reading or editing switches the M1 to combination mode. Every change sends the whole combination to the M1.',
       sendAll: { label: 'Send to M1', build: (data, ctx) => [...needMode(ctx, 'combination'), msg.combi(ctx, data)] },
       toSyx: (data, ctx) => msg.combi(ctx, data),
       fromSyx: fromSyx(0x49, 0x4d, COMBI_SIZE),
@@ -732,7 +732,7 @@ export default {
         'Memory (read only)': { note: 'The M1 reports these in its global dump but does not take them back from one.' },
       },
       sendParam: (_p, _v, data, ctx) => msg.global(ctx, data),
-      note: 'Global settings (memory protect and the MIDI settings are not part of the global dump), and the 4 drum kits of 30 instruments: drum sound, key, pan, tune, level and decay. Every change sends the whole global block (861 bytes).',
+      note: 'Global settings and the 4 drum kits of 30 instruments (drum sound, key, pan, tune, level and decay). Every change sends all the global settings and drum kits together; memory protect and the MIDI settings are not among them: set those on the M1.',
       sendAll: { label: 'Send to M1', build: (data, ctx) => msg.global(ctx, data) },
       toSyx: (data, ctx) => msg.global(ctx, data),
       fromSyx: fromSyx(0x51, 0x51, GLOBAL_SIZE),

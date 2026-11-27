@@ -26,7 +26,7 @@ export const FIXED = { 1: 0, 8: 1, 24: 99, 25: 99, 27: 0, 28: 1, 29: 24, 61: 0, 
 
 /** One half's parameters: {o (byte in the half), label, max, extra}. EAP bytes become three bit fields. */
 export const HALF = [
-  { o: 0, label: 'Voice', max: 127, extra: { options: DX5_VOICES, help: 'INT 01-64 internal, EXT 01-64 the cartridge (bit 6).' } },
+  { o: 0, label: 'Voice', max: 127, extra: { options: DX5_VOICES, help: 'INT 01-64 internal, EXT 01-64 the cartridge.' } },
   { o: 1, label: 'Source', max: 16, extra: { options: [[0, '0 (keyboard)'], ...Array.from({ length: 16 }, (_, c) => [c + 1, `${c + 1} (MIDI)`])], help: 'Source select: 0 the DX5\'s own keyboard, 1-16 the MIDI channel that plays the channel.' } },
   { o: 2, label: 'Ply/Mon', max: 1, extra: { options: opts(['Poly', 'Mono']), relayout: true } },
   { o: 3, label: 'PB rng', max: 12, extra: { help: 'Pitch bend range (semitones); with a step set the DX5 shows 12.' } },
@@ -45,13 +45,13 @@ export const HALF = [
   { o: 16, label: 'Br. EAP', max: 7, eap: true },
   ...Array.from({ length: 9 }, (_, i) => ({ o: 17 + i, label: `DX1 byte ${17 + i}`, max: 127, dx1: true })),
   { o: 26, label: 'Att', max: 7, extra: { help: 'Attenuation 0-7.' } },
-  { o: 27, label: 'P out', max: 1, extra: { options: opts(OFFON), help: 'The channel on the DX5\'s output P (handler EC51 sets the output port).' } },
+  { o: 27, label: 'P out', max: 1, extra: { options: opts(OFFON), help: 'Whether this channel goes to the DX5\'s output P.' } },
   { o: 28, label: 'Sus pdl', max: 1, extra: { options: opts(OFFON), help: 'The sustain pedal acts on this channel.' } },
   { o: 29, label: 'Key sft', max: 48, extra: { format: (v) => `${v > 24 ? '+' : ''}${v - 24}`, help: 'Key shift -24 to +24 semitones.' } },
 ];
 export const COMMON = [
-  { o: 60, label: 'Key assign', max: 2, extra: { options: opts(['SNGL', 'DUAL', 'SPLT']), help: 'Single, dual or split (the status line\'s SNGL / DUAL / SPLT, F1F7).' } },
-  { o: 61, label: 'Single channel', max: 1, extra: { options: opts(['A', 'B']), help: 'The channel that plays (and is edited) in single mode (73DF).' } },
+  { o: 60, label: 'Key assign', max: 2, extra: { options: opts(['SNGL', 'DUAL', 'SPLT']), help: 'Single, dual or split (the status line\'s SNGL / DUAL / SPLT).' } },
+  { o: 61, label: 'Single channel', max: 1, extra: { options: opts(['A', 'B']), help: 'The channel that plays (and is edited) in single mode.' } },
   { o: 62, label: 'Detune', max: 15, extra: { help: 'Dual detune between A and B.' } },
   { o: 63, label: 'Split', max: 96, extra: { options: Array.from({ length: 97 }, (_, v) => [v, noteName(v + 21)]), help: 'Split point: the DX5 shows the value + 21 as a note (C3 = 60).' } },
 ];
@@ -78,11 +78,11 @@ export function fn94Params(M = {}) {
       const group = M.group?.(off) || (f.dx1 ? 'DX1 bytes' : `Channel ${h}`);
       if (!inUse && !M.keepHalves) continue;
       if (f.eap) {
-        EAP.forEach((t, b) => add(off, `${f.label} ${t}`, 1, { shift: b, bits: 1, options: opts(OFFON), keySuffix: `_${b}`, help: `${f.label.split(' ')[0]} to ${['pitch', 'amplitude', 'EG bias'][b]} (the "EAP" digits, bit ${b}).` }, group));
+        EAP.forEach((t, b) => add(off, `${f.label} ${t}`, 1, { shift: b, bits: 1, options: opts(OFFON), keySuffix: `_${b}`, help: `${f.label.split(' ')[0]} to ${['pitch', 'amplitude', 'EG bias'][b]} (the ${'PAE'[b]} of the "EAP" display).` }, group));
       } else if (f.mode) {
         add(off, f.label, f.max, { ...f.extra, dynamic: (d) => ({ options: opts(d[k * 30 + 2] ? ['Finger', 'FulTim'] : ['Retain', 'Follow']) }) }, group);
       } else if (f.dx1) {
-        add(off, f.label, f.max, { dx1: true, help: `Read by none of the DX5, TX7 and TF1 firmwares (they send ${FIXED[f.o] ?? 0}); the DX1's, whose firmware is not in the collection.` }, group);
+        add(off, f.label, f.max, { dx1: true, help: `Used only by the DX1; the DX5, TX7 and TX816 do not use it (they send ${FIXED[f.o] ?? 0}).` }, group);
       } else add(off, f.label, f.max, f.extra || {}, group);
     }
   });
@@ -204,7 +204,7 @@ export function fmemSlots(o) {
     names: (_b, ctx) => { const c = copyOf(ctx); return c ? Array.from({ length: o.count }, (_, i) => o.name(at(c, i), i)) : null; },
     scannable: () => true,
     scanBank: async (api, _b, onName) => { const c = await read(api); for (let i = 0; i < o.count; i++) onName(i, o.name(at(c, i), i)); },
-    note: (_b, ctx) => `${copyOf(ctx) ? `Names and Edit come from the editor's copy of the ${o.count} memories${loaded(ctx) ? ' (read from the unit)' : ''}.` : 'Read names (or Edit) reads the memories (format 2).'} Store packs the edited data into its memory and sends all of them (format 2)${o.note ? `; ${o.note}` : ''}.`,
+    note: (_b, ctx) => `${copyOf(ctx) ? `Names and Edit come from the editor's copy of the ${o.count} memories${loaded(ctx) ? ' (read from the unit)' : ''}.` : 'Read names (or Edit) reads the memories.'} Store puts the edited data into its memory and sends all of them${o.note ? `; ${o.note}` : ''}.`,
     name: (d) => o.name(d),
     ...(o.recall ? { recall: (_b, i, ctx) => o.recall(ch(ctx), i) } : {}),
     fetch: async (api, _b, i) => at(copyOf(api.ctx) || await read(api), i),

@@ -204,3 +204,29 @@ test('SuperNova II: arpeggio patterns (format, gates, the unit\'s edit buffer)',
   }
   function GATE(v) { return p('Step 1 gate').options.find(([x]) => x === v)[1]; }
 });
+
+test('SuperNova II: bytes named from its own OS run in the emulator (tools/novation/h8)', () => {
+  const prog = obj('program'), perf = obj('performance');
+  const P = SN.PROGRAM_SIZE, E = SN.PERF_SIZE + SN.PERF_EXT_SIZE + 320;
+  const pp = (l) => prog.params.find((p) => p.label === l);
+  assert.deepEqual([pp('Keyboard octave').offset, pp('Kbd t-zone hi').offset, pp('Kbd t-zone lo').offset, pp('zone detune').offset], [P + 9, P + 10, P + 11, P + 12]);
+  assert.deepEqual([pp('Kbd t-zone').offset, pp('Kbd t-zone').shift], [P + 3, 6]);
+  assert.deepEqual(pp('Osc page').options.map((o) => o[1]), ['Pitch', 'Width', 'Sync', 'Mix', 'Harden']);
+  assert.deepEqual(pp('Effects page').options.map((o) => o[1]), ['Distortion', 'Reverb', 'Chorus', 'Delay', 'Pan', 'Fx config', 'Vocoder']);
+  assert.ok(!prog.params.some((p) => /^Panel state/.test(p.label)));
+  // part mutes: parts 1-7 in byte 19, part 8 in byte 16 bit 6 (packed NRPN 113 63-70 / 55-62)
+  const d = SN.initPerformance();
+  const mutes = perf.params.filter((p) => p.label === 'Part mute');
+  writeParam(d, mutes[0], 1); writeParam(d, mutes[7], 1);
+  assert.deepEqual([d[19] & 0x7f, d[16] & 0x40], [1, 0x40]);
+  // External part 1: MIDI channel in bits 0-3 with bit 6 = on; Tx options set = No
+  const ep = (l) => perf.params.find((p) => p.label === `Ext 1 ${l}`);
+  const x = new Uint8Array(SN.PERF_DATA);
+  writeParam(x, ep('MIDI ch'), 5); assert.equal(x[E], 0x44);
+  writeParam(x, ep('Tx Kbd notes'), 1); assert.equal(x[E], 0x64);
+  writeParam(x, ep('MIDI ch'), 0); assert.equal(x[E], 0x24, 'Off clears bit 6 only');
+  writeParam(x, ep('Tx Prog change'), 1); writeParam(x, ep('Tx Sustain'), 1); assert.equal(x[E + 1], 0x41);
+  assert.deepEqual([ep('velocity min').offset - E, ep('velocity max').offset - E, ep('Default velocity').offset - E, ep('MIDI Stream byte').offset - E], [7, 8, 12, 13]);
+  const k = perf.params.find((p) => p.label === 'Keyboard octave');
+  assert.equal(k.offset, E + 128);
+});

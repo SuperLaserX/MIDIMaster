@@ -297,6 +297,24 @@ for (const p of patchBuilt.params) if (p.block === 'c' && /^(MFX|Chorus|Reverb)/
 // algorithm takes group 0 and its ALG_GROUPS, and the VC-2 silently refuses the rest, so the editor
 // hides them. Oscillator waves take the numbers in ALG_WAVES. Choosing an algorithm makes the VC-2
 // load that algorithm's INIT PATCH (every value; read on the unit), and the editor does the same.
+// The modulator's OSC Wave value is not the wave number: value v plays wave (v + 46) mod 128, so value 83
+// is wave 1 "LargeCho A S" and value 82 is wave 0 (the .p02 files store the wave number; checked on 0,
+// 82 and 83, tools/roland/vc2_map.mjs). The VC-2's screen lists the modulator waves by wave number from
+// wave 1 (seen on the unit: "LargeCho A S", then "LargeCho B S"), so the list is in that order.
+export const modWave = (v) => (v + 46) % 128;
+function modWaveText(v) {
+  const w = modWave(v);
+  const name = VC2_WAVES.get(w);
+  return name ? `${w} ${name}` : w === 0 ? '0 (no wave)' : `${w} (no wave loaded)`;
+}
+function modWaveList() {
+  const vals = Array.from({ length: 128 }, (_, v) => v).sort((a, b) => ((modWave(a) + 127) % 128) - ((modWave(b) + 127) % 128));
+  return {
+    options: vals.map((v) => [v, modWaveText(v)]),
+    help: 'The modulator wave, as the VC-2 lists them (wave 1 first). Names of user waves come from Read wave names.',
+  };
+}
+
 /** The patch the VC-2 holds after `alg` is chosen. */
 export function algorithmInit(alg) {
   const d = Uint8Array.from(ALG_INIT);
@@ -313,6 +331,8 @@ export function algorithmInit(alg) {
   };
   algP.help = 'Choosing an algorithm makes the VC-2 load its INIT PATCH (every value). Parameters the algorithm does not use are hidden.';
   const WAVE_KEY = { ca_b: 'osc1', ca_1b: 'osc2', mo_1: 'mod' };
+  const modP = ps.find((p) => p.key === 'mo_1');
+  if (modP) modP.format = modWaveText;
   for (const p of ps) {
     const m = VC2_MAP[p.key];
     if (!m) continue;
@@ -327,6 +347,7 @@ export function algorithmInit(alg) {
       if (WAVE_KEY[p.key] && !w) return { hidden: true };
       if (w && w[0] === w[1]) return { ...r, readOnly: true, help: `${LISTS.algorithm[alg]} has no ${p.label.replace(/ Wave$/, '')} wave` };
       if (!w) return r;
+      if (WAVE_KEY[p.key] === 'mod') return { ...r, ...modWaveList() };
       const help = `${LISTS.algorithm[alg]} takes waves ${w[0]}-${w[1]}`;
       // a list of the wave names when they are known for the whole range, else a number
       const named = Array.from({ length: w[1] - w[0] + 1 }, (_, i) => w[0] + i).filter((n) => n === 0 || VC2_WAVES.has(n));
@@ -353,7 +374,7 @@ for (const p of sysBuilt.params) if (p.group === 'Chord memory') p.section = 'ch
     const cur = {
       key: 'su_patch', block: 'su', label: 'Current patch', name: 'Current patch', section: 'setup', group: msb.group,
       offset: o, at: msb.at, size: 3, min: 0, max: 127 * 16384 + 127 * 128 + 127, readOnly: true,
-      help: 'The patch the VC-2 plays (bank select and program number in its setup). Choose patches in the list on the Patch page.',
+      help: 'The patch the VC-2 plays. Choose patches in the list on the Patch page.',
       get: (d) => d[o] * 16384 + d[o + 1] * 128 + d[o + 2],
       set: (d, v) => { d[o] = (v >> 14) & 127; d[o + 1] = (v >> 7) & 127; d[o + 2] = v & 127; },
       dynamic: (d, ctx) => {
@@ -558,7 +579,7 @@ const rxChannel = (ctx) => {
 };
 const waveNamesAction = {
   label: 'Read wave names',
-  title: 'Read the names of the VC-2 waves loaded on the XT (read only, model 00 24; a few seconds); they are remembered for next time',
+  title: 'Read the names of the VC-2 waves loaded on the XT (a few seconds); they are remembered for next time',
   run: (api) => readAndRememberWaves(api, VC2_WAVES, 'vc2-waves'),
 };
 
@@ -593,7 +614,7 @@ const p02Actions = [
 ];
 
 export default {
-  coverage: 'The VC-2 (Vocal Designer) engine of the V-Synth XT OS 2.02, by its own model 00 00 0D: setup, system (controllers, EQ, chord memory) and the 8 sampling templates (mic EQ and pre-effect); the patch (algorithm, tempo, beam/pad, tune, scale tune, MFX/chorus/reverb with effect parameters named per type, carrier oscillators with formant, growl, EQ and TVA, modulator, vocoder) with the VC-2\'s screen names and value lists, shown per algorithm (the groups and wave numbers each algorithm takes; choosing one loads its INIT PATCH, as on the unit); 448 user patches; .p02 patch files from the XT drive (USB storage) open, save and import; wave names read from the unit.',
+  coverage: 'Edits the XT\'s VC-2 (Vocal Designer) engine: setup, system settings, sampling templates and patches. The system covers controllers, EQ and chord memory; the 8 sampling templates hold the mic EQ and pre-effect; the patch (algorithm, tempo, beam / pad, tune, scale tune, MFX / chorus / reverb with effect parameters named for each type, carrier oscillators with formant, growl, EQ and TVA, modulator, vocoder) has the VC-2\'s screen names and value lists and shows what each algorithm uses (choosing one loads its INIT PATCH, as on the unit). The 448 user patches; .p02 patch files from the XT\'s drive (USB storage) open, save and import; wave names are read from the unit.',
   sysex: { manufacturer: [0x41], model: MODEL, deviceIdDefault: 0x10 },
   minGap: 20,
   // wave names remembered from the last Read wave names (reading them again takes a few seconds)
@@ -629,7 +650,7 @@ export default {
       sections: [{ key: 'setup', label: 'Setup' }, { key: 'system', label: 'System' }, { key: 'chord', label: 'Chord memory' },
         ...Array.from({ length: 8 }, (_, n) => ({ key: `t${n}`, label: `Template ${n + 1}` }))],
       cols: 3,
-      note: 'Device ID, Tx Edit, Receive SysEx, output gain, digital output, USB mode and USB MIDI thru have no SysEx address; set them on the XT. Sampling templates hold the mic input EQ and pre-effect.',
+      note: 'Device ID, Tx Edit, Receive SysEx, output gain, digital output, USB mode and USB MIDI thru cannot be set over MIDI: set them on the XT. Sampling templates hold the mic input EQ and pre-effect.',
       sendAll: { label: 'Send to VC-2', build: (data, ctx) => writeParts(sysBuilt, data, ctx.deviceId, 0) },
       toSyx: (data, ctx) => writeParts(sysBuilt, data, ctx.deviceId, 0).flat(),
       fromSyx: fromSyx(sysBuilt, (a) => (a < PATCH ? 0 : null)),
@@ -648,8 +669,8 @@ export default {
       toCommon: (d) => TR.patchToCommon(d),
       fromCommon: (c, base) => TR.patchFromCommon(c, base),
       actions: [waveNamesAction, ...p02Actions],
-      note: `Edits the VC-2 temporary patch (${hex4(PATCH)}); changes are heard at once. The XT must be in VC-2 mode. The algorithm decides which parameters and wave numbers the VC-2 takes: the others are hidden. Store writes into a user patch.`,
-      sendAll: { label: 'Send to VC-2', title: 'Write the whole patch to the temporary patch', build: (data, ctx) => writeParts(patchBuilt, data, ctx.deviceId, PATCH) },
+      note: `Edits the patch the VC-2 is playing (its temporary patch); changes are heard at once. The XT must be in VC-2 mode. The algorithm decides which parameters and wave numbers the VC-2 takes: the others are hidden. Store writes into a user patch.`,
+      sendAll: { label: 'Send to VC-2', title: 'Send the whole patch to the VC-2\'s temporary patch, to hear it', build: (data, ctx) => writeParts(patchBuilt, data, ctx.deviceId, PATCH) },
       toSyx: (data, ctx) => writeParts(patchBuilt, data, ctx.deviceId, PATCH).flat(),
       fromSyx: fromSyx(patchBuilt, patchBase),
       slots: {
@@ -665,7 +686,7 @@ export default {
         store: (bank, i, ctx, data) => writeParts(patchBuilt, data, ctx.deviceId, userPatch(bank * 128 + i)),
         writable: (bank) => bank * 128 < USER_PATCHES, // called as (bank, ctx)
         autoNames: [0, 1, 2, 3], // every user patch name when the XT connects
-        note: (bank, ctx) => `Play sends bank select 87/${bank + 1} and a program change on channel ${rxChannel(ctx) + 1} (87/0 selects the preset patches P001-P128, which have no SysEx address). Edit reads the user patch by address; Store writes the editor into it.`,
+        note: (bank, ctx) => `Play selects the patch on channel ${rxChannel(ctx) + 1}. Edit reads the user patch; Store writes the editor\'s patch into it. (The preset patches P001-P128 cannot be read over MIDI.)`,
       },
     },
   ],

@@ -10,6 +10,7 @@
 // unit. See docs/devices/novation-nova2.md.
 
 import SN2def, * as SN2 from './novation-supernova2.js';
+import { named } from '../../core/model/memmap.js';
 
 const PARTS = 6;
 /** Option names for banks, parts and patterns the Nova II does not have (its menus' lists). */
@@ -24,7 +25,9 @@ function adapt(p) {
   if (q.options) q.options = trim(q.options);
   if (partOf(q) >= PARTS) Object.assign(q, { readOnly: true, help: 'The Nova II has 6 parts; kept so a backup restores exactly' });
   // 6 External Parts: its NRPN 120 table (11E7C) has MSB 16+8k+n for parts n = 0-5 only, in all 12 field groups
-  if (/^Ext [78] /.test(q.label)) Object.assign(q, { readOnly: true, help: 'The Nova II has 6 External Parts (no NRPN 120 handler for parts 7-8); kept so a backup restores exactly' });
+  if (/^Ext [78] /.test(q.label)) Object.assign(q, { readOnly: true, help: 'The Nova II has 6 External Parts; kept so a backup restores exactly' });
+  // its 4-octave keyboard: menu "Keyboard octave" 61-68 (-3..+4, record 66234), no receive limit (1E 9)
+  if (q.label === 'Keyboard octave') q.options = named(['-3', '-2', '-1', '0', '+1', '+2', '+3', '+4'], 61);
   return q;
 }
 const BANKS = { program: [...SN2.PROG_BANKS.slice(0, 4), ...SN2.DRUM_BANKS.slice(0, 4)], performance: SN2.PERF_BANKS.slice(0, 2), pattern: [[15, 'User bank U'], [16, 'User bank V']] };
@@ -49,7 +52,7 @@ const keep = new Set([...BANKS.program, ...BANKS.performance].map(([, l]) => l))
 
 export default {
   ...SN2def,
-  coverage: 'Programs, drum maps, performances (6 parts, vocoder, External Parts), arpeggio patterns and global settings of the Nova II Keyboard: the SuperNova II definition with the Nova II\'s model byte (23) and its menus\' banks, parts and lists, from its Keyboard OS 2 image. Not checked on a Nova II.',
+  coverage: 'Edits the Nova II Keyboard\'s programs, drum maps, performances (6 parts, vocoder, External Parts), arpeggio patterns and global settings. It is the SuperNova II editor with the Nova II\'s own banks, parts and lists, built from its system software (Keyboard OS 2). Not checked on a Nova II.',
   sysex: { ...SN2def.sysex, model: 0x23 },
   objects,
   requests: SN2def.requests.filter((r) => !/^(Prog bank|Drum map|Perf bank) /.test(r.label) || [...keep].some((l) => r.label.startsWith(`${l} `))),

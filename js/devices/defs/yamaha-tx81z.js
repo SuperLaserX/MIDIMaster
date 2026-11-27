@@ -77,7 +77,7 @@ function pcedParams() {
     ps.push({
       key: `i${i}_voice`, label: 'Voice', offset: b + 1, size: 2, min: 0, max: 159, group: `Instrument ${i + 1}`, section: s,
       get: (d) => (d[b + 1] << 7) | d[b + 2], set: (d, v) => { d[b + 1] = (v >> 7) & 1; d[b + 2] = v & 0x7f; },
-      options: Array.from({ length: 160 }, (_, n) => [n, voiceName(n)]), help: 'I01-I32 internal, A-D the presets (two bytes: 128s, then the rest).',
+      options: Array.from({ length: 160 }, (_, n) => [n, voiceName(n)]), help: 'I01-I32 internal, A-D the presets.',
     });
     P(3, 'RECEIVE CH', { options: Array.from({ length: 17 }, (_, c) => [c, c < 16 ? String(c + 1) : 'omni']) });
     P(4, 'LIMIT/L', { options: Array.from({ length: 128 }, (_, n) => [n, NOTE(n)]) });
@@ -90,7 +90,7 @@ function pcedParams() {
     P(11, 'MICROTUNE', { options: [[0, 'off'], [1, 'on']] });
   }
   const C = (o, label, max, extra = {}) => ps.push({ key: `c${o}`, label, offset: o, min: 0, max, group: 'Performance', section: 'common', ...extra });
-  C(96, 'MICTUN', 12, { options: opts(['Equal', 'Pure(major)', 'Pure(minor)', 'Mean tone', 'Pythagorean', 'Werckmeister', 'Kirnberger', 'Vallotti&young', '1/4 Shift eql', '1/4 Tone', '1/8 Tone', 'MICRO OCT.', 'MICRO FULL']), help: 'Micro tuning table (the order of the names in the firmware, 2EB5-2F57, then the octave and full user tables).' });
+  C(96, 'MICTUN', 12, { options: opts(['Equal', 'Pure(major)', 'Pure(minor)', 'Mean tone', 'Pythagorean', 'Werckmeister', 'Kirnberger', 'Vallotti&young', '1/4 Shift eql', '1/4 Tone', '1/8 Tone', 'MICRO OCT.', 'MICRO FULL']), help: 'Micro tuning table: the preset tunings, then the user octave and full keyboard tables.' });
   C(97, 'Assign', 1, { options: [[0, 'norm'], [1, 'altr']], help: 'Note assign: normal or alternate.' });
   C(98, 'Effect', 3, { options: [[0, 'off'], [1, 'delay'], [2, 'pan'], [3, 'chord']] });
   C(99, 'Micro tune key', 11, { options: opts(TX81Z_TEXTS.NOTES) });
@@ -191,8 +191,8 @@ const CHG = ['off', 'norm', ...Array.from({ length: 16 }, (_, i) => `G${i + 1}`)
 function sysParams() {
   const ps = [];
   const P = (o, label, max, group, extra = {}) => ps.push({ key: `s${o}`, label, offset: o, min: 0, max, group, ...extra });
-  P(0, 'Master Tune', 127, 'UTILITY', { format: (v) => signed(v - 64), help: 'Shown as -64..+63 (A37E).' });
-  P(8, 'Mem Protect', 1, 'UTILITY', { options: opts(TX81Z_TEXTS.OFFON), help: 'Memory protect (the firmware\'s cold start sets it on; kept off here).' });
+  P(0, 'Master Tune', 127, 'UTILITY', { format: (v) => signed(v - 64), help: 'Shown as -64..+63.' });
+  P(8, 'Mem Protect', 1, 'UTILITY', { options: opts(TX81Z_TEXTS.OFFON), help: 'Memory protect (the unit turns it on when it is reset; kept off here).' });
   P(9, 'Combine', 1, 'UTILITY', { options: opts(TX81Z_TEXTS.OFFON) });
   P(1, 'Basic Rcv.Ch', 16, 'MIDI control', { options: Array.from({ length: 17 }, (_, c) => [c, c < 16 ? String(c + 1) : 'omn']) });
   P(2, 'Transmit Ch', 15, 'MIDI control', { options: Array.from({ length: 16 }, (_, c) => [c, String(c + 1)]), help: 'Also the channel of the TX81Z\'s own bulk dumps.' });
@@ -235,7 +235,7 @@ const KEYNAME = (k) => `${TX81Z_TEXTS.NOTES[k]}3`;
 function fxParams() {
   const ps = [];
   const P = (o, label, max, group, extra = {}) => ps.push({ key: `e${o}`, label, offset: o, min: 0, max, group, section: 'fx', ...extra });
-  P(0, 'Delay Time', 127, 'Effect 1 (delay)', { format: (v) => `${((v + 1) / 100).toFixed(2)}s`, help: 'Shown as (value + 1) / 100 seconds (A6D4).' });
+  P(0, 'Delay Time', 127, 'Effect 1 (delay)', { format: (v) => `${((v + 1) / 100).toFixed(2)}s`, help: 'Shown in seconds: (value + 1) / 100.' });
   P(1, 'Pitch Shift', 48, 'Effect 1 (delay)', { format: (v) => signed(v - 24) });
   P(2, 'Feedback', 7, 'Effect 1 (delay)');
   P(3, 'Effect Level', 99, 'Effect 1 (delay)');
@@ -328,7 +328,7 @@ export function buildTX81Z(V) {
   return buildDX4({
     id: V.id, name: V.name, T: TX81Z_TEXTS, init: V.init || TX81Z_INIT, aced: true, peg: false, chorus: false, requests: true,
     formats: [0x7e], coverage: V.coverage, deviceIds: V.deviceIds || [],
-    notes: { voice: `The ${V.name} answers dump requests: Get from device reads the additional data ("LM  8976AE") and the voice (format 3). Every change is a parameter change (voice 12h, additional data 13h).` },
+    notes: { voice: `Get from device reads the voice being edited on the ${V.name}, with its additional settings. Each change is sent as you make it.` },
     moreRequests: [
       { label: 'Performance edit buffer', bytes: (ctx) => dumpRequestHeader(ctx?.channel ?? 0, PE) },
       { label: 'Performance memories', bytes: (ctx) => dumpRequestHeader(ctx?.channel ?? 0, PM), timeout: 4000 },
@@ -388,9 +388,9 @@ export function buildTX81Z(V) {
         decode: (raw) => Uint8Array.from(parseBulk(raw).body),
         name: (d) => textAt(d, 100),
         setName: (d, n) => { for (let i = 0; i < 10; i++) d[100 + i] = Math.max(32, Math.min(126, String(n ?? '').charCodeAt(i) || 32)); return d; },
-        note: 'Eight instruments, each with its voice, receive channel, key limits and share of the eight notes. Changes are parameter changes (group 4, number = byte).',
+        note: 'Eight instruments, each with its voice, receive channel, key limits and share of the eight notes. Each change is sent as you make it.',
         sendParam: (p, _v, d, ctx) => (p.size === 2 ? [paramChange(ch(ctx), 4, p.offset, d[p.offset]), paramChange(ch(ctx), 4, p.offset + 1, d[p.offset + 1])] : paramChange(ch(ctx), 4, p.offset, d[p.offset])),
-        sendAll: { label: 'Send', title: 'Send the performance edit buffer ("LM  8976PE")', build: (d, ctx) => bulkHeader(ch(ctx), PE, d) },
+        sendAll: { label: 'Send', title: 'Send the performance to the unit\'s edit buffer', build: (d, ctx) => bulkHeader(ch(ctx), PE, d) },
         toSyx: (d, ctx) => bulkHeader(ch(ctx), PE, d),
         fromSyx: (msgs) => {
           const m = msgs.find(isPced);
@@ -405,16 +405,16 @@ export function buildTX81Z(V) {
         },
         actions: [
           {
-            label: 'Init', title: 'The Init function\'s templates (lower bank 87A6-8921): singl, dual, split, mono8, poly4; not sent until you press Send',
+            label: 'Init', title: 'The Init function\'s templates: singl, dual, split, mono8, poly4; not sent until you press Send',
             run: async (api) => {
               const r = await api.form('Init performance', [{ key: 't', label: 'Template', type: 'select', value: 'singl', options: PERF_TEMPLATES.map((t) => [t.key, `${t.key} (${t.name})`]) }]);
               if (r) api.setData(initPerf(r.t));
             },
           },
           ...(full ? [
-            { label: 'Get 24 performances', title: 'Read the performance memories ("LM  8976PM")', run: async (api) => { await readPmem(api); api.toast('24 performances received', 'good', 2000); api.setData(Uint8Array.from(api.data)); } },
+            { label: 'Get 24 performances', title: 'Read the 24 performance memories from the unit', run: async (api) => { await readPmem(api); api.toast('24 performances received', 'good', 2000); api.setData(Uint8Array.from(api.data)); } },
             {
-              label: 'Send memories', title: 'Send the editor\'s copy of the 24 performance memories ("LM  8976PM"): replaces every memory', run: async (api) => {
+              label: 'Send memories', title: 'Send the editor\'s copy of the 24 performance memories: replaces every memory', run: async (api) => {
                 const b = pbankOf(api.ctx);
                 if (!b) { api.toast('The editor holds no performance memories yet: Get 24 performances first.', 'warn'); return; }
                 if (!(await api.confirm('Send memories', `Replace all 24 performance memories of the ${V.name}? (Mem Protect off.)`, 'Send', true))) return;
@@ -429,7 +429,7 @@ export function buildTX81Z(V) {
             names: (_b, ctx) => { const b = pbankOf(ctx); return b ? Array.from({ length: 24 }, (_, i) => pmemName(b, i)) : null; },
             scannable: () => true,
             scanBank: async (api, _bank, onName) => { const b = await readPmem(api); for (let i = 0; i < 24; i++) onName(i, pmemName(b, i)); },
-            note: (_b, ctx) => (pbankOf(ctx) ? 'Names and Edit come from the editor\'s copy of the memories ("LM  8976PM"). Store packs the performance into the copy and sends all 32 records. A memory is played through the program change table (PF01-PF24).' : 'No memories yet: Get 24 performances (or Read names).'),
+            note: (_b, ctx) => (pbankOf(ctx) ? 'Names and Edit come from the editor\'s copy of the memories. Store puts the performance into the copy and sends all the memories. A memory is played through the program change table (PF01-PF24).' : 'No memories yet: Get 24 performances (or Read names).'),
             name: (d) => textAt(d, 100),
             fetch: async (api, _b, i) => { const b = pbankOf(api.ctx) || await readPmem(api); return unpackPerf(b.subarray(i * PMEM_REC, (i + 1) * PMEM_REC)); },
             writable: (_b, ctx) => !!(pbankOf(ctx) && ctx.loaded?.has?.(PBANK_KEY)),
@@ -460,7 +460,7 @@ export function buildTX81Z(V) {
           request: (ctx) => dumpRequestHeader(ch(ctx), kd.hdr),
           match: (raw) => isHdr(raw, kd.hdr, kd.size),
           decode: (raw) => Uint8Array.from(parseBulk(raw).body),
-          sendAll: { label: 'Send', title: `Send the ${kd.label.toLowerCase()} ("${kd.hdr}")`, build: (d, ctx) => bulkHeader(ch(ctx), kd.hdr, d) },
+          sendAll: { label: 'Send', title: `Send the ${kd.label.toLowerCase()} to the unit`, build: (d, ctx) => bulkHeader(ch(ctx), kd.hdr, d) },
           toSyx: (d, ctx) => bulkHeader(ch(ctx), kd.hdr, d),
           fromSyx: (msgs) => { const m = msgs.find((x) => isHdr(x, kd.hdr, kd.size)); return m ? Uint8Array.from(parseBulk(m).body) : null; },
           receive: (raw) => (isHdr(raw, kd.hdr, kd.size) ? Uint8Array.from(parseBulk(raw).body) : null),
@@ -470,7 +470,7 @@ export function buildTX81Z(V) {
         def.objects.push(simple(ks0, {
           page: 'System', icon: '⚙', init: initSystem, params: sysParams(), cols: 3,
           name: (d) => textAt(d, 11, 16),
-          note: 'The UTILITY pages (master tune, memory protect, combine) and MIDI control. Each change is sent as F0 43 1n 10 7B pp vv F7. The 16-character message is shown at power-on ("<Good morning!!>" from the firmware) and under UTILITY MODE.',
+          note: 'The UTILITY pages (master tune, memory protect, combine) and MIDI control; each change is sent as you make it. The 16-character message is shown at power-on (as delivered: "<Good morning!!>") and under UTILITY MODE.',
           sendParam: (p, _v, d, ctx) => longChange(ch(ctx), 0x7b, p.offset, d[p.offset]),
           actions: [
             {
@@ -483,24 +483,24 @@ export function buildTX81Z(V) {
                 api.setData(d);
               },
             },
-            { label: 'Init', title: 'The firmware\'s initial setup (96C4, 954A; Mem Protect off), not sent until you press Send', run: (api) => api.setData(initSystem()) },
+            { label: 'Init', title: 'The initial setup (with Mem Protect off), not sent until you press Send', run: (api) => api.setData(initSystem()) },
           ],
         }));
         def.objects.push(simple(ks1, {
           page: 'Program changes', icon: '⇄', init: initPc, params: pcParams(), cols: 4,
           sections: [0, 1, 2, 3].map((i) => ({ key: `p${i}`, label: `PGM ${i * 32 + 1}-${i * 32 + 32}` })),
-          note: 'What each received program change selects (UTILITY "Edit P.Cng Tbl?"): a voice I01-D32 or a performance PF01-PF24. Each change is sent as F0 43 1n 10 7F pp hh ll F7.',
+          note: 'What each received program change selects (UTILITY "Edit P.Cng Tbl?"): a voice I01-D32 or a performance PF01-PF24. Each change is sent as you make it.',
           sendParam: (p, _v, d, ctx) => longChange(ch(ctx), 0x7f, p.offset >> 1, d[p.offset], d[p.offset + 1]),
-          actions: [{ label: 'Init', title: 'PGM n = voice n (the firmware\'s cold start, 99AB; UTILITY "Init P.Cng Tbl?"), not sent until you press Send', run: (api) => api.setData(initPc()) }],
+          actions: [{ label: 'Init', title: 'PGM n = voice n (as UTILITY "Init P.Cng Tbl?" sets it), not sent until you press Send', run: (api) => api.setData(initPc()) }],
           toCommon: rawToCommon('program-map', 'pc81'),
           fromCommon: rawFromCommon('pc81', initPc, 'program change table'),
         }));
         def.objects.push(simple(ks2, {
           page: 'Effects', icon: '◎', init: () => Uint8Array.from(FX_INIT), params: fxParams(), cols: 4,
           sections: [{ key: 'fx', label: 'Delay and pan' }, { key: 'chord', label: 'Chords' }],
-          note: 'The performance effects (UTILITY "Edit Effect 1-3"): delay, pan and the chord of each key; the performance picks one (Effect). Each change is sent as F0 43 1n 10 7C pp vv F7.',
+          note: 'The performance effects (UTILITY "Edit Effect 1-3"): delay, pan and the chord of each key; the performance picks one (Effect). Each change is sent as you make it.',
           sendParam: (p, _v, d, ctx) => longChange(ch(ctx), 0x7c, p.offset, d[p.offset]),
-          actions: [{ label: 'Init', title: 'The firmware\'s initial effects (99C9), not sent until you press Send', run: (api) => api.setData(Uint8Array.from(FX_INIT)) }],
+          actions: [{ label: 'Init', title: 'The initial effects, not sent until you press Send', run: (api) => api.setData(Uint8Array.from(FX_INIT)) }],
           toCommon: rawToCommon('effects-setup', 'fx81'),
           fromCommon: rawFromCommon('fx81', () => Uint8Array.from(FX_INIT), 'effects setup'),
         }));
@@ -508,7 +508,7 @@ export function buildTX81Z(V) {
           def.objects.push(simple(kd, {
             page: keys === 12 ? 'Micro tune octave' : 'Micro tune full', icon: '♯', init: () => initMt(keys), params: mtParams(keys), cols: 4,
             sections: keys === 12 ? [{ key: 'oct', label: 'C3-B3' }] : Array.from({ length: 11 }, (_, o) => ({ key: `o${o}`, label: `${NOTE(o * 12)}-${NOTE(Math.min(127, o * 12 + 11))}` })),
-            note: `${keys === 12 ? 'The user octave (MICRO OCT.): each note of the octave, repeated over the keyboard' : 'The user table for all 128 keys (MICRO FULL)'}; a performance uses it with MICTUN and the instrument's MICROTUNE switch. Each key is sent as F0 43 1n 10 ${keys === 12 ? '7D' : '7E'} kk note fine F7.`,
+            note: `${keys === 12 ? 'The user octave (MICRO OCT.): each note of the octave, repeated over the keyboard' : 'The user table for all 128 keys (MICRO FULL)'}; a performance uses it with MICTUN and the instrument's MICROTUNE switch. Each key is sent as you change it.`,
             sendParam: (p, _v, d, ctx) => { const k = p.offset >> 1; return longChange(ch(ctx), keys === 12 ? 0x7d : 0x7e, k, d[2 * k], d[2 * k + 1]); },
             actions: [{ label: 'Init', title: `Equal temperament (UTILITY "Init ${keys === 12 ? 'Octave' : 'Full Kbd'} ?"), not sent until you press Send`, run: (api) => api.setData(initMt(keys)) }],
             toCommon: (d) => mtToCommon(d, keys),
@@ -535,7 +535,7 @@ function initPmem() {
 
 const def = buildTX81Z({
   id: 'yamaha-tx81z', name: 'TX81Z', full: true,
-  coverage: 'Every voice parameter (VCED) and the additional data (ACED: fixed frequency, fine, the eight waves, EG shift, reverb, foot controller) with the TX81Z\'s own frequency display, the 32 internal voices (packed VMEM, decoded and checked against the firmware\'s presets), the performance (eight instruments: notes, voice, receive channel, key limits, detune, note shift, volume, output, LFO, micro tuning; micro tuning table, assign mode, effect) with a MIDI channels page and its 24 memories (packed PMEM), the system setup, the program change table, the effects (delay, pan, chords) and both micro tuning tables; labels from the v1.6 firmware\'s screens. Not yet checked on a TX81Z.',
+  coverage: 'Edits the TX81Z\'s voices, performances, system setup, effects and micro tunings. Every voice parameter and the additional voice settings (fixed frequency, fine, the eight waves, EG shift, reverb, foot controller) with the TX81Z\'s own frequency display, the 32 internal voices, the performance (eight instruments: notes, voice, receive channel, key limits, detune, note shift, volume, output, LFO, micro tuning; micro tuning table, assign mode, effect) with a MIDI channels page and its 24 memories, the system setup, the program change table, the effects (delay, pan, chords) and both micro tuning tables; names from the TX81Z\'s own screens. Not yet checked on a TX81Z.',
 });
 
 export const _test = { pcedParams, initPerf, isPced, PE, initPmem, longChange, parseLong, FX_INIT };

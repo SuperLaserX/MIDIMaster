@@ -5,5 +5,5 @@ import * as T from './access-virus-classic-os.js';
 
 export default abcModel({
   model: 'Virus Classic', id: 'access-virus-classic', T, banks: BANKS_AH, panelByte: true,
-  note: 'mapped from its own OS 4.9 (build 061; docs/devices/access-virus-b.md).',
+  note: 'built from its own system software (OS 4.9).',
 });

@@ -4,10 +4,11 @@
 
 import { MidiTransport } from '../core/midi/transport.js';
 import { MidiInputs, slotsOf, effectiveMapping } from '../core/midi/inputs.js';
-import { Settings, rememberDevice, recentDevices } from '../core/settings.js';
+import { Settings, rememberDevice, recentDevices, clearRecent, connectedDevices, saveConnected } from '../core/settings.js';
 import { applyTheme } from '../core/theme.js';
 import { h, clear, toast, confirmDialog } from '../core/ui/dom.js';
 import { mountKeyboard } from '../core/ui/keyboard.js';
+import { icon as iconEl } from '../core/ui/icons.js';
 import { Emitter } from '../core/emitter.js';
 import { library, openDb } from '../core/library.js';
 import { MainLibrary, KvStore } from '../core/mainlib/store.js';
@@ -119,6 +120,7 @@ export class Shell extends Emitter {
     this.el.busy.addEventListener('click', () => { if (this.deviceJob() && this.device.page !== 'librarian') this.go(`#/d/${encodeURIComponent(this.device.entry.id)}/librarian`); });
     document.getElementById('brand').addEventListener('click', () => this.go('#/'));
     this.real.on('connection', () => this.renderTop());
+    this.real.on('port-busy', (name) => toast(`"${name}" is in use by another program (another MIDIMaster window or a browser tab with MIDIMaster?). Close it there, then choose the port again.`, 'bad', 10000));
     window.addEventListener('hashchange', () => this.route());
     // a background job (a complete dump) of the open device: closing the tab stops it
     window.addEventListener('beforeunload', (ev) => { if (this.deviceJob()) { ev.preventDefault(); ev.returnValue = ''; } });
@@ -166,6 +168,28 @@ export class Shell extends Emitter {
   go(hash) {
     if (location.hash === hash) this.route(); else location.hash = hash;
   }
+
+  // ------------------------------------------------------------ connected devices (devices/identify.js)
+  /** Scan every MIDI port for devices; the result is kept and listed under Connected. */
+  async scanConnected(onProgress) {
+    if (!this.real.access) await this.real.init();
+    const { scanPorts } = await import('../devices/identify.js');
+    const r = await scanPorts(this.real.access, { onProgress });
+    saveConnected(r);
+    this.renderNav();
+    this.emit('connected', r);
+    return r;
+  }
+
+  /** Open a device found by the scan, on the ports it was found on. */
+  openConnected(d, id = d.id) {
+    this.settings.device(id).update({ input: d.input || '', output: d.output || '' });
+    this.go(`#/d/${encodeURIComponent(id)}`);
+  }
+
+  clearConnected() { saveConnected(null); this.renderNav(); this.emit('connected', null); }
+
+  clearRecent() { clearRecent(); this.renderNav(); this.emit('recent'); }
 
   /** The open device's running background job (generic/dumpjob.js), or null. */
   deviceJob() { return this.device?.instance?.context?.job || null; }
@@ -318,7 +342,7 @@ export class Shell extends Emitter {
         if (shell.transport !== shell.real) { shell.transport.open?.(); shell.renderTop(); return { input: shell.transport.input, output: shell.transport.output }; }
         await this.ensureMidi();
         const m = shell.settings.value.midi;
-        const r = shell.real.autoSelect({ input: names.input ?? dev.value.input, output: names.output ?? dev.value.output, defaultInput: m.defaultInput, defaultOutput: m.defaultOutput, hint });
+        const r = shell.real.autoSelect({ input: names.input ?? dev.value.input, output: names.output ?? dev.value.output, defaultInput: m.defaultInput, defaultOutput: m.defaultOutput, hint, prefer: names.prefer });
         dev.update({ input: r.input?.name || '', output: r.output?.name || '' });
         shell.renderTop();
         return r;
@@ -334,7 +358,7 @@ export class Shell extends Emitter {
       const container = h('div.dock-panel');
       this.el.docks.append(container);
       const api = spec.mount(container);
-      const btn = h('button.icon-btn.toggle', { title: `Show or hide the ${spec.label}`, onclick: () => api.toggle() }, spec.label);
+      const btn = h('button.icon-btn.toggle', { title: `Show or hide the ${spec.label}`, onclick: () => api.toggle() }, iconEl(spec.icon || '▣'), h('span', spec.label));
       this.el.dockButtons.append(btn);
       const sync = () => {
         btn.classList.toggle('on', api.isOpen);
@@ -351,11 +375,11 @@ export class Shell extends Emitter {
   // ------------------------------------------------------------ chrome
   renderNav() {
     const nav = clear(this.el.nav);
-    const item = (label, icon, active, onclick, extra = {}) => h('button' + (active ? '.active' : ''), { onclick, ...extra }, h('span.nav-ico', icon), label);
+    const item = (label, icon, active, onclick, extra = {}) => h('button' + (active ? '.active' : ''), { onclick, 'aria-current': active ? 'page' : undefined, ...extra }, h('span.nav-ico', iconEl(icon)), h('span.nav-label', label));
     if (this.device) {
       const { entry, instance } = this.device;
       nav.append(
-        item('All devices', '‹', false, () => this.go('#/')),
+        item('All devices', '‹', false, () => this.go('#/'), { class: 'nav-back' }),
         h('div.nav-device', h('div.nav-maker', entry.maker), h('div.nav-model', entry.model)),
         ...instance.pages.map((p) => item(p.label, p.icon || '•', this.page === p.key, () => this.showDevicePage(p.key), { dataset: { page: p.key } })),
         h('div.nav-sep'),
@@ -366,27 +390,34 @@ export class Shell extends Emitter {
       return;
     }
     nav.append(
-      item('Devices', '◫', this.page === 'home', () => this.go('#/')),
+      item('Devices', 'grip', this.page === 'home', () => this.go('#/')),
       item('Head Library', '❖', this.page === 'library', () => this.go('#/library')),
       item('MIDI Monitor', '≡', this.page === 'monitor', () => this.go('#/monitor')),
       item('Settings', '⚙', this.page === 'settings', () => this.go('#/settings')));
     const recent = recentDevices().map(getDevice).filter(Boolean);
     if (recent.length) {
-      nav.append(h('div.nav-sep'), h('div.nav-head', 'Recent'));
+      nav.append(h('div.nav-sep'), h('div.nav-head.nav-head-row', h('span', 'Recent'),
+        h('button.nav-clear', { title: 'Clear the list of recently opened devices', onclick: (ev) => { ev.stopPropagation(); this.clearRecent(); } }, 'Clear')));
       for (const d of recent) nav.append(item(d.title, '·', false, () => this.go(`#/d/${d.id}`)));
+    }
+    // devices found by the last port scan (front page, Scan MIDI ports)
+    const found = (connectedDevices()?.devices || []).filter((d) => d.id && getDevice(d.id));
+    if (found.length) {
+      nav.append(h('div.nav-sep'), h('div.nav-head', 'Connected'));
+      for (const d of found) nav.append(item(getDevice(d.id).title, '◉', false, () => this.openConnected(d), { title: `${d.output}${d.input && d.input !== d.output ? ` / ${d.input}` : ''}: ${d.detail || ''}` }));
     }
   }
 
   renderTop() {
     const conn = clear(this.el.conn);
     const t = this.transport;
-    clear(this.el.crumb).append(this.device ? h('span', '› ', h('b', this.device.entry.title)) : '');
-    if (!t.access && t === this.real) conn.append(h('span.dot'), 'MIDI off');
-    else if (!t.output && !t.input) conn.append(h('span.dot'), 'No ports');
+    clear(this.el.crumb).append(this.device ? [h('span.crumb-sep', '/'), h('b', this.device.entry.title)] : '');
+    if (!t.access && t === this.real) conn.append(h('span.dot'), h('span', 'MIDI off'));
+    else if (!t.output && !t.input) conn.append(h('span.dot'), h('span', 'No ports'));
     else {
       conn.append(h('span.dot' + (this.online ? '.on' : t.output ? '.half' : '')),
         this.demo && t !== this.real ? h('span.badge.live', 'DEMO') : null,
-        `${t.input?.name || '-'} / ${t.output?.name || '-'}`);
+        h('span', `${t.input?.name || '-'} / ${t.output?.name || '-'}`));
     }
   }
 }

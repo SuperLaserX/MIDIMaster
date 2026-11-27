@@ -188,3 +188,15 @@ test('VC-2: what each algorithm takes', async () => {
   assert.deepEqual(e, algorithmInit(3));
   for (const a of ALG_WAVES) for (const w of [a.osc1, a.osc2, a.mod]) if (w) assert.ok(w[0] <= w[1]);
 });
+
+test('VC-2: modulator waves by name, in the order the VC-2 lists them (value = wave number + 82, mod 128)', async () => {
+  const m = await import('../js/devices/defs/roland-vsynthxt-vc2.js');
+  const obj = m.default.objects.find((o) => o.params.some((p) => p.key === 'mo_1'));
+  const p = obj.params.find((x) => x.key === 'mo_1');
+  const list = p.dynamic(m.algorithmInit(7), {}).options; // algorithm 7 has a modulator
+  assert.deepEqual(list.slice(0, 2), [[83, '1 LargeCho A S'], [84, '2 LargeCho B S']], 'the screen\'s first two');
+  assert.equal(list.length, 128);
+  assert.equal(m.modWave(0), 46);
+  assert.equal(m.modWave(82), 0);
+  assert.equal(p.format(83), '1 LargeCho A S');
+});

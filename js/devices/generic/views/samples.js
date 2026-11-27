@@ -65,12 +65,12 @@ export function samplesView(root, g) {
 
   root.append(
     h('h1', 'Samples'),
-    h('div.sub', `Sample Dump Standard (SDS) transfers. Most samplers from the late 1980s on support SDS, but each numbers its samples its own way; check the ${g.entry.model} manual if a sample lands somewhere unexpected. Transfers run at MIDI speed: about 45 seconds per second of 44.1 kHz audio.`),
+    h('div.sub', { title: `Each sampler numbers its samples its own way: check the ${g.entry.model} manual if a sample lands somewhere unexpected.` }, 'Sample Dump Standard transfers. Over DIN MIDI, one second of 44.1 kHz audio takes about 45 seconds.'),
     h('div.card.col',
       h('div.row', h('label.field', 'Sample number', num),
         h('button.btn.primary', { onclick: receive }, 'Receive as WAV'),
         h('button.btn', { onclick: send }, 'Send a WAV file')),
-      h('div.small.muted', 'Both MIDI cables are needed: SDS acknowledges every packet. If the device does not answer, MIDIMaster sends without waiting, using the packet gap from Settings.')),
+      h('div.small.muted', 'Both MIDI cables are needed.')),
     box);
   return { destroy() { st.sds?.cancel(); } };
 }

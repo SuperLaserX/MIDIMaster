@@ -57,7 +57,7 @@ export function inputsView(root, g) {
   const status = { off: 'not used', 'no-midi': 'MIDI not allowed yet', missing: 'port not found', open: 'listening' };
   root.append(
     h('h1', 'Input mappings'),
-    h('div.sub', `Controllers connected to MIDIMaster (Settings, MIDI inputs) play the ${g.entry.model} and can change its parameters. A ${g.entry.model} mapping overrides a global mapping of the same controller; a function finds the ${g.entry.model}'s own parameter, shown here.`),
+    h('div.sub', `Controller mappings for the ${g.entry.model}. They override the global ones (Settings) for the same controller.`),
     h('div.card.col',
       h('div.card-head.row', h('h2.grow', 'MIDI inputs'), h('a.btn.small', { href: '#/settings' }, 'Settings...')),
       h('div.small', slots.map((s, i) => h('div', `Input ${i + 1}: ${s.port || '-'}${s.port ? ` (${status[shell.inputs.status(i)]}${s.thru ? `, plays the open device${s.toChannel ? ` on its channel (${g.channel + 1})` : ''}` : ''})` : ''}`)))),

@@ -29,7 +29,7 @@ const def = buildDX({
   deviceIds: ['yamaha-dx7', 'yamaha-tx7'],
   prefer: () => 0.7,
   bankNote: 'The DX9 uses voices 1-20 of the 32.',
-  coverage: 'The DX7 voice format the DX9 sends and receives (single voice and 32-voice bulk, channel 1), with the DX9\'s parameters marked from its firmware\'s parameter table (DX7 operators 6-3, algorithm, feedback, LFO, sensitivities, transpose); the other DX7 bytes are kept. Labels and displays are the DX7 v1.8 firmware\'s (the DX9\'s screens use the same words); its ALGORITHM 1-8 are shown as the DX7 algorithms they are (table D0D4). Its receiver (C5B8) takes voice and 32-voice bulks and voice parameter changes on its MIDI CH with SYS INFO AVAIL on, and no dump requests. Not yet checked on a DX9.',
+  coverage: 'Edits the DX9\'s voices and its 32-voice bank. The voices are in the DX7 voice format it uses over MIDI (single voices and the 32-voice bank, on MIDI channel 1), with the settings the DX9 has marked (DX7 operators 6-3, algorithm, feedback, LFO, sensitivities, transpose); the other DX7 settings are kept. Names and displays are the DX7\'s (the DX9 uses the same words); its ALGORITHM 1-8 are shown as the DX7 algorithms they are. The DX9 takes voices, banks and single changes on its MIDI CH with SYS INFO AVAIL on; it cannot be asked for its data. Not yet checked on a DX9.',
   notes: { voice: 'The DX9 keeps its four operators in the DX7 voice\'s OP6-OP3 and leaves the rest unused; parameters it does not use are marked in their help. It sends and receives voices on MIDI channel 1.' },
 });
 
@@ -45,13 +45,13 @@ export const DX9_ALGS = [0, 13, 7, 6, 4, 21, 30, 31];
   const als = v.params.find((p) => p.key === 'als');
   als.options = [...DX9_ALGS.map((a, i) => [a, `${i + 1} (DX7 ${a + 1})`]),
     ...Array.from({ length: 32 }, (_, a) => a).filter((a) => !DX9_ALGS.includes(a)).map((a) => [a, `DX7 ${a + 1} (no DX9 algorithm)`])];
-  als.help = 'ALGORITHM 1-8: the DX9 keeps its algorithm as one of eight DX7 algorithms (table D0D4); the others are DX7-only.';
+  als.help = 'ALGORITHM 1-8: the DX9 keeps its algorithm as one of eight DX7 algorithms; the others are DX7-only.';
   const card = v.groupInfo.Algorithm;
   card.note = `${card.note} The DX9 has eight of them: DX7 ${DX9_ALGS.map((a) => a + 1).join(', ')} are its ALGORITHM 1-8.`;
   // the Algorithm tab offers its eight, by the DX9's numbers
   v.galleries = v.galleries.map((gal) => ({
     ...gal, choosable: (a) => DX9_ALGS.includes(a), label: (a) => `Algorithm ${DX9_ALGS.indexOf(a) + 1} (DX7 ${a + 1})`,
-    note: `${gal.note} The DX9's ALGORITHM 1-8 are these eight DX7 algorithms (table D0D4).`,
+    note: `${gal.note} The DX9's ALGORITHM 1-8 are these eight DX7 algorithms.`,
   }));
 }
 

@@ -116,8 +116,25 @@ drive) and its inverse; the Nova OS 4.1 applies that inverse itself to programs 
 models (1763C), which confirms the direction. Performances go through the SuperNova II's
 performance model.
 
+## Emulator check (no unit)
+
+No SuperNova was available. Instead its own OS 4.1 runs in the H8/300H emulator
+(`tools/novation/h8`, described in `novation-supernova2.md`, "Emulator"; memory map from the image:
+flash 200000-3FFFFF, RAM 400000, DSP host ports one byte apart from 800000, an HD44780 display on
+port A). Novation's factory file (`total.mid`) is loaded over MIDI, and
+`node tools/novation/h8/check_editor.mjs sn1` drives the editor's own fetch / Send / Store / Recall
+functions against it: every editable parameter of a program (283) and a performance (410) changed,
+sent to the edit buffer, stored into bank A 7, recalled, and each read back byte for byte equal
+(2026-11-27). **Validated in an emulator of its OS, not on hardware.**
+
+Found with it: the panel pages a program keeps (byte 19 bits 0-2 osc page Pitch / Width / Sync / Mix
+/ Soften, 20 bits 0-3 which mods the "Filter mod." knob edits, Freq or Res/width, 21 bits 0-1 what
+the tune knob edits, Fine tune / Coarse tune / Octave; every switch pressed and the knob turned
+after it), and that performance byte 19 / byte 16 bit 6 hold the part mutes as on the SuperNova II
+(the receiver moves 16 bit 6 into 19 bit 7 and the transmitter back).
+
 ## Not covered / open
 
-1. Checks on a SuperNova (none available): everything above.
-2. The arpeggio pattern page is checked only against the factory patterns (no unit).
+1. A check on a SuperNova unit (none available): the emulator check above stands in for it.
+2. The arpeggio pattern page is checked only against the factory patterns and the emulated OS.
 3. Program category User 1-5 is passed to the Head Library with the SuperNova II's numbering.

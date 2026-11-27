@@ -202,14 +202,11 @@ export function makeQuadraverb(FW, opt) {
     if (s.off === CFG_AT) {
       return {
         key, group: s.group, label: first.label, offset: s.off, options: CONFIGS.map((n, v) => [v, n]), relayout: true, send: sendWhole,
-        help: 'The effect configuration; changing it sends the whole program to the edit buffer (the other pages follow it)',
+        help: 'The effect configuration; changing it sends the whole program to the unit (the other pages follow it)',
         after: (d) => (fitProgram(d) ? 'Values outside the new configuration\'s page ranges were brought into range.' : null),
       };
     }
     const st = store(s.off, s.size);
-    const h2 = (n) => n.toString(16).toUpperCase().padStart(2, '0');
-    const kept = st.bits ? `byte ${h2(st.offset)}h bit${st.bits > 1 ? `s ${st.shift + st.bits - 1}-` : ' '}${st.shift}${PACK[s.off] ? ` (edited in work byte ${h2(s.off)}h)` : ''}`
-      : `byte ${h2(s.off)}h${s.size === 2 ? ' (2 bytes)' : ''}`;
     const effects = !!FW.EFFECTS?.[s.off];
     return {
       key, group: s.group, label: first.label, ...st, min, max,
@@ -225,7 +222,7 @@ export function makeQuadraverb(FW, opt) {
         const at = here(d);
         if (!at) return { hidden: true };
         const ds = at.desc;
-        const where = `${FN[at.func]} page ${at.page + 1}, ${kept}`;
+        const where = `${FN[at.func]} page ${at.page + 1}`;
         if (FORMATS[ds.fmt].targets) {
           const options = [];
           for (let v = ds.min; v <= ds.max; v++) { const t = targetName(d, v); if (t) options.push([v, t]); }
@@ -263,7 +260,7 @@ export function makeQuadraverb(FW, opt) {
             if (!a) return { hidden: true };
             const ds = a.desc;
             const label = ds.label.replace(/\bx\b/, String(n + 1));
-            const help = `${label}: ${formatValue(ds, ds.min)} to ${formatValue(ds, ds.max)} (stored in byte${size === 2 ? 's' : ''} ${[hi, ...(size === 2 ? [lo] : [])].map((b) => `${b.toString(16).toUpperCase().padStart(2, '0')}h`).join(', ')}; edited on the unit with TAP NUMBER ${n + 1})`;
+            const help = `${label}: ${formatValue(ds, ds.min)} to ${formatValue(ds, ds.max)} (on the unit: set TAP NUMBER to ${n + 1})`;
             if (LISTISH(ds)) { const options = []; for (let v = ds.min; v <= ds.max; v++) options.push([v, formatValue(ds, v)]); return { label, options, help }; }
             return { label, min: ds.min, max: ds.max, format: (v) => formatValue(ds, v), help };
           },
@@ -297,7 +294,7 @@ export function makeQuadraverb(FW, opt) {
             const a = at(d);
             if (!a) return { hidden: true };
             const ds = a.desc;
-            const help = `${label}: ${formatValue(ds, ds.min)} to ${formatValue(ds, ds.max)} (kept in byte ${byte < SIZE ? byte.toString(16).toUpperCase().padStart(2, '0') : `${st.offset.toString(16).toUpperCase()}h bits ${st.shift + st.bits - 1}-${st.shift}, work byte ${byte.toString(16).toUpperCase()}`}h; edited on the unit with RESONATOR NUMB ${n + 1})`;
+            const help = `${label}: ${formatValue(ds, ds.min)} to ${formatValue(ds, ds.max)} (on the unit: set RESONATOR NUMB to ${n + 1})`;
             return { label, min: ds.min, max: ds.max, format: (v) => formatValue(ds, v), help };
           },
         });
@@ -312,7 +309,7 @@ export function makeQuadraverb(FW, opt) {
     ...Array.from({ length: NAME_LEN }, (_, i) => ({ key: `name${i}`, group: 'Name', label: `Name ${i + 1}`, offset: NAME_AT + i, min: 32, max: 127, kind: 'char', hidden: true })),
     ...SPARE.map((off) => ({
       key: `spare${off.toString(16)}`, group: 'Spare bytes', label: `Byte ${off.toString(16).toUpperCase().padStart(2, '0')}h`, offset: off, min: 0, max: 255,
-      input: 'number', send: sendWhole, help: `On no page of ${FIRMWARE}; 0 in every factory program (sent with the whole program)`,
+      input: 'number', send: sendWhole, help: `Not on any page of the ${NAME}; 0 in every factory program (sent with the whole program)`,
     })),
     ...tapParams(),
   ];
@@ -482,7 +479,7 @@ export function makeQuadraverb(FW, opt) {
   const dev = (ctx) => (ctx?.channel ?? 0) & 0x0f;
 
   const def = {
-    coverage: `Every byte of programs (all ${CONFIGS.length} configurations; each page with its LCD label and the text its display routine shows for every value), the ${PRESETS.length} factory programs and the MIDI page, from ${FIRMWARE}. Edit buffer, program and all-program dumps, live page edits (opcode 01). The MIDI page can be written, not read. Not checked on hardware.`,
+    coverage: `Edits the ${NAME}'s programs (all ${CONFIGS.length} configurations, each page with the label and value texts its display shows), shows the ${PRESETS.length} factory programs, and sets the MIDI page. Reads and writes the current program, single programs and all 100 at once, and sends each change as you make it. The MIDI page can be sent but not read back. Not checked on hardware.`,
     sysex: { manufacturer: [0x00, 0x00, 0x0e], model: opt.model },
     minGap: 20,
     describe,
@@ -509,9 +506,9 @@ export function makeQuadraverb(FW, opt) {
         fromCommon: (c, base) => TR.fromCommon(c, base),
         cols: 4,
         layout: ORDER.map((group) => ({ group })),
-        groupInfo: { 'Spare bytes': { table: true, note: 'Bytes no page edits; kept as they are.' } },
-        note: `Each change is sent as a page edit (opcode 01) for the page the ${NAME} shows in the current configuration; the configuration and the name send the whole program to the edit buffer. SYSEX ENABLE must be ON on the MIDI page.`,
-        sendAll: { label: 'Send to edit buffer', title: 'Send the whole program to the edit buffer (opcode 02, program 100)', build: (data) => msg.edit(fitted(data)) },
+        groupInfo: { 'Spare bytes': { table: true, note: 'Values no page of the unit edits; kept as they are.' } },
+        note: `Each change is sent at once, as if made on the ${NAME}'s own page; changing the configuration or the name sends the whole program. SYSEX ENABLE must be ON on the MIDI page.`,
+        sendAll: { label: 'Send to edit buffer', title: 'Send the whole program to the unit to play; nothing is stored', build: (data) => msg.edit(fitted(data)) },
         toSyx: (data) => msg.edit(fitted(data)),
         fromSyx: programFromSyx,
         actions: [
@@ -523,7 +520,7 @@ export function makeQuadraverb(FW, opt) {
             api.send(msg.edit(fitted(d)));
             api.setData(d);
           } },
-          { label: 'Write to program', title: 'Write the program into a memory location (opcode 02 with the program number)', run: async (api) => {
+          { label: 'Write to program', title: 'Write the program into a memory location (00-99)', run: async (api) => {
             const r = await api.form('Write into program', [{ key: 'n', label: 'Program (0-99)', value: '0', type: 'number', min: 0, max: 99 }]);
             if (!r) return;
             const n = Math.max(0, Math.min(99, Math.round(Number(r.n) || 0)));
@@ -533,8 +530,8 @@ export function makeQuadraverb(FW, opt) {
         slots: {
           label: 'Programs', banks: BANKS, count: (bank) => (bank === 1 ? PRESETS.length : USER_COUNT),
           slotLabel: (bank, i) => `${bank ? 'Alesis' : 'Prog'} ${pad2(i)}`,
-          note: (bank) => (bank ? `The ${PRESETS.length} Alesis programs are in the ${NAME}'s ROM (their contents come from the firmware); Play sends one to the edit buffer. On the unit, STORE / RECALL ALESIS PROG copies them into memory. `
-            : 'Programs 00-99 are read and written one at a time (opcode 03 / 02). ') + 'Play on a memory program sends a program change on the editor\'s channel (MIDI PROGRAM CHANGE must be ON).',
+          note: (bank) => (bank ? `The ${PRESETS.length} Alesis programs are built into the ${NAME}; the editor shows them from its own copy, and Play sends one to the unit to play. On the unit, STORE / RECALL ALESIS PROG copies them into memory. `
+            : 'Programs 00-99 are read and written one at a time. ') + 'Play on a memory program sends a program change on the editor\'s channel (MIDI PROGRAM CHANGE must be ON).',
           names: (bank) => (bank === 1 ? PRESET_NAMES : null),
           writable: (bank) => bank === 0,
           name: nameOf,
@@ -553,7 +550,7 @@ export function makeQuadraverb(FW, opt) {
         params: midiParams,
         cols: 3,
         layout: [{ group: 'MIDI' }, ...(GLOBAL ? [{ group: 'Preamp' }] : []), { group: 'Program change table' }],
-        note: `The MIDI page${GLOBAL ? ', the global cab simulator' : ''} and the program change table can be set over MIDI (opcode 01) but no message reads them: this page shows the ${NAME}'s defaults until you change a value, then what was sent.`,
+        note: `The MIDI page${GLOBAL ? ', the global cab simulator' : ''} and the program change table can be sent over MIDI but not read back: this page shows the ${NAME}'s defaults until you change a value, then what was sent.`,
         // one .syx of page edits: channel, program change, thru, footswitch range, (GT: cab simulator), then the table
         toSyx: (data) => [...[0, 1, 4, 8, 9].map((off) => midiParams.find((p) => p.offset === off).send(data[off])),
           ...(GLOBAL ? midiParams.find((p) => p.key === 'cabsrc').send(data[GLOBAL.select[1]], null, data) : []),

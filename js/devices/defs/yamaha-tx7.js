@@ -48,7 +48,7 @@ function perfParams() {
   const dx5 = fn94Params({
     reads: () => false,
     group: (o) => (o < 30 ? 'Not used by the TX7 (DX5 channel A)' : o < 60 ? 'Not used by the TX7 (DX5 channel B)' : o < 64 ? 'Not used by the TX7 (DX5 key assign)' : 'Name'),
-    readOnlyHelp: (o) => (o >= 64 ? 'Performance name character; the TX7 always sends " YAMAHA  TX7  FUNCTION  DATA  " (C87C).'
+    readOnlyHelp: (o) => (o >= 64 ? 'Performance name character; the TX7 always sends " YAMAHA  TX7  FUNCTION  DATA  ".'
       : o >= 30 && o < 60 ? 'Channel B of the DX5 performance: the TX7 sends a copy of channel A (voice number + 32) and never reads it.'
         : `The DX5's ${o < 60 ? 'channel A' : 'performance'} value; the TX7 sends ${FIXED[o] ?? 0} here and never reads it.`),
   }).filter((p) => !used.has(p.offset)).map((p) => ({ ...p, label: p.offset >= 64 ? p.label : `${p.label} (DX5)` }));
@@ -116,20 +116,20 @@ const SYS_INIT = [0, 0, 0, 1, 0, 0, 1, 0, 30, 0, 64, 0, 127, 0];
 const NOTE = (n) => `${['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][n % 12]}${Math.floor(n / 12) - 2}`; // note names C89A
 /** [offset, label, max, how it is sent, group, extra]; send: {sys: pp} | {fn: number, add} | 'omni' | null (read only). */
 const SYS_PARAMS = [
-  [10, 'MASTER TUNE', 127, { fn: 0x40 }, 'TX7', { format: (v) => String(v - 64), help: 'Shown -64..+63 (D38A); sent as group 1 number 40h (E004). Not in the 7Dh answer: the page shows what was sent.' }],
-  [1, 'MEM. PROTECT', 1, { sys: 7 }, 'TX7', { options: opts(TX.OFFON), help: 'Memory protect: the TX7 turns it ON at every power-on (CD5E). Shown OFF, your usual setting.' }],
-  [13, 'LOAD FUNC', 1, { sys: 0x0b }, 'TX7', { options: opts(['INT', 'EXT']), help: 'Which set of function memories the voices use (RAM 7B37: INT 70CAh, EXT 72CAh). Not in the 7Dh answer.' }],
-  [7, 'MIDI RCV.CH.', 15, { fn: 1, add: 1 }, 'MIDI', { options: Array.from({ length: 16 }, (_, c) => [c, String(c + 1)]), help: 'Sent as group 1 number 1 = channel (E028). The TX7 then takes messages on the new channel: set the editor\'s MIDI channel to it.' }],
-  [2, 'OMNI MODE', 1, 'omni', 'MIDI', { options: opts(TX.OFFON), help: 'Sent as control change 7Dh (omni on) / 7Ch (omni off), as the TX7 takes them (D8C0 / D8AF).' }],
+  [10, 'MASTER TUNE', 127, { fn: 0x40 }, 'TX7', { format: (v) => String(v - 64), help: 'Shown -64..+63. The TX7 cannot report it: the page shows what was sent.' }],
+  [1, 'MEM. PROTECT', 1, { sys: 7 }, 'TX7', { options: opts(TX.OFFON), help: 'Memory protect: the TX7 turns it ON at every power-on. Shown OFF, your usual setting.' }],
+  [13, 'LOAD FUNC', 1, { sys: 0x0b }, 'TX7', { options: opts(['INT', 'EXT']), help: 'Which set of function memories the voices use (INT or EXT). The TX7 cannot report it.' }],
+  [7, 'MIDI RCV.CH.', 15, { fn: 1, add: 1 }, 'MIDI', { options: Array.from({ length: 16 }, (_, c) => [c, String(c + 1)]), help: 'The TX7 then listens on the new channel: set the editor\'s MIDI channel to match.' }],
+  [2, 'OMNI MODE', 1, 'omni', 'MIDI', { options: opts(TX.OFFON), help: 'ON: the TX7 receives on every MIDI channel.' }],
   [3, 'CTL.CHNG.RCV.', 1, { sys: 1 }, 'MIDI', { options: opts(TX.OFFON), help: 'Control changes (modulation, breath, foot, portamento, volume, sustain) received.' }],
-  [0, 'D.ENTRY RCV.', 1, { sys: 0 }, 'MIDI', { options: opts(TX.OFFON), help: 'Data entry (control change 6, and 60h / 61h increment / decrement) received; turning it on turns D.ENTRY VOL off (DF94).' }],
-  [4, 'D.ENTRY VOL', 1, { sys: 2 }, 'MIDI', { options: opts(TX.OFFON), help: 'The data entry slider sets the volume; turning it on turns D.ENTRY RCV. off (DF9D).' }],
-  [11, 'SP L', 127, { sys: 6 }, 'Key limits', { options: Array.from({ length: 128 }, (_, n) => [n, NOTE(n)]), help: '"SP L=    ,H=    ": the lowest key the TX7 plays (RAM 74D8; on its panel set by playing the key). Not in the 7Dh answer.' }],
-  [12, 'SP H', 127, { sys: 5 }, 'Key limits', { options: Array.from({ length: 128 }, (_, n) => [n, NOTE(n)]), help: 'The highest key (RAM 74D9). Not in the 7Dh answer.' }],
-  [6, 'Internal voice', 1, null, 'Status (7Dh answer)', { options: opts(['no (cartridge)', 'yes']), help: 'Flag 7B6E: set when a program change selected an internal voice (0-31), clear for a cartridge voice (D9CE); the TX7 then loads the voice\'s function memory (D3B6).' }],
-  [5, 'Flag 7B6D', 1, null, 'Status (7Dh answer)', { options: opts(TX.OFFON), help: 'Set only by system parameter 3 (which then also sets CTL.CHNG.RCV. on, D.ENTRY RCV. on or off and the internal flag, DF68) and cleared whenever the TX7 changes page (CFF7); no page shows it.' }],
-  [8, 'BATTERY VOLT', 127, null, 'Status (7Dh answer)', { format: (v) => `${Math.floor(v / 10)}.${v % 10} V`, help: 'The backup battery as the TX7 measures it (CDB9, shown as "BATTERY VOLT= . "); below 2.3 V it shows CHANGE BATTERY.' }],
-  [9, 'Volume level', 127, null, 'Status (7Dh answer)', { help: 'The level the TX7 sets its output volume to (RAM 7B7E, written inverted to the volume DAC: data entry slider or MIDI volume).' }],
+  [0, 'D.ENTRY RCV.', 1, { sys: 0 }, 'MIDI', { options: opts(TX.OFFON), help: 'The TX7 takes data entry (slider, increment and decrement) over MIDI; turning it on turns D.ENTRY VOL off.' }],
+  [4, 'D.ENTRY VOL', 1, { sys: 2 }, 'MIDI', { options: opts(TX.OFFON), help: 'The data entry slider sets the volume; turning it on turns D.ENTRY RCV. off.' }],
+  [11, 'SP L', 127, { sys: 6 }, 'Key limits', { options: Array.from({ length: 128 }, (_, n) => [n, NOTE(n)]), help: '"SP L=    ,H=    ": the lowest key the TX7 plays (on its panel, set by playing the key). The TX7 cannot report it.' }],
+  [12, 'SP H', 127, { sys: 5 }, 'Key limits', { options: Array.from({ length: 128 }, (_, n) => [n, NOTE(n)]), help: 'The highest key the TX7 plays. The TX7 cannot report it.' }],
+  [6, 'Internal voice', 1, null, 'Status', { options: opts(['no (cartridge)', 'yes']), help: 'Yes when the current voice is an internal one (selected by a program change), no for a cartridge voice; for an internal voice the TX7 also loads its function memory.' }],
+  [5, 'Internal MIDI flag', 1, null, 'Status', { options: opts(TX.OFFON), help: 'An internal status no TX7 page shows: a MIDI command that also sets CTL.CHNG.RCV. and D.ENTRY RCV. turns it on, and it goes off whenever the TX7 changes page. For information only.' }],
+  [8, 'BATTERY VOLT', 127, null, 'Status', { format: (v) => `${Math.floor(v / 10)}.${v % 10} V`, help: 'The backup battery as the TX7 measures it (its "BATTERY VOLT" page); below 2.3 V it shows CHANGE BATTERY.' }],
+  [9, 'Volume level', 127, null, 'Status', { help: 'The TX7\'s current output volume (set by the data entry slider or MIDI volume).' }],
 ];
 function sysParams() {
   return SYS_PARAMS.map(([offset, label, max, send, group, extra]) => ({ key: `sys${offset}`, label, offset, min: 0, max, group, how: send, ...(send ? {} : { readOnly: true }), ...extra }));
@@ -161,8 +161,8 @@ const def = buildDX({
   functionParams: null,
   formats: [1, 2, 0x7d],
   bankNote: 'MEM. PROTECT must be off.',
-  coverage: 'Every voice parameter (the DX7 voice format: labels and displays from the DX7 v1.8 firmware, as the TX7 has no voice edit display) and the TX7\'s function data (format 1: play mode, pitch wheel, portamento, controllers, attenuation) with the TX7 v1.4 display texts; voice, function data and 32-voice dumps on request, parameter changes for both. The function memories (format 2, the DX5 64-byte packing, which the TX7 sends twice) are split by the Branch Library and read and written back from the Function data page\'s slot list. The System page: the status message (7Dh, "LM  8951  ": MIDI switches, MIDI RCV.CH., battery, volume) read on request, and the settings the TX7 takes as parameter changes (MASTER TUNE, MEM. PROTECT, LOAD FUNC, OMNI MODE, CTL.CHNG.RCV., D.ENTRY RCV. / VOL, key limits) with its page titles. Not yet checked on a TX7.',
-  notes: { voice: 'The TX7 answers dump requests: Get from device reads the voice edit buffer. Every change is a parameter change (group 0).' },
+  coverage: 'Edits the TX7\'s voices, function data and system settings. Every voice parameter (the DX7 voice, with the DX7\'s names and displays, as the TX7 has no voice edit display) and the TX7\'s function data (play mode, pitch wheel, portamento, controllers, attenuation) with its own display texts. The voice, the function data and the 32 voices are read from the TX7; each change is sent as you make it. The function memories are read and written back from the Function data page\'s slot list (and the Branch Library). The System page reads the MIDI switches, MIDI RCV.CH., battery and volume, and sends the settings the TX7 accepts (MASTER TUNE, MEM. PROTECT, LOAD FUNC, OMNI MODE, CTL.CHNG.RCV., D.ENTRY RCV. / VOL, key limits). Not yet checked on a TX7.',
+  notes: { voice: 'Get from device reads the voice being edited on the TX7; each change is sent as you make it.' },
   moreRequests: [
     { label: 'Function data (performance edit)', bytes: (ctx) => dumpRequest(ctx?.channel ?? 0, 1) },
     { label: 'Function memories', bytes: (ctx) => dumpRequest(ctx?.channel ?? 0, 2), timeout: 5000 },
@@ -208,9 +208,9 @@ const def = buildDX({
       match: isPerf,
       decode: (raw) => Uint8Array.from(parseBulk(raw).data),
       name: (d) => `voice ${d[0] + 1}${textAt(d, 64, 30) ? '' : ''}`,
-      note: 'The TX7\'s function data for one voice (the DX1/DX5 performance format, half A). Changes are parameter changes (group 1, number = byte); the read-only bytes are what the TX7 sends and never reads.',
+      note: 'The TX7\'s function data for one voice (laid out like a DX1/DX5 performance). Each change is sent as you make it; the read-only values are ones the TX7 sends but does not use.',
       sendParam: (p, _v, d, ctx) => (SENT.has(p.offset) ? paramChange(ch(ctx), 1, p.offset, d[p.offset]) : bulk(ch(ctx), 1, d)),
-      sendAll: { label: 'Send', title: 'Send the function data (format 1)', build: (d, ctx) => bulk(ch(ctx), 1, d) },
+      sendAll: { label: 'Send', title: 'Send the function data to the TX7', build: (d, ctx) => bulk(ch(ctx), 1, d) },
       toSyx: (d, ctx) => bulk(ch(ctx), 1, d),
       fromSyx: (msgs) => { const m = msgs.find(isPerf); return m ? Uint8Array.from(parseBulk(m).data) : null; },
       // the 32 function memories (format 2, E32A; received by DE02: bytes 0-7 and the attenuation of half A)
@@ -222,17 +222,17 @@ const def = buildDX({
     def2.objects.push({
       key: 'system', page: 'System', icon: '⚙', label: 'System', size: SYS_SIZE, cols: 3,
       init: () => Uint8Array.from(SYS_INIT), params: sp,
-      layout: [{ group: 'TX7' }, { group: 'MIDI' }, { group: 'Key limits' }, { group: 'Status (7Dh answer)' }],
+      layout: [{ group: 'TX7' }, { group: 'MIDI' }, { group: 'Key limits' }, { group: 'Status' }],
       request: (ctx) => dumpRequest(ch(ctx), 0x7d),
       match: isSys,
       decode: (raw, ctx) => decodeSys(raw, ctx?.data?.system),
-      note: 'Get from device asks for the TX7\'s status message (7Dh, "LM  8951  "): its MIDI switches, MIDI RCV.CH., battery and volume. MASTER TUNE, LOAD FUNC and the key limits are not in it: they show the defaults (or what was sent) until changed here. The TX7 takes no 7Dh bulk: each change is sent on its own (system parameter changes F0 43 1n 11 pp vv F7, group 1 numbers 1 and 40h, control changes 7Ch / 7Dh for OMNI MODE). MEM. PROTECT is shown OFF, your usual setting (the TX7 sets it ON at power-on).',
+      note: 'Get from device reads the TX7\'s MIDI switches, MIDI RCV.CH., battery and volume. The TX7 cannot report MASTER TUNE, LOAD FUNC or the key limits: they show the defaults (or what you sent) until you change them here. Each change is sent on its own as you make it. MEM. PROTECT is shown OFF, your usual setting (the TX7 turns it ON at every power-on).',
       sendParam: (p, _v, d, ctx) => sysMsg(ch(ctx), p, d),
       receive: (raw, d, ctx) => (isSys(raw) ? decodeSys(raw, d) : null),
       fromSyx: (msgs) => { const m = msgs.find(isSys); return m ? decodeSys(m) : null; },
       actions: [
         { label: 'Send all', title: 'Send every setting the TX7 takes (not the status values)', run: (api) => api.send(sp.filter((p) => p.how).map((p) => sysMsg(ch(api.ctx), p, api.data))) },
-        { label: 'VOICE INIT', title: 'System parameter 0Ch (D6EE): the TX7 puts its INIT VOICE into the edit buffer and sets MASTER TUNE to 0; read the voice again afterwards', run: (api) => api.send(paramChange(ch(api.ctx), 4, 0x8c, 1)) },
+        { label: 'VOICE INIT', title: 'The TX7 loads its INIT VOICE for editing and sets MASTER TUNE to 0; read the voice again afterwards', run: (api) => api.send(paramChange(ch(api.ctx), 4, 0x8c, 1)) },
       ],
     });
   },

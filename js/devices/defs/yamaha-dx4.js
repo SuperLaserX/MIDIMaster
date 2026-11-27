@@ -310,7 +310,7 @@ export function buildDX4(M) {
     setName: (d, n) => { for (let i = 0; i < 10; i++) d[NAME4 + i] = Math.max(32, Math.min(126, String(n ?? '').charCodeAt(i) || 32)); return d; },
     note: M.notes?.voice || null,
     sendParam: (p, _v, d, ctx) => (p.offset >= VCED4 ? paramChange(ch(ctx), 4, 0x180 + (p.offset - VCED4), d[p.offset]) : paramChange(ch(ctx), 4, 0x100 + p.offset, d[p.offset])),
-    sendAll: { label: 'Send to edit buffer', title: M.aced ? 'Send the additional data ("LM  8976AE") and the voice (format 3)' : 'Send the voice (format 3)', build: (d, ctx) => voiceMsgs(ch(ctx), d) },
+    sendAll: { label: 'Send to edit buffer', title: M.aced ? 'Send the voice with its additional settings to the unit\'s edit buffer' : 'Send the voice to the unit\'s edit buffer', build: (d, ctx) => voiceMsgs(ch(ctx), d) },
     toSyx: (d, ctx) => voiceMsgs(ch(ctx), d),
     fromSyx: (msgs) => {
       const v = msgs.find(isV);
@@ -344,9 +344,9 @@ export function buildDX4(M) {
           api.setData(d);
         },
       },
-      ...(M.requests ? [{ label: 'Get 32 voices', title: 'Read the 32 internal voices (format 4)', run: async (api) => { await readBank(api); api.toast('32 voices received', 'good', 2000); api.setData(Uint8Array.from(api.data)); } }] : []),
+      ...(M.requests ? [{ label: 'Get 32 voices', title: 'Read the 32 internal voices from the unit', run: async (api) => { await readBank(api); api.toast('32 voices received', 'good', 2000); api.setData(Uint8Array.from(api.data)); } }] : []),
       {
-        label: 'Send bank', title: 'Send the editor\'s 32 voices (format 4): replaces every internal voice', run: async (api) => {
+        label: 'Send bank', title: 'Send the editor\'s 32 voices to the unit: replaces every internal voice', run: async (api) => {
           const b = bankOf(api.ctx);
           if (!b) { api.toast('The editor holds no bank yet: Get 32 voices first.', 'warn'); return; }
           if (!(await api.confirm('Send bank', `Replace all 32 internal voices of the ${M.name}? (Memory protect off.)`, 'Send', true))) return;

@@ -393,7 +393,7 @@ From the Head Library` },
         plan.skipped.length > 8 ? '; ...' : ''));
     }
     for (const w of plan.warnings) notes.push(h('div.notice.warn', w));
-    if (samples) notes.push(h('div.small.muted', 'Each sample is sent by Sample Dump into a temporary ID from 999 down, then written to its final ID with all its settings. The K2000 never gives sample RAM back until Delete Everything or a restart, so a cancelled import leaves its audio allocated.'));
+    if (samples) notes.push(h('div.small.muted', 'Each sample first lands on a spare ID (counting down from 999) and then moves to its final ID with all its settings. The K2000 only frees sample memory after Delete Everything or a restart, so audio sent before a cancel keeps using memory.'));
 
     const busy = !!session.job;
     const sendBtn = h('button.btn.primary', { disabled: busy || !plan.steps.length, onclick: () => start(plan, cur) }, 'Send to K2000');

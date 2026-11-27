@@ -190,7 +190,7 @@ to an M1R's combination edit buffer and read back identically (`re/m1/multicheck
 ## Translator (Head Library)
 
 `js/devices/defs/korg-m1-translate.js` moves programs and combinations through the shared synth
-model (`docs/HEAD_LIBRARY.md`). Every program and combination keeps its exact bytes in
+model (`intdocs/HEAD_LIBRARY.md`). Every program and combination keeps its exact bytes in
 `common.extra` (family `korg-m1`), so the M1 and M1R take each other's sounds byte for byte.
 
 From an M1 **program**: OSC1 (and OSC2 in DOUBLE mode) as oscillators, their multisounds as

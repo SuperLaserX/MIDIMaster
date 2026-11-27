@@ -172,3 +172,12 @@ configuration 16 as broken for this image, and the editor uses the v1.03 tables 
   05 for live edits (`minGap` 120 ms).
 - Another v1.04 dump to settle the two configuration bytes.
 - The SGE Mach II (1990, same software family, in the collection) is not covered.
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- MIDI ENABLE PM is kept at C0BE and MIDI ENABLE PROG at C0BD (the Alpha 2 SE as the Alpha 2).
+- The preset shown is kept at C0B1 (read with 43 40, set with 03 40; 09 recalls one), on the Alpha 2 SE as on the Alpha 2.
+- The software version is read with 43 41: the version word at 001F, low byte first (the SE 1.03 / 1.04 report 2.03 / 2.04).
+- Addresses the help texts named (SE 1.03; 1.04 has them one byte later from 0517 on): ADD EFFECT 1C9C, DELETE EFFECT 13DC; a new PERFORMANCE MIDI assignment 1190 (MC 4, the first parameter in use, its full range), the parameter choice 1E25 (only parameters in use) and its LOW / HIGH range 11CD; the configuration ADD EFFECT picks 15E8 (configuration table 17C0); tuner 3362; MIDI ENABLE PM tested at 5D2C, MIDI ENABLE PROG at 5CD2; a pending controller value (assignment byte 5) written at 5DB8 and applied by the main loop at 5DF4; the recalled value (assignment byte 4) filled in at 6EE0 and written back by STORE (70A6); the sampler's running state C150 (REC-RDY, RECRDNG, IDLE, PLAY; the STATE byte itself is always 0); effect records 2106; status bits 73DF; the "edit buffer as stored" flag C160 (set at 704E).

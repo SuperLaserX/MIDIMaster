@@ -27,8 +27,12 @@ const PERF_BANKS = [
   { label: 'USER', msb: 0x50, lsb: 0, user: true },
   { label: 'PRESET', msb: 0x51, lsb: 0 },
 ];
-const SAME = 'Panel switch: the JP-8000 shows it with LEDs only. It is the same byte, with the same values, as on the JP-8080 (Roland\'s JP-8080 address map).';
-const NONE = 'A system byte no menu of JP-8000 OS 1.05 shows (the JP-8080 address map lists it as a JP-8000 setting); kept so a backup restores exactly.';
+const SAME = 'Panel switch: the JP-8000 shows it with its LEDs only.';
+const PANEL_LED = 'The JP-8000 shows it with its LEDs only.';
+// System 12h / 13h: Roland's JP-8000 address map names them; the values are the lists of the two
+// utility pages (option lists 16 and 17). OS 1.05 keeps, sends and receives them (range checked),
+// but its pages hold their own selection in work RAM and never read these bytes (emulator, see the doc).
+const MENU_BYTE = (page, keys) => `The selection of the ${page} page (${keys}). The JP-8000 stores and sends it, but the page itself starts at its first entry after power-up and does not use this value.`;
 
 const M = {
   id: 'roland-jp8000',
@@ -41,18 +45,31 @@ const M = {
   depthName: 'Ribbon',
   patchBanks: PATCH_BANKS,
   perfBanks: PERF_BANKS,
-  // JP-8000 format codes that differ from the JP-8080 ones (handlers at 6FF30): 11h remote channel
-  // (1-16, ALL, OFF), 13h OSC2 range (-WIDE, -24..+24, +WIDE), FFh input quantize.
-  formatMap: { 0x11: 0x1a, 0x13: 0x1c, 0xff: 0x18 },
+  // JP-8000 format codes that differ from the JP-8080 ones (handlers at 6FF30): 0Fh input quantize
+  // (OFF, then the note glyphs of table 6FF22), 11h remote channel (1-16, ALL, OFF), 13h OSC2 range
+  // (-WIDE, -24..+24, +WIDE).
+  formatMap: { 0x0f: 0x18, 0x11: 0x1a, 0x13: 0x1c },
+  // Tx/Rx CC list: option list 10 (list 11 on the JP-8080); 00 00 30 28/29 are the ribbon's halves.
+  ccList: 10,
+  // RPS patterns have SysEx on the JP-8000 (08 nn 00 00; not on the JP-8080).
+  patterns: true,
+  upDownLabels: ['Ribbon Up', 'Ribbon Down'],
+  upDownNote: 'Ribbon Up/Down: the messages of the right-hand and left-hand halves of the ribbon controller; EXCLUSIVE cannot be assigned to them',
+  // OS 1.05 (12A60, MODE2 branch 12D4E) indexes its 96-entry CC table (21B450h) with the slot's value
+  // without excluding 96, so EXCLUSIVE writes over the memory signature copy at 21B5D0h (emulator).
+  txrxWarning: 'Caution: with Tx/Rx Edit Mode MODE2 and Tx/Rx Edit SW ON, do not set a knob to EXCLUSIVE: a fault in the JP-8000\'s system software (OS 1.05) then makes it show "Memory Damaged!" at the next power-on (your data stays). Setting it on the panel does the same.',
   panelNote: SAME,
-  coverage: 'Every system, performance, part and patch byte (including the Ribbon and Velocity depth matrices, the Tx/Rx CC table and the RPS pattern loop lengths) with the labels, ranges, value displays and option lists of the OS 1.05 firmware, read and written by address (DT1/RQ1). User patch and performance memories, the preset names from the ROM, bank select, program change and the motion data (event editor). Built from the firmware and the JP-8080 work; not yet checked on a JP-8000.',
+  coverage: 'Edits the JP-8000\'s patches, performances and system settings, read from and written to the unit. Every setting is named and shown as on the JP-8000\'s screens (OS 1.05), including the Ribbon and Velocity depth of each knob, the knob CC table and the RPS pattern loop lengths. User patch and performance memories, the preset names, and the motion data (event editor). Built from the JP-8000\'s system software and the JP-8080 work; not yet checked on a JP-8000.',
   // System blocks of the JP-8000 only: pattern loop length per key (no PLAY ONCE) and motion loops 1-8.
   sysPlace: (off) => {
     if (off >= 0x800 && off < 0x830) return { label: `Pattern ${NOTE(37 + off - 0x800)} loop length`, group: 'Pattern and motion', format: (v) => `${v} meas.` };
     if (off >= 0x1000 && off < 0x1004) return { label: `Motion ${['A[1]', 'A[2]', 'B[1]', 'B[2]'][off - 0x1000]} loop length`, group: 'Motion control', format: (v) => `${v} meas.` };
+    if (off === 0x09) return { group: 'MIDI and system' };
+    if (off === 0x12 || off === 0x13) return { group: 'Utility pages (stored selection)' };
+    if (off >= 0x14 && off <= 0x16) return { group: 'Keyboard shift and ribbon' };
     return null;
   },
-  switches: ({ ONOFF }) => ({
+  switches: ({ ONOFF, L }) => ({
     PATCH: {
       0x10: ['LFO1 waveform', ['TRI', 'SAW', 'SQR', 'S/H']],
       0x14: ['LFO2 depth select', ['PITCH', 'FILTER', 'AMP'], `${SAME} Which depth the LFO2 DEPTH knob edits.`],
@@ -64,8 +81,8 @@ const M = {
       0x27: ['Filter type', ['HPF', 'BPF', 'LPF']],
       0x28: ['Cutoff slope', ['-12 dB/oct', '-24 dB/oct']],
       0x3a: ['Auto pan / manual pan', ['OFF', 'AUTO PAN', 'MANUAL PAN']],
-      0x43: ['Bend Range Up', null, 'Pitch bend range up, 0-24 semitones (no JP-8000 menu: the same byte and range as the JP-8080 Bend Range Up).', { format: (v) => `+${v}` }],
-      0x44: ['Bend Range Down', null, 'Pitch bend range down, 0-24 semitones (no JP-8000 menu: the same byte and range as the JP-8080 Bend Range Down).', { format: (v) => (v ? `-${v}` : '0') }],
+      0x43: ['Bend Range Up', null, 'Pitch bend range up, 0-24 semitones (no JP-8000 menu shows it; the same setting as the JP-8080\'s Bend Range Up).', { format: (v) => `+${v}` }],
+      0x44: ['Bend Range Down', null, 'Pitch bend range down, 0-24 semitones (no JP-8000 menu shows it; the same setting as the JP-8080\'s Bend Range Down).', { format: (v) => (v ? `-${v}` : '0') }],
       0x45: ['Portamento switch', ONOFF],
       0x47: ['Mono switch', ONOFF],
       0x48: ['Legato switch', ONOFF],
@@ -86,11 +103,12 @@ const M = {
     },
     SYSTEM: {
       0x00: ['Performance bank', [null, 'USER', 'PRESET']],
-      0x12: ['Setting 12h', null, NONE, { input: 'number' }],
-      0x13: ['Setting 13h', null, NONE, { input: 'number' }],
-      0x14: ['Setting 14h', null, NONE, { input: 'number' }],
-      0x15: ['Setting 15h', null, NONE, { input: 'number' }],
-      0x16: ['Setting 16h', null, NONE, { input: 'number' }],
+      // the page lists as the LCD shows them, with the padding between the two words taken out
+      0x12: ['Factory Preset Menu', L(16).map((t) => t.replace(/\s+/g, ' ')), MENU_BYTE('Initialize ("Initialze[WRITE]")', 'SHIFT + INIT/UTIL')],
+      0x13: ['Bulk Dump Menu', L(17).map((t) => t.replace(/\s+/g, ' ')), MENU_BYTE('Bulk Dump ("Bulk Dump[WRITE]")', 'SHIFT + INIT/UTIL, then INIT/UTIL again')],
+      0x14: ['Keyboard Shift', ['-2 oct', '-1 oct', '0', '+1 oct', '+2 oct'], `Panel switch: SHIFT + -OCT/+OCT turns the OSC SHIFT buttons into Keyboard Shift buttons, which then shift the keyboard in octaves (both parts, and the notes it sends). ${PANEL_LED}`],
+      0x15: ['Ribbon Relative', ONOFF, `Panel switch RIBBON CONTROLLER [RELATIVE]: ON, the sound starts unchanged wherever the ribbon is touched and changes as the finger moves. ${PANEL_LED}`],
+      0x16: ['Ribbon Hold', ONOFF, `Panel switch RIBBON CONTROLLER [HOLD]: ON, the change the ribbon made stays when the finger is taken off. ${PANEL_LED}`],
     },
   }),
 };

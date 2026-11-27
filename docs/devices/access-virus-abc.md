@@ -105,3 +105,9 @@ knob Wave or Pulse Width bits 5 / 6).
   `abc_host.py`). What each assumes is in its doc.
 - A hardware check of every model (none was connected).
 - The DSP-side receiver (requests, refusals) is not traced.
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- Filter select (page A 4 bits 0-1): the OS reads it at 15F0.

@@ -1,6 +1,7 @@
 // MIDI monitor: every message in both directions, decoded by the open device module.
 
 import { h, clear, downloadBlob } from '../core/ui/dom.js';
+import { icon } from '../core/ui/icons.js';
 import { describeMessage } from '../core/midi/describe.js';
 import { hex } from '../core/bits.js';
 
@@ -10,7 +11,8 @@ export function monitorView(root, shell) {
   const log = h('div.log');
   const filterRealtime = () => shell.settings.get('midi.filterRealtime');
   let paused = false;
-  const pauseBtn = h('button.btn.toggle', { onclick: () => { paused = !paused; pauseBtn.classList.toggle('on', paused); pauseBtn.textContent = paused ? 'Paused' : 'Pause'; } }, 'Pause');
+  const pauseLabel = h('span', 'Pause');
+  const pauseBtn = h('button.btn.toggle', { onclick: () => { paused = !paused; pauseBtn.classList.toggle('on', paused); pauseLabel.textContent = paused ? 'Paused' : 'Pause'; } }, icon('pause'), pauseLabel);
   function line(entry) {
     const t = (entry.time / 1000).toFixed(3).padStart(9); // seconds since the page loaded
     const el = h('div.ln.' + entry.dir, `${t}  ${entry.dir === 'out' ? '→' : '←'}  `, h('span.lname', describeMessage(entry.data, decode)));
@@ -24,10 +26,10 @@ export function monitorView(root, shell) {
     h('h1', 'MIDI Monitor'),
     h('div.sub', `Every message ${shell.device ? `exchanged with the ${shell.device.entry.title}` : 'sent and received'}, decoded. Hover a line for its bytes.`),
     h('div.row', { style: { marginBottom: '8px' } }, pauseBtn,
-      h('button.btn', { onclick: () => clear(log) }, 'Clear'),
+      h('button.btn', { onclick: () => clear(log) }, icon('broom'), 'Clear'),
       h('button.btn', {
         onclick: () => downloadBlob(transport.log.map((e) => `${e.dir} ${hex(e.data)}`).join('\n'), 'midimaster-midi-log.txt', 'text/plain'),
-      }, 'Save log'),
+      }, icon('download'), 'Save log'),
       h('span.grow'),
       stats ? h('span.small.muted', `Sent ${stats.sent}, received ${stats.received}, timeouts ${stats.timeouts}, refusals ${stats.naks}`) : null),
     log);

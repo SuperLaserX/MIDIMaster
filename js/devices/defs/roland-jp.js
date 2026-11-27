@@ -28,9 +28,7 @@ const hex4 = (n) => intToAddr(n).map((b) => b.toString(16).padStart(2, '0')).joi
 const NOTES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B']; // table D6143 (Eb/Bb use the flat glyph)
 export const NOTE = (v) => `${NOTES[v % 12]}${Math.floor(v / 12) - 1}`;
 const sign = (n) => `${n > 0 ? '+' : ''}${n}`;
-const PATTERN_KEYS = Array.from({ length: 48 }, (_, i) => NOTE(37 + i)); // C#2 .. C6
 const MOTIONS = [['A[1]', '09 00 00 00'], ['A[2]', '09 40 00 00'], ['B[1]', '0A 00 00 00'], ['B[2]', '0A 40 00 00']];
-const patternAddr = (n) => A('08 00 00 00') + n * A('00 01 00 00');
 /** Unpack 7-in-8 data (pattern and motion events, 6 bytes each). */
 export function unpack7(data) {
   const out = [];
@@ -109,25 +107,52 @@ export function motionMessages(dev, m, raw) {
   return dt1Chunks(MODEL, dev, intToAddr(motionAddr(m)), raw, 0xe7);
 }
 /** Read motion m (0-3) from the unit; an empty motion gives an empty array. */
-export async function readMotion(client, dev, m, { quiet = 800, timeout = 3000 } = {}) {
-  const start = motionAddr(m);
+export async function readMotion(client, dev, m, opts) {
+  return readEvents(client, dev, motionAddr(m), A('00 40 00 00'), opts);
+}
+/** The packed event data at `start` (a motion, or an RPS pattern on the JP-8000); empty when there is none. */
+async function readEvents(client, dev, start, size, { quiet = 800, timeout = 3000 } = {}) {
   const parts = new Map();
   try {
-    await client.request(Uint8Array.from(rq1(MODEL, dev, intToAddr(start), A('00 40 00 00'))), {
+    await client.request(Uint8Array.from(rq1(MODEL, dev, intToAddr(start), size)), {
       collect: (msg, r) => {
         const p = parseDt1(r ?? msg.raw, MODEL);
         if (!p?.ok) return false;
         const off = addrToInt(p.addr) - start;
-        if (off < 0 || off >= A('00 40 00 00')) return false;
+        if (off < 0 || off >= size) return false;
         parts.set(off, p.data);
         return true;
       },
       quiet, resolveOnQuiet: true, timeout,
     });
-  } catch { /* no reply: the motion is empty */ }
+  } catch { /* no reply: no events */ }
   const out = [];
   for (const off of [...parts.keys()].sort((a, b) => a - b)) out.push(...parts.get(off));
   return Uint8Array.from(out);
+}
+
+// RPS patterns (JP-8000). OS 1.05 answers RQ1 and takes DT1 at 08 nn 00 00 (pattern n = key C#2 + n,
+// 0-47), 7-in-8 packed like the motions, in DT1 messages of E7h bytes (checked by running the OS in an
+// emulator: tools/roland/jp8000). The JP-8080 OS has no SysEx for them. Each event is 6 bytes:
+//   0  ticks to wait after the event (MIDI clocks: 24 a beat, 96 a measure)
+//   1  0          2  note number (80h: the end of the pattern)   3  velocity 1-127 (end: 16h)
+//   4-5  gate time in ticks (high, low)
+// Every factory pattern is 4 measures (384 ticks) long, the end event filling up to the last tick.
+export const PATTERN_KEYS = Array.from({ length: 48 }, (_, i) => NOTE(37 + i)); // C#2 .. C6
+export const patternAddr = (n) => A('08 00 00 00') + n * A('00 01 00 00');
+/** Read RPS pattern n (0-47) from a JP-8000; an empty pattern gives an empty array. */
+export function readPattern(client, dev, n, opts) { return readEvents(client, dev, patternAddr(n), A('00 01 00 00'), opts); }
+/** DT1 messages that write RPS pattern n (E7h data bytes each, as the unit sends them). */
+export function patternMessages(dev, n, raw) { return dt1Chunks(MODEL, dev, intToAddr(patternAddr(n)), raw, 0xe7); }
+/** Pattern events as notes: [{tick, note, velocity, gate}], with the total length in ticks and the end event. */
+export function patternTimeline(raw) {
+  const notes = [];
+  let tick = 0, end = null;
+  for (const e of unpack7(raw)) {
+    if (e[2] === 0x80) end = e; else notes.push({ tick, note: e[2], velocity: e[3], gate: (e[4] << 8) | e[5] });
+    tick += e[0];
+  }
+  return { total: tick, notes, end };
 }
 /** Identity reply as the firmware sends it (no 41h manufacturer byte; JP-8000 and JP-8080 alike). */
 export const isJPIdentity = (raw) => raw?.[0] === 0xf0 && raw[1] === 0x7e && raw[3] === 6 && raw[4] === 2 && raw[5] === 6 && raw[6] === 1;
@@ -175,8 +200,8 @@ export function buildJP(M) {
   // orders are those of Roland`s parameter address map (${M.name} owner`s manual, MIDI implementation),
   // which agree with what the firmware does show (OSC1/OSC2 control labels, bank select table D30B4).
   // Entries: [label, options or null, help, extra].
-  const PANEL = M.panelNote || `Panel switch: the ${M.name} shows it with LEDs only (name and values from Roland\'s address map).`;
-  const JP8000 = `A JP-8000 setting kept in the data so JP-8000 files load; the ${M.name} ignores it (Roland address map: "---").`;
+  const PANEL = M.panelNote || `Panel switch: the ${M.name} shows it with its LEDs only.`;
+  const JP8000 = `A JP-8000 setting, kept so JP-8000 files load; the ${M.name} ignores it.`;
   const ONOFF = ['OFF', 'ON'];
   const groups = (n) => Array.from({ length: n }, (_, i) => `Group ${i + 1}`);
   const SWITCHES = M.switches({ PANEL, JP8000, ONOFF, groups, L });
@@ -194,11 +219,15 @@ export function buildJP(M) {
       if (sub === 1) { // two-byte value: high byte (0-1), low byte (0-127)
         const lo = rows[i + 1];
         i++;
-        const vmax = max * 128 + lo[2];
+        // the combined range and initial value from the firmware's per-id table (FW.RANGES2):
+        // TEMPO 20-250, Trig Source Note 0-128 (ALL), depths 0-254; the unit refuses values outside
+        const r2 = FW.RANGES2?.[kind]?.[off];
+        const vmin = r2 ? r2[0] : 0;
+        const vmax = r2 ? r2[1] : max * 128 + lo[2];
         out.push({
-          key: `${kind}_${off.toString(16)}`, label: cleanLabel(label0, pl), offset: o, size: 2, min: 0, max: vmax, address: off,
+          key: `${kind}_${off.toString(16)}`, label: cleanLabel(label0, pl), offset: o, size: 2, min: vmin, max: vmax, address: off,
           get: (d) => (d[o] & 1) * 128 + (d[o + 1] & 127), set: (d, v) => { d[o] = (v >> 7) & 1; d[o + 1] = v & 127; },
-          ...display(fmt, arg, vmax, 0), ...pl, two: true,
+          ...display(fmt, arg, vmax, vmin), ...pl, two: true, ...(r2 ? { init: r2[2] } : {}),
         });
         continue;
       }
@@ -232,10 +261,12 @@ export function buildJP(M) {
   const TXRX_PATCH = [0x11, 0x12, 0x13, 0x16, 0x17, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1f, 0x20, 0x23, 0x24, 0x25, 0x26, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3b, 0x3c, 0x3e, 0x40, 0x41, 0x42, 0x46];
   const PATCH_ROWS = new Map(FW.PATCH.map((r) => [r[0], r]));
   const knobName = (off) => cleanLabel(PATCH_ROWS.get(off)?.[4] ?? '', null);
-  const CC_LIST = opts(L(11), 96);
+  // The CC option list (OFF, CC1-31, AFTERTOUCH, CC33-95, EXCLUSIVE): list 11 of the JP-8080 OS,
+  // list 10 of the JP-8000 OS (M.ccList).
+  const CC_LIST = opts(L(M.ccList ?? 11), 96);
   const sysParams = paramsFrom(FW.SYSTEM, 'SYSTEM', sysAt, (off) => {
     if (off >= 0x1800 && off < 0x1828) return { label: knobName(TXRX_PATCH[off - 0x1800]), group: 'Tx/Rx setting (MODE2): CC per knob', options: CC_LIST };
-    if (off === 0x1828 || off === 0x1829) return { label: ['Control Up', 'Control Down'][off - 0x1828], group: 'Tx/Rx setting (MODE2): CC per knob', options: opts(L(11), 95) };
+    if (off === 0x1828 || off === 0x1829) return { label: (M.upDownLabels ?? ['Control Up', 'Control Down'])[off - 0x1828], group: 'Tx/Rx setting (MODE2): CC per knob', options: opts(L(M.ccList ?? 11), 95) };
     const own = M.sysPlace?.(off, display);
     if (own) return own;
     if (off >= 0x1000) return { label: `Motion ${['A[1]', 'A[2]', 'B[1]', 'B[2]'][off - 0x1000]} loop length`, group: 'Motion control', ...display(0xd, 0, 8, 0) };
@@ -299,7 +330,7 @@ export function buildJP(M) {
     ...(off === 0x62 || off === 0xb4 ? { min: 0x4d, max: 0xb1 } : off === 0x64 || off === 0xb6 ? { min: 0x1b, max: 0xe3 } : {}),
     ...(off >= 0xec && off <= 0xee ? {
       label: `${['Bend Range Asgn', 'Velocity Assign', `${M.depthName} Assign`][off - 0xec]} indicator`, options: [[0, '(Not Assigned)'], [1, 'ACTIVE']], readOnly: true,
-      help: `ACTIVE while any assignment of this kind exists (the menu then offers All Clear[WRITE]). The ${M.name} sends this byte but ignores it when received.`,
+      help: `ACTIVE while any assignment of this kind exists (the menu then offers All Clear[WRITE]). Shown for information: the ${M.name} reports it but does not take it.`,
     } : {}),
   })).map((p) => (p.label?.startsWith('Byte') ? { ...p, group: 'Stored state', help: `A patch byte the ${M.name} stores and sends but no screen or panel control edits (see docs/devices/roland-jp8080.md).` } : p));
 
@@ -405,6 +436,7 @@ export function buildJP(M) {
     const d = new Uint8Array(PERF_SIZE);
     for (let i = 0; i < 16; i++) d[i] = 'INIT PERFORMANCE'.charCodeAt(i);
     for (const p of perfParams) if (p.min > 0 && !p.two) d[p.offset] = p.min;
+    for (const p of perfParams) if (p.two && p.init !== undefined) p.set(d, p.init); // TEMPO 120, Trig Source Note ALL
     d[PART_CH(0)] = 0; d[PART_CH(1)] = 1;
     return d;
   }
@@ -432,9 +464,10 @@ export function buildJP(M) {
   // Motion sets (09 00 / 09 40 / 0A 00 / 0A 40 = A[1] A[2] B[1] B[2]) are event lists of varying
   // length, sent as 7-in-8 packed DT1 data (RQ1 45444, DT1 3E45C): each group of 7 bytes is a flag
   // byte holding bit 7 of the 6 bytes after it. An empty motion sends nothing. RPS patterns (the 48
-  // keys C#2-C6) use the same event lists inside the unit, but OS 1.04 has no SysEx for them: RQ1
-  // returns nothing below 09 00 00 00 and DT1 handles only 09-0A (checked: a pattern written to
-  // 08 00 00 00 does not read back). The address names them for the Branch Library only.
+  // keys C#2-C6) use the same event lists inside the unit. The JP-8080's OS 1.04 has no SysEx for
+  // them: RQ1 returns nothing below 09 00 00 00 and DT1 handles only 09-0A (checked: a pattern
+  // written to 08 00 00 00 does not read back). The JP-8000's OS 1.05 reads and writes them at
+  // 08 nn 00 00 (M.patterns: requests and the complete dump; see readPattern above).
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   async function readPerfName(api) { return nameOf(await readBlock(api.g.client, MODEL, api.ctx.deviceId, intToAddr(A('01 00 00 00')), 16)); }
@@ -600,10 +633,10 @@ export function buildJP(M) {
         receive: receiver(sysBuilt),
         cols: 3,
         groupInfo: {
-          'Tx/Rx setting (MODE2): CC per knob': { note: 'The control change each knob sends and receives when Tx/Rx Edit Mode is MODE2 (Control Up/Down: the CCs that step the Control knob). In MODE1 the knobs use the fixed CCs listed in docs/devices/roland-jp8080.md.' },
-          'Stored state': { note: 'Bytes the system block holds that no menu edits; kept so a backup restores exactly.', table: true },
+          'Tx/Rx setting (MODE2): CC per knob': { note: `The control change each knob sends and receives when Tx/Rx Edit Mode is MODE2 (${M.upDownNote ?? 'Control Up/Down: the CCs that step the Control knob'}). In MODE1 the knobs use Roland\'s fixed control changes (listed in the owner\'s manual).${M.txrxWarning ? ` ${M.txrxWarning}` : ''}` },
+          'Stored state': { note: 'Values the system settings hold that no menu edits; kept so a backup restores exactly.', table: true },
         },
-        note: `Read when the ${M.name} connects. Perform Ctrl CH selects performances (program change) and receives RPN fine tune; each part has its own channel on the Performance page.`,
+        note: `Read when the ${M.name} connects. Perform Ctrl CH is the channel that selects performances and takes fine tuning; each part has its own channel on the Performance page.`,
         sendAll: { label: `Send to ${M.name}`, build: (data, ctx) => writeParts(sysBuilt, data, ctx.deviceId) },
         toSyx: (data, ctx) => writeParts(sysBuilt, data, ctx.deviceId).flat(),
         fromSyx: fromSyxInto(sysBuilt, SYS_SIZE, sysDefaults, (a) => (a >> 21 === 0 ? [0] : [])),
@@ -626,9 +659,9 @@ export function buildJP(M) {
         groupInfo: {
           'Control depth (per knob)': { note: 'How far the Control knob (or its assigned controller) moves each knob\'s value, -127 to +127 (Control Assign).' },
           'Velocity depth (per knob)': { note: 'How far key velocity moves each knob\'s value, -127 to +127 (Velocity Assign).' },
-          'Stored state': { note: `Patch bytes the ${M.name} stores and sends that no screen or panel control edits; kept so a backup restores exactly.`, table: true },
+          'Stored state': { note: `Values the ${M.name} stores with a patch that no screen or panel control edits; kept so a backup restores exactly.`, table: true },
         },
-        note: () => `Edits the temporary patch at ${hex4(patchTarget.base)}; changes are heard at once. Store keeps it in user memory.`,
+        note: () => `Edits the patch the ${patchTarget.key} part is playing (its temporary patch); changes are heard at once. Store keeps it in user memory.`,
         actions: [
           { label: 'Rename', run: async (api) => {
             const r = await api.form('Patch name', [{ key: 'name', label: 'Name (16 characters)', value: nameOf(api.data), maxlength: 16 }]);
@@ -639,7 +672,7 @@ export function buildJP(M) {
             api.setData(d);
           } },
         ],
-        sendAll: { label: `Send to ${M.name}`, title: 'Write the whole patch to the temporary patch', build: (data, ctx) => writeParts(patchBuilt, data, ctx.deviceId) },
+        sendAll: { label: `Send to ${M.name}`, title: 'Send the whole patch to the unit\'s temporary patch, to hear it', build: (data, ctx) => writeParts(patchBuilt, data, ctx.deviceId) },
         toSyx: (data, ctx) => writeParts(patchBuilt, data, ctx.deviceId, A('01 00 40 00')).flat(),
         fromSyx: fromSyxInto({ parts: [{ address: 0, offset: 0, size: PATCH_SIZE }] }, PATCH_SIZE, patchDefaults, (a) => {
           if (a >> 21 === 1 && ((a >> 7) & 127) >= 0x40) return [a >= A('01 00 42 00') ? A('01 00 42 00') : A('01 00 40 00')];
@@ -666,7 +699,7 @@ export function buildJP(M) {
           store: (bank, i, ctx, data) => dt1Chunks(MODEL, ctx.deviceId, intToAddr(userPatch(i)), data, 0x80),
           writable: (bank) => !!PATCH_BANKS[bank].user,
           autoNames: [0],
-          note: (bank, ctx) => `Play sends bank select ${PATCH_BANKS[bank].msb}/${PATCH_BANKS[bank].lsb} and a program change on the ${patchTarget.key} part's channel (${partChannel(ctx, patchTarget.key === 'lower' ? 1 : 0) + 1}); System Tx/Rx ProgChg SW must be BANK SEL + PC.${PATCH_BANKS[bank].user ? ' Store writes the editor into user memory.' : ''}`,
+          note: (bank, ctx) => `Play selects the patch on the ${patchTarget.key} part's channel (${partChannel(ctx, patchTarget.key === 'lower' ? 1 : 0) + 1}); System Tx/Rx ProgChg SW must be BANK SEL + PC.${PATCH_BANKS[bank].user ? ' Store writes the editor\'s patch into user memory.' : ''}`,
         },
       },
       {
@@ -689,7 +722,7 @@ export function buildJP(M) {
           channels: CHANNELS,
           note: 'Each part plays its patch on its MIDI channel (OFF: the part receives nothing). Key mode (Common) decides whether one or both parts sound. Changes go to the temporary performance; store it to keep them.',
         },
-        note: 'Edits the temporary performance (01 00 00 00): common settings, the voice modulator and both parts. Each part\'s patch is on the Patch page.',
+        note: 'Edits the performance being played (the temporary performance): common settings, the voice modulator and both parts. Each part\'s patch is on the Patch page.',
         actions: [{ label: 'Rename', run: async (api) => {
           const r = await api.form('Performance name', [{ key: 'name', label: 'Name (16 characters)', value: nameOf(api.data), maxlength: 16 }]);
           if (!r) return;
@@ -720,7 +753,7 @@ export function buildJP(M) {
           store: (bank, i, ctx, data) => writeParts(perfBuilt, data, ctx.deviceId, userPerf(i)),
           writable: (bank) => !!PERF_BANKS[bank].user,
           autoNames: [0],
-          note: (bank, ctx) => `Play sends bank select ${PERF_BANKS[bank].msb}/${PERF_BANKS[bank].lsb} and a program change on the Perform Ctrl channel (${perfChannel(ctx) + 1}). A stored performance keeps the common settings, voice modulator and parts; its two patches are stored with it at 03 nn 40 00 / 42 00.`,
+          note: (bank, ctx) => `Play selects the performance on the Perform Ctrl channel (${perfChannel(ctx) + 1}). A stored performance keeps the common settings, voice modulator and parts, and its two patches are stored with it.`,
         },
       },
     ],
@@ -729,6 +762,7 @@ export function buildJP(M) {
     fullDump: [
       'System', `Temporary performance (common, ${VMOD === undefined ? '' : 'voice modulator, '}parts)`, 'Temporary patch, upper', 'Temporary patch, lower',
       'All user patches', 'All user performances', ...MOTIONS.map(([m]) => ({ request: `Motion ${m}`, timeout: 3000 })),
+      ...(M.patterns ? [{ request: 'All RPS patterns (C#2-C6)', timeout: 3000 }] : []),
     ],
     requests: [
       { label: 'System', bytes: (ctx) => SYS_PARTS.map((p) => rq1(MODEL, ctx.deviceId, intToAddr(p.address), p.size)) },
@@ -739,11 +773,13 @@ export function buildJP(M) {
       { label: 'All user performances', bytes: (ctx) => rq1(MODEL, ctx.deviceId, intToAddr(A('03 00 00 00')), A('00 40 00 00')) },
       { label: 'Motion sets A and B (4 motions)', bytes: (ctx) => MOTIONS.map(([, a]) => rq1(MODEL, ctx.deviceId, intToAddr(A(a)), A('00 40 00 00'))) },
       ...MOTIONS.map(([m, a]) => ({ label: `Motion ${m}`, bytes: (ctx) => rq1(MODEL, ctx.deviceId, intToAddr(A(a)), A('00 40 00 00')) })),
+      // RPS patterns (JP-8000 only): one request answers every non-empty pattern, 08 00 00 00 to 08 2F
+      ...(M.patterns ? [{ label: 'All RPS patterns (C#2-C6)', bytes: (ctx) => rq1(MODEL, ctx.deviceId, intToAddr(A('08 00 00 00')), A('00 30 00 00')) }] : []),
     ],
   };
 
   const MOTION_SLOTS = TXRX_PATCH.map((o, i) => [i, knobName(o)]);
   def.motionSlots = MOTION_SLOTS;
-  const test = { MOTION_SLOTS, unpack7, patternAddr, MOTIONS, PATTERN_KEYS, MODEL, A, sysParams, perfParams, patchParams, sysBuilt, perfBuilt, patchBuilt, patchTarget, userPatch, userPerf, patchDefaults, perfDefaults, sysDefaults, addressOf, display, SYNC, TXRX_PATCH, libraryItems, isJP8080Identity: isJPIdentity, PATCH_BANKS, PERF_BANKS };
+  const test = { MOTION_SLOTS, unpack7, patternAddr, ...(M.patterns ? { readPattern, patternMessages, patternTimeline } : {}), MOTIONS, PATTERN_KEYS, MODEL, A, sysParams, perfParams, patchParams, sysBuilt, perfBuilt, patchBuilt, patchTarget, userPatch, userPerf, patchDefaults, perfDefaults, sysDefaults, addressOf, display, SYNC, TXRX_PATCH, libraryItems, isJP8080Identity: isJPIdentity, PATCH_BANKS, PERF_BANKS };
   return { def, test };
 }

@@ -220,11 +220,11 @@ function pageParam(a, pg) {
     key: `a${a}p${pg.n}`, group: groupOf(pg), label: labelOf(pg), offset: pg.off,
     ...(pg.size > 1 ? { size: pg.size } : {}), ...(pg.bits ? { bits: pg.bits } : {}), ...(pg.shift ? { shift: pg.shift } : {}),
     efx: { a, n: pg.n },
-    help: `${pg.block} / ${pg.label}: edit page ${pg.n}, preset byte${pg.size > 1 ? 's' : ''} ${pg.off}${pg.size > 1 ? `-${pg.off + pg.size - 1}` : ''}${pg.bits ? ` (bits ${pg.shift || 0}-${(pg.shift || 0) + pg.bits - 1})` : ''}${pg.when ? `; the unit hides this page with some values of the others (it shows it, for one, while ${describeWhen(a, pg.when)})` : ''}${pg.msg?.[3] === 4 ? '; MIDI EDIT EXC. reaches only some of these values (the nearest is sent)' : ''}${!pg.msg && !pg.kind ? '; not sent live: the v1.02 MIDI EDIT EXC. parser stores this parameter one byte early, so send the preset instead' : ''}`,
+    help: `${pg.block} / ${pg.label}: edit page ${pg.n}${pg.when ? `; the unit hides this page with some values of the others (it shows it, for one, while ${describeWhen(a, pg.when)})` : ''}${pg.msg?.[3] === 4 ? '; MIDI EDIT EXC. reaches only some of these values (the nearest is sent)' : ''}${!pg.msg && !pg.kind ? '; not sent as you change it (the unit would store it in the wrong place): use Write and recall instead' : ''}`,
     dynamic: (d) => ({ hidden: algOf(d) !== a }),
   };
   if (pg.kind === 'ctrl') {
-    return { ...base, options: info.raws.map((r, i) => [r, info.texts[i]]), help: `${base.help}. The parameter ${pg.block} moves (the list of the algorithm's pages, 431E)` };
+    return { ...base, options: info.raws.map((r, i) => [r, info.texts[i]]), help: `${base.help}. The parameter ${pg.block} moves (one of the algorithm's pages)` };
   }
   if (!ascending || info.raws.length <= 40) return { ...base, options: info.raws.map((r, i) => [r, info.texts[i]]) };
   return { ...base, min: info.raws[0], max: info.raws.at(-1), format: (v) => info.map.get(v) ?? String(v) };
@@ -235,7 +235,7 @@ function describeWhen(a, [n, v]) {
 }
 export const presetParams = [
   { key: 'alg', group: 'Preset', label: 'Algorithm', offset: ALG_AT, options: ALG_NAMES.map((t, i) => [i, `${pad3(i + 1)} ${t}`]), relayout: true,
-    help: 'Preset byte 16. The unit changes algorithm by recalling its ROM preset (001-027, one per algorithm) and storing it; here the bytes after it are set from that ROM preset the same way.',
+    help: 'On the unit you change algorithm by recalling its ROM preset (001-027, one per algorithm) and storing it; choosing one here sets the other values from that preset the same way.',
     after: (d) => { const a = algOf(d); d.set(hex(ROM_PRESETS[a].data), ALG_AT); d[CS_AT] = checksum(d); return `Parameters set from ROM preset ${pad3(a + 1)} (${ROM_PRESETS[a].line1.slice(4).trim()}), as recalling it on the unit does.`; } },
   ...ALGOS.flatMap((x, a) => x.pages.map((pg) => pageParam(a, pg))),
   ...Array.from({ length: TITLE_LEN }, (_, i) => ({ key: `title${i}`, group: 'Preset', label: `Title ${i + 1}`, offset: TITLE_AT + i, min: 0x20, max: 0x7f, kind: 'char', hidden: true })),
@@ -260,30 +260,30 @@ const DUMP_RANGE = [[0, 'SYSTEM'], ...Array.from({ length: USER_COUNT }, (_, i) 
 const flag = (key, label, bit, texts, help, group = 'MIDI') => ({ key, group, label, offset: SET_AT + S.flags, bits: 1, shift: bit, options: texts.map((t, i) => [i, t]), help });
 export const systemParams = [
   { key: 'channel', group: 'MIDI', label: 'MIDI CHANNEL', offset: SET_AT + S.channel, bits: 4, options: Array.from({ length: 16 }, (_, i) => [i, `CHANNEL: ${String(i + 1).padStart(2, '0')}`]),
-    help: '3FC1 bits 0-3: program changes, controllers and SysEx (1n) on this channel' },
+    help: 'Program changes, controllers and SysEx on this channel' },
   { key: 'omni', group: 'MIDI', label: 'MIDI OMNI MODE', offset: SET_AT + S.channel, bits: 1, shift: 7, options: [[0, 'OMNI : OFF'], [1, 'OMNI : ON']],
-    help: '3FC1 bit 7: ON takes program changes, controllers and SysEx on any channel (the channel page is skipped)' },
-  flag('editExc', 'MIDI EDIT EXC.', 1, ['SELECT : OFF', 'SELECT : ON'], '3FC2 bit 1: ON takes SysEx at any time (blocks and the MIDI EDIT EXC. parameter messages); OFF only while MIDI BULK LOAD waits'),
-  flag('thru', 'MIDI OUT / THRU', 6, ['SELECT : OUT', 'SELECT : THRU'], '3FC2 bit 6 (port P1.6): the MIDI OUT socket sends the unit\'s messages or passes MIDI IN through'),
-  flag('effOff', 'EFFECT OFF MODE', 0, ['SELECT : DIRECT', 'SELECT : MUTE'], '3FC2 bit 0: what the outputs carry while the effect is switched off', 'PEDALS'),
+    help: 'ON takes program changes, controllers and SysEx on any channel (the channel page is skipped)' },
+  flag('editExc', 'MIDI EDIT EXC.', 1, ['SELECT : OFF', 'SELECT : ON'], 'ON takes SysEx at any time (presets, settings and the MIDI EDIT EXC. parameter changes); OFF only while MIDI BULK LOAD waits'),
+  flag('thru', 'MIDI OUT / THRU', 6, ['SELECT : OUT', 'SELECT : THRU'], 'The MIDI OUT socket sends the unit\'s messages or passes MIDI IN through'),
+  flag('effOff', 'EFFECT OFF MODE', 0, ['SELECT : DIRECT', 'SELECT : MUTE'], 'What the outputs carry while the effect is switched off', 'PEDALS'),
   { key: 'pedPrg', group: 'PEDALS', label: 'PED.PRG. INC/DEC', offset: SET_AT + S.flags, bits: 2, shift: 2, options: [[0, 'SHIFT XXX TO XXX'], [1, 'PROGRAM MAP'], [2, 'SEL: XXX XXX XXX']], relayout: true,
-    help: '3FC2 bits 2-3: how the program pedals step: through a range of programs, through the program map, or between three programs' },
+    help: 'How the program pedals step: through a range of programs, through the program map, or between three programs' },
   { key: 'aux', group: 'PEDALS', label: 'AUX PEDAL SELECT', offset: SET_AT + S.flags, bits: 2, shift: 4, options: [[0, 'BY PASS'], [1, 'PROGRAM DECREASE'], [2, 'SPECIAL FUNCTION']],
-    help: '3FC2 bits 4-5: what the AUX pedal does' },
-  { key: 'shiftFrom', group: 'PEDALS', label: 'SHIFT (from)', offset: SET_AT + S.shiftFrom, options: PROGRAMS, help: '3FC5: first program of the SHIFT range', dynamic: (s) => ({ hidden: ((s[SET_AT + S.flags] >> 2) & 3) !== 0 }) },
-  { key: 'shiftTo', group: 'PEDALS', label: 'TO', offset: SET_AT + S.shiftTo, options: PROGRAMS, help: '3FC6: last program of the SHIFT range', dynamic: (s) => ({ hidden: ((s[SET_AT + S.flags] >> 2) & 3) !== 0 }) },
-  ...[S.sel1, S.sel2, S.sel3].map((o, i) => ({ key: `sel${i + 1}`, group: 'PEDALS', label: `SEL ${i + 1}`, offset: SET_AT + o, options: PROGRAMS, help: `3FC${(7 + i).toString(16).toUpperCase()}: program ${i + 1} of the three the pedals select`, dynamic: (s) => ({ hidden: ((s[SET_AT + S.flags] >> 2) & 3) !== 2 }) })),
-  { key: 'ctrl1Min', group: 'MIDI CTRL', label: 'MIDI CTRL 1 RANGE MIN', offset: SET_AT + S.ctrl1Min, min: 0, max: 126, input: 'number', help: '3FCA: controller values below it count as it (the unit keeps MIN below MAX)' },
-  { key: 'ctrl1Max', group: 'MIDI CTRL', label: 'MIDI CTRL 1 RANGE MAX', offset: SET_AT + S.ctrl1Max, min: 1, max: 127, input: 'number', help: '3FCB: controller values above it count as it' },
-  { key: 'ctrl2Min', group: 'MIDI CTRL', label: 'MIDI CTRL 2 RANGE MIN', offset: SET_AT + S.ctrl2Min, min: 0, max: 126, input: 'number', help: '3FCC' },
-  { key: 'ctrl2Max', group: 'MIDI CTRL', label: 'MIDI CTRL 2 RANGE MAX', offset: SET_AT + S.ctrl2Max, min: 1, max: 127, input: 'number', help: '3FCD' },
-  { key: 'dumpFrom', group: 'MIDI BULK DUMP', label: 'FROM', offset: SET_AT + S.dumpFrom, options: DUMP_RANGE, help: '3FC3: SYSTEM sends the program map and these settings first, then the presets from No.028' },
-  { key: 'dumpTo', group: 'MIDI BULK DUMP', label: 'To', offset: SET_AT + S.dumpTo, options: DUMP_RANGE, help: '3FC4: last preset sent (SYSTEM: none)' },
-  { key: 'program', group: 'Unit', label: 'Program', offset: SET_AT + S.program, options: PROGRAMS, help: '3FC0: the program recalled at power-on; a settings block received sets it as the program shown' },
-  { key: 'contrast', group: 'Unit', label: 'L.C.D. CONTRAST', offset: SET_AT + S.contrast, min: 0, max: 7, help: '3FCE: ADJUST, 0-7 bars' },
+    help: 'What the AUX pedal does' },
+  { key: 'shiftFrom', group: 'PEDALS', label: 'SHIFT (from)', offset: SET_AT + S.shiftFrom, options: PROGRAMS, help: 'First program of the SHIFT range', dynamic: (s) => ({ hidden: ((s[SET_AT + S.flags] >> 2) & 3) !== 0 }) },
+  { key: 'shiftTo', group: 'PEDALS', label: 'TO', offset: SET_AT + S.shiftTo, options: PROGRAMS, help: 'Last program of the SHIFT range', dynamic: (s) => ({ hidden: ((s[SET_AT + S.flags] >> 2) & 3) !== 0 }) },
+  ...[S.sel1, S.sel2, S.sel3].map((o, i) => ({ key: `sel${i + 1}`, group: 'PEDALS', label: `SEL ${i + 1}`, offset: SET_AT + o, options: PROGRAMS, help: `Program ${i + 1} of the three the pedals select`, dynamic: (s) => ({ hidden: ((s[SET_AT + S.flags] >> 2) & 3) !== 2 }) })),
+  { key: 'ctrl1Min', group: 'MIDI CTRL', label: 'MIDI CTRL 1 RANGE MIN', offset: SET_AT + S.ctrl1Min, min: 0, max: 126, input: 'number', help: 'Controller values below it count as it (the unit keeps MIN below MAX)' },
+  { key: 'ctrl1Max', group: 'MIDI CTRL', label: 'MIDI CTRL 1 RANGE MAX', offset: SET_AT + S.ctrl1Max, min: 1, max: 127, input: 'number', help: 'Controller values above it count as it' },
+  { key: 'ctrl2Min', group: 'MIDI CTRL', label: 'MIDI CTRL 2 RANGE MIN', offset: SET_AT + S.ctrl2Min, min: 0, max: 126, input: 'number', help: 'Controller values below it count as it (the unit keeps MIN below MAX)' },
+  { key: 'ctrl2Max', group: 'MIDI CTRL', label: 'MIDI CTRL 2 RANGE MAX', offset: SET_AT + S.ctrl2Max, min: 1, max: 127, input: 'number', help: 'Controller values above it count as it' },
+  { key: 'dumpFrom', group: 'MIDI BULK DUMP', label: 'FROM', offset: SET_AT + S.dumpFrom, options: DUMP_RANGE, help: 'SYSTEM sends the program map and these settings first, then the presets from No.028' },
+  { key: 'dumpTo', group: 'MIDI BULK DUMP', label: 'To', offset: SET_AT + S.dumpTo, options: DUMP_RANGE, help: 'Last preset sent (SYSTEM: none)' },
+  { key: 'program', group: 'Unit', label: 'Program', offset: SET_AT + S.program, options: PROGRAMS, help: 'The program recalled at power-on; settings sent to the unit set it as the program shown' },
+  { key: 'contrast', group: 'Unit', label: 'L.C.D. CONTRAST', offset: SET_AT + S.contrast, min: 0, max: 7, help: 'ADJUST, 0-7 bars' },
   ...Array.from({ length: 128 }, (_, n) => ({
     key: `map${n}`, group: 'MIDI PROGRAM MAP', label: `PRO: ${pad3(n + 1)}`, offset: MAP_AT + n, options: PROGRAMS,
-    help: `Program change ${n + 1} (number ${n}) recalls this preset (NO:, 3F${n.toString(16).toUpperCase().padStart(2, '0')}).`,
+    help: `Program change ${n + 1} (number ${n}) recalls this preset (the NO: field on the unit).`,
   })),
 ];
 /** The settings after the first power-up (032B): map 1:1, the defaults at code 00E0. */
@@ -617,7 +617,7 @@ function drawBlocks({ value }) {
 // ------------------------------------------------------------------ definition
 const ROM_NAMES = ROM_PRESETS.map((r) => r.line1.slice(4).trim());
 export default {
-  coverage: `Presets (all 27 algorithms: every edit page with the label and the text the unit shows for each value, pages the unit hides until another value allows them, the MIDI CTRL assignments; title; the MIDI EDIT EXC. message of every page), the 27 ROM presets and the 101 user presets of the first power-up, the settings and the program map, from ${FIRMWARE}. Dumps are started on the unit (MIDI BULK DUMP): the editor listens for them and sends what the unit takes with MIDI EDIT EXC. ON or on MIDI BULK LOAD. Not checked on hardware.`,
+  coverage: 'Edits the EFX-10\'s presets (all 27 algorithms: every edit page with its label and value texts, including pages the unit shows only for some values of the others; the MIDI CTRL assignments; the title), shows the 27 ROM presets and the 101 user presets of the first power-up, and edits the settings and the program map. Changes are sent as you make them, for the program the unit shows. The unit cannot be asked for its data: start each dump on the unit (MIDI BULK DUMP) and the editor picks it up; the unit takes what the editor sends with MIDI EDIT EXC. ON or on MIDI BULK LOAD. Not checked on hardware.',
   sysex: { manufacturer: [0x31], model: 0x02 },
   minGap: 100,
   describe,
@@ -652,7 +652,7 @@ export default {
       toSyx: (data, ctx) => [...blockMessage(Math.max(USER_FIRST, unit.program), withChecksum(data), ctx?.channel ?? 0), ...endMessage(ctx?.channel ?? 0)],
       fromSyx: (msgs) => { const b = msgs.map(parseBlock).find((x) => x?.ok && x.block >= USER_FIRST && x.block < 128); return b ? b.data : null; },
       actions: [
-        { label: 'Write and recall', title: 'Send the preset into the user preset chosen as the program on the unit (block 1Bh-7Fh), then recall it with a program change (program map 1:1)', run: (api) => {
+        { label: 'Write and recall', title: 'Send the preset into the user preset chosen as the program on the unit, then recall it with a program change (program map 1:1)', run: (api) => {
           if (unit.program < USER_FIRST) { api.toast('Choose a user preset (028-128) as the program on the unit: 001-027 are in ROM.', 'warn'); return; }
           api.send(writeAndRecall(api.data, unit.program, api.ctx?.channel ?? 0));
         } },
@@ -706,13 +706,13 @@ export default {
       params: systemParams,
       cols: 3,
       layout: [{ group: 'MIDI' }, { group: 'PEDALS' }, { group: 'MIDI CTRL' }, { group: 'MIDI BULK DUMP' }, { group: 'Unit' }, { group: 'MIDI PROGRAM MAP', wide: true }],
-      note: 'The MIDI menu settings and the program map, as MIDI BULK DUMP sends them with FROM SYSTEM (three blocks). The unit keeps the first 32 bytes of the settings block; it takes them with MIDI EDIT EXC. ON or on MIDI BULK LOAD.',
+      note: 'The MIDI menu settings and the program map, as MIDI BULK DUMP sends them with FROM SYSTEM. The unit takes them with MIDI EDIT EXC. ON or on MIDI BULK LOAD.',
       actions: [
-        { label: 'Send to the EFX-10', title: 'Send the program map and settings (blocks F0, F1, F2 and the end message)', run: async (api) => {
+        { label: 'Send to the EFX-10', title: 'Send the program map and settings', run: async (api) => {
           const ok = await api.confirm('Send settings', 'Put the EFX-10 on MIDI BULK LOAD (WAITING) first, or set MIDI EDIT EXC. ON. This replaces its program map and MIDI menu settings.', 'Send');
           if (ok) api.send([...systemBlocks(api.data, api.ctx?.channel ?? 0), endMessage(api.ctx?.channel ?? 0)]);
         } },
-        { label: 'First power-up contents', title: 'The program map 1:1 and the settings the unit starts with (code 00E0)', run: (api) => api.setData(initialSystem()) },
+        { label: 'First power-up contents', title: 'The program map 1:1 and the settings the unit starts with; not sent until you press Send to the EFX-10', run: (api) => api.setData(initialSystem()) },
       ],
       toSyx: (data, ctx) => [...systemBlocks(data, ctx?.channel ?? 0), endMessage(ctx?.channel ?? 0)].flat(),
       fromSyx: (msgs) => collect(msgs).system,

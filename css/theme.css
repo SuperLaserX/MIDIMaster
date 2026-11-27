@@ -1,0 +1,142 @@
+/* MIDIMaster's Web Awesome theme: Web Awesome's default theme (vendor/webawesome/styles) with
+ * MIDIMaster's neutrals, Inter, a denser spacing for an editor full of controls, and the accent
+ * colour from Settings as the brand colour (js/core/theme.js sets --wa-color-brand-05...95).
+ * Dark is the default; the wa-dark / wa-light class on <html> picks the mode. */
+
+@layer wa-theme-overrides {
+  :root {
+    /* Neutrals: a quiet, slightly cool grey */
+    --wa-color-gray-95: #f4f5f7;
+    --wa-color-gray-90: #e7e8ec;
+    --wa-color-gray-80: #cdd0d6;
+    --wa-color-gray-70: #b0b4bc;
+    --wa-color-gray-60: #9297a1;
+    --wa-color-gray-50: #757a84;
+    --wa-color-gray-40: #5b5f68;
+    --wa-color-gray-30: #43464e;
+    --wa-color-gray-20: #2b2d33;
+    --wa-color-gray-10: #1b1c20;
+    --wa-color-gray-05: #131417;
+
+    /* Type */
+    --wa-font-family-body: 'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --wa-font-family-heading: var(--wa-font-family-body);
+    --wa-font-family-code: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+    --wa-font-weight-semibold: 500;
+    --wa-font-weight-bold: 600;
+    --wa-line-height-normal: 1.5;
+    font-feature-settings: 'cv11', 'ss01'; /* Inter: straight-sided 1, open digits */
+
+    /* Shapes */
+    --wa-border-radius-s: 0.25rem;
+    --wa-border-radius-m: 0.45rem;
+    --wa-border-radius-l: 0.75rem;
+    --wa-panel-border-radius: var(--wa-border-radius-l);
+
+    /* Form controls: compact, an editor has hundreds of them */
+    --wa-form-control-padding-block: 0.48em;
+    --wa-form-control-padding-inline: 0.75em;
+    --wa-form-control-border-radius: var(--wa-border-radius-m);
+    --wa-form-control-label-font-weight: var(--wa-font-weight-semibold);
+    --wa-form-control-toggle-size: round(1.15em, 1px);
+    --wa-button-transform-active: scale(0.98);
+
+    /* Focus: the accent */
+    --wa-focus-ring-width: 0.125rem;
+    --wa-focus-ring-offset: 0.0625rem;
+
+    /* Tooltips */
+    --wa-tooltip-font-size: var(--wa-font-size-xs);
+    --wa-tooltip-line-height: 1.45;
+    --wa-tooltip-border-radius: var(--wa-border-radius-m);
+  }
+
+  /* ------------------------------------------------------------ dark (default) */
+  .wa-dark {
+    --wa-color-surface-lowered: #0d0e10;
+    --wa-color-surface-default: #141518;
+    --wa-color-surface-raised: #1b1d21;
+    --wa-color-surface-border: #25272c;
+
+    --wa-color-text-normal: #e8e9ed;
+    --wa-color-text-quiet: #9095a0;
+    --wa-color-text-link: var(--wa-color-brand-60);
+
+    --wa-color-neutral-fill-quiet: #1c1e22;
+    --wa-color-neutral-fill-normal: #26282d;
+    --wa-color-neutral-fill-loud: #e8e9ed;
+    --wa-color-neutral-border-quiet: #25272c;
+    --wa-color-neutral-border-normal: #33363d;
+    --wa-color-neutral-border-loud: #444851;
+    --wa-color-neutral-on-quiet: #b4b8c1;
+    --wa-color-neutral-on-normal: #dadce2;
+    --wa-color-neutral-on-loud: #141518;
+
+    --wa-color-brand-fill-quiet: color-mix(in oklab, var(--wa-color-brand-50) 10%, transparent);
+    --wa-color-brand-fill-normal: color-mix(in oklab, var(--wa-color-brand-50) 20%, transparent);
+    --wa-color-brand-fill-loud: var(--wa-color-brand-50);
+    --wa-color-brand-border-quiet: color-mix(in oklab, var(--wa-color-brand-50) 25%, transparent);
+    --wa-color-brand-border-normal: color-mix(in oklab, var(--wa-color-brand-50) 45%, transparent);
+    --wa-color-brand-border-loud: color-mix(in oklab, var(--wa-color-brand-50) 75%, transparent);
+    --wa-color-brand-on-quiet: var(--wa-color-brand-60);
+    --wa-color-brand-on-normal: var(--wa-color-brand-70);
+    --wa-color-brand-on-loud: var(--accent-ink, #1b1406);
+    --wa-color-focus: color-mix(in oklab, var(--wa-color-brand-50) 70%, transparent);
+
+    --wa-form-control-background-color: #101114;
+    --wa-form-control-border-color: #34373e;
+
+    --wa-color-shadow: rgb(0 0 0 / 0.45);
+    --wa-tooltip-background-color: #2a2c32;
+    --wa-tooltip-content-color: #f1f2f5;
+    --wa-tooltip-border-color: #3a3d44;
+  }
+
+  /* ------------------------------------------------------------ light */
+  .wa-light {
+    --wa-color-surface-lowered: #f3f4f6;
+    --wa-color-surface-default: #ffffff;
+    --wa-color-surface-raised: #ffffff;
+    --wa-color-surface-border: #e2e4e9;
+
+    --wa-color-text-normal: #17181c;
+    --wa-color-text-quiet: #5f6470;
+    --wa-color-text-link: var(--wa-color-brand-30);
+
+    --wa-color-neutral-fill-quiet: #f2f3f5;
+    --wa-color-neutral-fill-normal: #e8e9ed;
+    --wa-color-neutral-fill-loud: #1f2024;
+    --wa-color-neutral-border-quiet: #e6e8ec;
+    --wa-color-neutral-border-normal: #d5d8de;
+    --wa-color-neutral-border-loud: #b9bdc5;
+    --wa-color-neutral-on-quiet: #4a4e57;
+    --wa-color-neutral-on-normal: #2d3036;
+    --wa-color-neutral-on-loud: #ffffff;
+
+    --wa-color-brand-fill-quiet: color-mix(in oklab, var(--wa-color-brand-50) 12%, white);
+    --wa-color-brand-fill-normal: color-mix(in oklab, var(--wa-color-brand-50) 24%, white);
+    --wa-color-brand-fill-loud: var(--wa-color-brand-50);
+    --wa-color-brand-border-quiet: color-mix(in oklab, var(--wa-color-brand-50) 35%, white);
+    --wa-color-brand-border-normal: color-mix(in oklab, var(--wa-color-brand-50) 60%, white);
+    --wa-color-brand-border-loud: var(--wa-color-brand-40);
+    --wa-color-brand-on-quiet: var(--wa-color-brand-30);
+    --wa-color-brand-on-normal: var(--wa-color-brand-20);
+    --wa-color-brand-on-loud: var(--accent-ink, #1b1406);
+    --wa-color-focus: color-mix(in oklab, var(--wa-color-brand-50) 80%, black);
+
+    --wa-form-control-background-color: #ffffff;
+    --wa-form-control-border-color: #d0d3da;
+
+    --wa-color-shadow: rgb(20 22 30 / 0.08);
+    --wa-tooltip-background-color: #1f2024;
+    --wa-tooltip-content-color: #f4f5f7;
+    --wa-tooltip-border-color: #1f2024;
+  }
+
+  /* Compact density (Settings): tighter spacing everywhere */
+  :root[data-density='compact'] {
+    --wa-space-scale: 0.8;
+    --wa-form-control-padding-block: 0.36em;
+    --wa-form-control-padding-inline: 0.6em;
+  }
+}

@@ -22,6 +22,7 @@ import { readParam } from '../../core/model/memmap.js';
 import TI, {
   msg, SINGLE_PART, OMNI, MULTI_STORE_LOW, isVirus, cmdOf, singleFrom, multiFrom, upgradeSingle, initSingle, nameOf, multiNameOf,
   setName, slotNumber, collect, singleReceiver, makeTables, multiParams, initMulti, globalParams, initGlobal, tiSigns, snowSigns, longSingles,
+  TI_CONNECTION, READ, withDinWarning,
 } from './access-virus-ti2.js';
 import * as FW from './access-virus-snow-fw.js';
 import * as OS from './access-virus-snow-os.js';
@@ -215,9 +216,12 @@ const partSections = Array.from({ length: PARTS }, (_, i) => ({ key: `part${i}`,
 
 const DEF = {
   model: 'Virus TI Snow',
-  coverage: 'Virus TI Snow, mapped from its own host OS (vti_snow.bin, Software Suite 5.1.7) and Virus Control\'s Snow description; not checked on a Snow. Singles (the TI\'s: all 388 parameters with the screen\'s value lists), the multi with its 4 parts and the singles they hold (MIDI channels page), the global settings (sent only), RAM 1-8 and ROM 1-8 single banks of 64 with names, the 64 multis with their part singles, store to RAM, Branch Library, translator, simulator. Output selects show the Snow\'s own lists and order (Out 1, USB 1-3, then the greyed Out 2 / Out 3).',
+  coverage: 'Edits the Virus TI Snow\'s singles, multis and global settings. Built from the Snow\'s own system software and Virus Control\'s description of it; not checked on a Snow. Singles have the TI\'s 388 parameters with the screen\'s value lists; the multi has 4 parts with the singles they hold, and a MIDI channels page; the global settings can be sent but not read. RAM 1-8 and ROM 1-8 single banks of 64 with their names, the 64 multis with their part singles, Store to RAM, the Branch Library and Head Library. Output selects show the Snow\'s own lists and order (Out 1, USB 1-3, then the greyed Out 2 / Out 3).',
   sysex: { manufacturer: [0x00, 0x20, 0x33], model: 0x01, deviceIdDefault: OMNI },
   minGap: 20,
+  // USB and DIN as on the TI (the Snow's host build has the same routing: USB MIDI mode is bit 25h, set by the global 82
+  // handler at bank 2 A839 and cleared at 12E5 / 61F3; the MIDI In receive at 2A5D passes it to USB while it is set)
+  ...TI_CONNECTION,
   describe,
   simulate,
   libraryItems,
@@ -226,36 +230,36 @@ const DEF = {
   isOwn: (m) => isVirus(m),
   prefer,
   objects: [
-    {
+    withDinWarning({
       ...tiSingle,
       fetch: (api) => fetchSingle(api, 0, unit.part),
       target: PART_TARGET,
       sendParam: (p, _v, data, ctx) => sendSingleParam(ctx, p.offset, data[p.offset]),
       receive: singleReceiver(() => unit.part),
-      note: 'Each change is sent as a SysEx parameter (pages A-D) to the edit buffer chosen above (single mode or one of the 4 parts). Store writes the single into a RAM slot.',
-      sendAll: { label: 'Send to Virus', title: 'Send the whole single into the chosen edit buffer (message 10)', build: (data, ctx) => msg.single(ctx, 0, unit.part, data) },
+      note: 'Each change is sent at once to the edit buffer chosen above (single mode or one of the 4 parts). Store writes the single into a RAM slot.',
+      sendAll: { label: 'Send to Virus', title: 'Send the whole single into the chosen edit buffer', needs: 'sysex', build: (data, ctx) => msg.single(ctx, 0, unit.part, data) },
       toCommon: (d) => TR.singleToCommon(d),
       fromCommon: (c, base) => TR.singleFromCommon(c, base),
       slots: {
-        label: 'Singles', banks: BANKS, count: 64,
+        label: 'Singles', banks: BANKS, count: 64, needs: READ, recallNeeds: READ, storeNeeds: 'sysex',
         slotLabel: (bank, i) => `${bankLabel(bank)} ${slot64(i)}`, name: nameOf,
         fetch: (api, bank, i) => fetchSingle(api, sysexBank(bank), sysexSlot(bank, i)),
         play: async (api, bank, i) => { const d = await fetchSingle(api, sysexBank(bank), sysexSlot(bank, i)); api.send(msg.single(api.ctx, 0, unit.part, d)); },
         scanBank: scanSingles, namesOnOpen: true,
         store: (bank, i, ctx, data) => msg.single(ctx, sysexBank(bank), sysexSlot(bank, i), data),
         writable: (bank) => bank >= 1 && bank <= 8,
-        note: (bank) => `The Snow answers in banks of 128 (SysEx bank ${sysexBank(bank)} = ${PAIR_LABEL(sysexBank(bank))}): Read names asks for both (about two minutes) and shows this one's 64. Play reads the single and sends it into the edit buffer chosen above.${bank > 8 ? ' ROM banks cannot be written.' : ' Store writes into this RAM slot (Memory Protect Disabled and MIDI Dump RX Enable: the other settings force the bank or keep the sound in the edit buffer).'}`,
+        note: (bank) => `The Snow sends its banks in pairs (${PAIR_LABEL(sysexBank(bank))}): Read names reads both (about two minutes) and shows this one's 64. Play reads the single and sends it into the edit buffer chosen above.${bank > 8 ? ' ROM banks cannot be written.' : ' Store writes into this RAM slot (Memory Protect Disabled and MIDI Dump RX Enable: the other settings force the bank or keep the sound in the edit buffer).'}`,
       },
-    },
-    {
-      key: 'multi', page: 'Multi', icon: '▦', label: 'Multi', size: MULTI_DATA, autoLoad: false,
+    }, { remote: false }),
+    withDinWarning({
+      key: 'multi', page: 'Multi', icon: '▦', label: 'Multi', size: MULTI_DATA, autoLoad: false, needs: READ,
       init: () => initSnowMulti(), params: snowMultiParams, name: multiNameOf, cols: 3,
       fetch: (api) => fetchArrangement(api, 0),
       sections: [{ key: 'common', label: 'Common' }, ...partSections, { key: 'reserved', label: 'Reserved bytes' }],
-      groupInfo: { 'Reserved bytes': { note: 'Multi bytes the Snow OS has no parameter for, and the places of parts 5-16 (the Snow has 4 parts; its OS refuses parameter messages for the others). Kept so a backup restores exactly (docs/devices/access-virus-snow.md).', table: true, wide: true } },
+      groupInfo: { 'Reserved bytes': { note: 'Multi values that are not settings on the Snow, and the places of parts 5-16 (the Snow has 4 parts and ignores changes for the others). Kept so a backup restores exactly.', table: true, wide: true } },
       sendParam: (p, _v, data, ctx) => (p.part === undefined ? msg.param(ctx, 0x72, 0, p.offset, data[p.offset]) : msg.param(ctx, 0x72, p.part, p.page, readParam(data, p))),
-      note: 'A Snow multi holds its 4 part singles: Get from device reads the multi edit buffer and the part edit buffers (34 00), a slot reads the stored multi with its singles (34 20h + m). Each change here is sent as a multi parameter (message 72); edit the part sounds on the Single page (Edit buffer: Multi part n).',
-      sendAll: { label: 'Send to Virus', title: 'Send the multi and its 4 part singles into the edit buffers (11 00 7F, 10 00 00-03)', build: (data, ctx) => snowMsg.editBuffers(ctx, data) },
+      note: 'A Snow multi holds its 4 part singles: Get from device reads the multi being played with its part singles, and a slot reads a stored multi with its singles. Each change here is sent at once; edit the part sounds on the Single page (Edit buffer: Multi part n).',
+      sendAll: { label: 'Send to Virus', title: 'Send the multi and its 4 part singles into the Snow\'s edit buffers', needs: 'sysex', build: (data, ctx) => snowMsg.editBuffers(ctx, data) },
       toSyx: (data, ctx) => snowMsg.editBuffers(ctx, data),
       fromSyx: (msgs) => snowMultiFrom(msgs),
       toCommon: (d) => TR.multiToCommon(d),
@@ -274,23 +278,23 @@ const DEF = {
           { label: 'Transpose', params: ['Part Transpose'] },
         ],
         on: (i, d) => readParam(d, findMulti(i, 72)) === 1,
-        note: 'The Snow plays 4 parts, each with its own single (Sound) on its MIDI channel; Part enable switches it on. Get from device reads the multi and the part singles (34 00). Changes go to the multi edit buffer; store the multi to keep them.',
+        note: 'The Snow plays 4 parts, each with its own single (Sound) on its MIDI channel; Part enable switches it on. Get from device reads the multi and the part singles. Changes go to the multi edit buffer; store the multi to keep them.',
       },
       slots: {
-        label: 'Multis', banks: [[1, 'Multis']], count: MULTIS,
+        label: 'Multis', banks: [[1, 'Multis']], count: MULTIS, needs: READ, storeNeeds: 'sysex',
         slotLabel: (_bank, i) => slotNumber(i), name: multiNameOf,
         fetch: (api, _bank, i) => fetchArrangement(api, PART_BANK + i),
         scanBank: scanMultis, namesOnOpen: true,
         store: (_bank, i, ctx, data) => snowMsg.multiStore(ctx, i, data),
         writable: () => true,
-        note: () => 'Read names asks for the 64 multis (33 01, about one a second). A slot reads the multi with its 4 singles (34 20h + m). Store writes the multi (11 32 m) and its 4 singles (10 20h + m 00-03): Memory Protect Disabled, MIDI Dump RX Enable.',
+        note: () => 'Read names reads the 64 multis (about one a second). A slot reads the multi with its 4 singles. Store writes the multi and its 4 singles (Memory Protect Disabled, MIDI Dump RX Enable).',
       },
-    },
-    {
+    }, { remote: false }),
+    withDinWarning({
       ...tiGlobal,
       init: () => initGlobal(T), params: globalParams(T),
-      note: 'The Snow cannot send its global settings (no global request), so the values shown are Virus Control\'s defaults until you change them here; each change is sent at once (message 73). Memory Protect is shown Disabled.',
-    },
+      note: 'The Snow cannot send its global settings, so the page shows the factory defaults (as Virus Control has them) until you change them here; each change is sent at once. Memory Protect is shown Disabled.',
+    }, { remote: false }),
   ],
   // Each step ends as soon as its dumps are in (expect); seconds assume the TI's pace (one dump a second, measured on
   // a TI2; the Snow runs the same host code family, not measured on a Snow). ROM banks: optional, ticked.

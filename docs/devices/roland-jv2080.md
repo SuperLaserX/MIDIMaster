@@ -80,7 +80,8 @@ at 0x0E1230BC:
 | 83/x | PCM card (not a patch group; ignored) | |
 
 Performances on the control channel: USER 80/0 (performance numbers 0-31), PR-A 81/0
-(64-95), PR-B 81/1 (96-127). The type/ID pairs and the performance numbers are as a unit
+(64-95), PR-B 81/1 (96-127), and a data card's 82/0 (the decoder's CARD group; numbers 32-63,
+CARD:01-32 in the address map). The type/ID pairs and the performance numbers are as a unit
 reports them in system bytes 02-05 and 01.
 
 A panel mode change (system byte 00) takes the JV-2080 about half a second, and a program
@@ -92,7 +93,8 @@ selection by reading system bytes 00-05 before it reads the temporary area.
 
 The preset patches and performances live in the wave ROM, not the updatable flash. Their
 names (`js/devices/defs/roland-jv2080-presets.js`) were read from a unit by selecting each
-preset and reading the temporary name. Wave names are in the wave ROM too: the 60-byte name
+preset and reading the temporary name. The preset rhythm sets are the exception: they are in
+the flash (see "Rhythm sets (part 10)"). Wave names are in the wave ROM too: the 60-byte name
 records in the flash (0x0E061FC8 and 0x0E066C30) are not in wave-number order (a preset
 using INT-A 4 plays "Ac Piano1 A", record 0), so tones show wave numbers only.
 
@@ -128,6 +130,14 @@ bit j is chip data bit `2 0 4 5 7 6 3 1`[j]. Unscrambled (big-endian):
 | patches | 362 bytes each, JV-80 format: name[12], 14 common bytes, 4 tones of 84 bytes |
 | rhythm | 61 notes (C2-C7) of 44 bytes, no name |
 
+The board loader (0x0E13779C) reads more of the header: the format bytes at 0x50-0x54 (0x53: patches
+2 = 362-byte records, 5 = 401-byte records; 0x54: rhythm sets 2 = JV-80 format, 61 notes of 44
+bytes without a name, 4 = the JV-2080's own named format), the counts at 0x60-0x68 and the tables at
+0x80-0x90. Every board in the collection with rhythm sets (05: 1; 06, 07, 09-12, 14-19: 4 each) has
+them in the JV-80 format, so they carry no names: when the JV-2080 converts one it writes the name
+"JV rhythm" (0x0E126C88, called from the converter 0x0E1272DC). The names some third-party lists
+give these sets (e.g. "909 Set" for the Dance board) are not on the boards or in the JV-2080.
+
 No board holds performances. The JV-2080 converts board patches from the JV-80 format when it
 selects one, so Edit still reads the converted patch from the unit. The Experience boards
 SR-JV80-97 and -98 hold waves only: the 98's 100 patches come from the patch list shipped with
@@ -135,18 +145,95 @@ its dump (the ROM of the 99 confirms that a leading `*` is part of a name), and 
 read from the unit once. Board patch counts differ (SR-JV80-01 holds 145, -19 holds 156), so an
 expansion bank shows only the patches the board has.
 
-## Bytes without a screen
+## Rhythm sets (part 10)
 
-System 28h-61h, performance common 40h and part 14h-19h are kept and editable with their
-firmware ranges, but no JV-2080 screen shows them. The firmware is shared with Roland's XP
-keyboards (it contains disk and song messages), and the ranges and defaults match the XP
-system block: transmit program change and bank select (28h-29h), patch transmit channel
-(2Ah, 1-16/Rx channel/OFF), two pedals as assign (1-104, defaults CC 7 and 11), output mode
-(OFF/INT/MIDI/INT+MIDI) and polarity (31h-36h), controllers C1/C2 (assign 1-97 like the
-system control sources, output mode; 37h-3Ah), hold pedal output and polarity (3Bh-3Ch), seven
-bank-select switch/MSB/LSB triplets defaulting to 80/0, 81/0-3, 84/0-1 (3Dh-51h) and two more
-assign/output/polarity triplets (52h-57h). The editor shows them as a table of typed values
-with this probable use; the rest are marked unknown.
+Part 10 of a performance plays a rhythm set. Its bytes 02-05 (group type, group ID, number) select
+the set through the same groups as patches; the program change handler (0x0E12A4C6) checks part 10
+against the rhythm set count of the group (0x0E12467E) instead of the patch count, and ignores a
+number past the last set. The counts and where the sets are:
+
+| Group | Type, ID | Sets | Where |
+|---|---|---|---|
+| USER | 0, 1 | 2 | user memory 10 40 / 10 41 |
+| CARD | 0, 2 | 2 | a data card |
+| PR-A .. PR-E | 0, 3-7 | 2 each | the flash: descriptors 0x0E060620, ..630, ..640, ..650, 0x0E061B88 ([count][..][u32 data]) |
+| expansion board | 2, board number | header 0x68 | the board ROM |
+
+The preset rhythm sets are in the flash, unlike the preset patches: 2699 bytes each, an 11-byte
+name (12 seven-bit characters) and 64 notes of 42 bytes, packed like the internal memory (each
+parameter is the little-endian word at the descriptor's byte, masked and shifted, as the getter
+0x0E127388 reads it). `tools/roland/jv2080_rhythm.py` decodes them and writes
+`js/devices/defs/roland-jv2080-rhythm.js`; all ten decode byte for byte equal to Roland's "PrA-PrE
+Rhythm 001-002 (via User)" dumps. The names: PR-A PopDrumSet 1 / PopDrumSet 2, PR-B PowerDrumSet /
+RaveDrumSet, PR-C JazzDrumSet2 / OrchDrumSet, PR-D GM Drum Set / BrushDrumSet, PR-E PowerDrmSet2 /
+PowerRaveSet (the owner's manual lists the same). A sixth descriptor (0x0E060660) holds the factory
+contents of the two user sets, HouseDrumSet and JazzDrumSet1.
+
+The editor offers rhythm sets wherever part 10's group and number are chosen (Performance page and
+MIDI channels page): INT groups USER, CARD, PR-A..PR-E with two sets each, by name (user names as
+read), and the installed boards that hold rhythm sets. The Rhythm set page has banks USER, PR-A..PR-E,
+CARD and XP-A..H: Play puts the set on part 10 of the temporary performance (performance mode, a DT1
+to 01 00 19 02 with the group type, ID and number, as the PERFORM Part page does), Edit then reads
+it from 02 09 00 00, and the user banks store from the editor. The JV-2080 reloads a part when its
+bytes 02-05 change: the part apply 0x0E1290BA calls the loader (0x0E127D90) for IDs 0x115-0x118.
+
+## JV-1080 / XP-80 bytes (Roland's address map)
+
+The address map in the JV-2080 owner's manual (p. 188-189) names every byte the editor had left
+unnamed, with this note: "Parameter values enclosed in < > are for the JV-1080 or XP-80, and will be
+ignored if received by the JV-2080". The editor uses those names, ranges and value lists:
+
+- System 28h-5Fh: Transmit Program Change, Transmit Bank Select, Patch Transmit Channel (1-16,
+  RX-CH, OFF), Transpose Switch / Value (-5..+6), Octave Shift, Keyboard Velocity (REAL, 1-127),
+  Keyboard Sens (LIGHT, STANDARD, HEAVY), Aftertouch Sens, Pedal1/Pedal2 Assign (CC01-CC05, CC07-CC31,
+  CC64-CC95, PITCH BEND, AFTERTOUCH, PROG-UP, PROG-DOWN, START/STOP, PUNCH-IN/OUT, TAP-TEMPO,
+  OCTAVE-UP, OCTAVE-DOWN), Output Mode (OFF, INT, MIDI, INT&MIDI) and Polarity (STANDARD, REVERSE), C1
+  and C2 Assign / Output Mode, Hold Pedal Output Mode / Polarity, Bank Select Group 1-7 Switch / MSB /
+  LSB, Pedal3/Pedal4, and the arpeggio: Style (1-33), Motif (1-34), Beat Pattern (1-61), Accent Rate,
+  Shuffle Rate (50-90), Keyboard Velocity, Octave Range (-3..+3), Part Number (PART1-16).
+- System 60h-61h: System Tempo, 20-250 in two nibbles (the SYSTEM Setup screen shows it through the
+  virtual ID 7Dh).
+- Performance common 40h: Keyboard Mode (LAYER, SINGLE).
+- Performance part 13h-18h: Octave Shift, Local Switch, Transmit Switch, Transmit Bank Select Group
+  (PATCH, GROUP1-7), Transmit Volume (0-127, OFF; two nibbles).
+- Performance part 19h: Output Select (A, B, C), the JV-2080's own (not in angle brackets).
+
+What the firmware does with them:
+
+- System 28h-51h are stored (descriptors with masks). 52h-5Fh have no storage under their own IDs
+  (mask 0); the SysEx getter 0x0E12C14E and setter 0x0E12C1CC remap them to IDs 6Dh-7Ah, which are
+  stored, so all of 28h-5Fh read back as written. `tools/roland/jv2080_params.py` takes the ranges of
+  52h-5Fh from 6Dh-7Ah too: the defaults of Pedal 3 / Pedal 4 Assign are 7 and 11 (as a unit
+  reports), not the 100 / 101 of the unused IDs.
+- Transmit Program Change and Transmit Bank Select are applied: the system apply (0x0E128048,
+  0x0E128C0A) passes them to 0x0E119868, which sets the flags the MIDI output encoder checks before it
+  sends a program change (0x0E119A52) or CC 0 / 32 (0x0E119A16). No other of these bytes is applied,
+  and no screen shows any of them (the screen table 0x0E078ECC has no field for them).
+- Performance 40h is stored; only the JV-1080 performance converter (0x0E124FCC) writes it.
+- Part 13h-18h have no storage at all (descriptors 0x126-0x12B have mask 0): the getter 0x0E127388
+  returns the default for a mask-0 parameter, so a DT1 changes nothing and an RQ1 always returns 3 0 0
+  0 8 0. A unit's performance read in earlier work (re/jv2080/live_backup.json) has exactly these bytes
+  in all 16 parts. The editor shows them read only. The performance translator therefore takes a
+  part's transpose from Coarse Tune alone.
+- Part 19h is stored (descriptor 0x12C, the bits of byte 11). The PERFORM Output field shows Output
+  Assign and Output Select as one value (virtual ID 137h, 0x0E12E3BC, option list 66: MIX, EFX-A,
+  EFX-B, EFX-C, DIR1, DIR2, PAT-A, PAT-B, PAT-C): EFX or PATCH with A, B or C. When Output Assign
+  arrives by SysEx the setter first resets Output Select (0x0E12C1CC calls 0x0E12B8D6 for ID 12Ch
+  when ID 11Dh arrives; 0x0E12B8D6 is the reset-to-default the firmware also uses for spare bits),
+  so a single Output Assign change leaves Output Select at A; the editor's copy does the same. A
+  whole part is sent in address order, so 19h follows 0Ah and keeps its value.
+
+The firmware also holds option lists for some of these that no JV-2080 screen uses (list 93, the XP
+controller names; list 96, LIGHT / MEDIUM / HEAVY); the editor follows the address map.
+
+## Wave and patch group lists
+
+Wave group type and patch group type offer INT and EXP. PCM (type 1) is in angle brackets in the
+address map ("INT, <PCM>, EXP", "USER&PRESET, <PCM>, EXP"): the JV-2080 has no PCM card slot, so the
+lists show PCM only when the data already holds it (e.g. a JV-1080 patch). Expansion boards: once
+Find boards has run, the group lists offer the installed boards only (with their slots); a board in
+the data that is not installed stays shown, marked "not installed". Before the first Find boards,
+every known board is offered.
 
 ## MIDI channels page
 
@@ -180,16 +267,33 @@ through `tools/roland/jvlive.py` and through the app in Chrome (Web MIDI):
 `tools/roland/jv_restore.py` puts a unit back to a snapshot the tests write
 (`re/jv2080/live_backup.json`).
 
+The rhythm set selection and the bytes named from the address map (2026-11-27) are not yet checked
+on the unit: its interface did not answer. `tools/roland/jv2080_rhythm_check.py` does that check
+when the port is confirmed: it backs up system, temporary performance and temporary rhythm set,
+puts every preset set on part 10 the way the editor does and compares the whole set with the flash
+decode, checks the user sets and which boards answer with "JV rhythm", checks that part 13h-18h do
+not store and that part 19h, performance 40h and system 2Bh / 58h do, then restores and verifies
+byte for byte. Until then the evidence is the firmware analysis above (Ghidra: the parameter calls
+are listed by `tools/roland/ghidra/JvParamCalls.java`, `JvDis.java` disassembles with literal-pool
+values) and the unit's earlier performance read. The receiver cannot be run in an emulator as a
+stand-in: the firmware calls routines in the CPU's on-chip ROM (below address 0x10000: the bit-field
+setter 0x3A9C and reader 0x0BE0 the parameter functions use, block copies 0xBE48 / 0xBEAC), which the
+updater does not contain.
+
 ## Not covered
 
-Data cards (none was available to test), GM mode, and receiving panel edits (implemented, not
-tried: it needs Tx Edit Data and someone at the panel). The internal wave names (INT-A 255, INT-B
+Data cards: none was available. The editor selects card patches (82/0), card performances (82/0
+on the control channel) and card rhythm sets (part 10, INT group 2) and reads the selected copy from
+the temporary area; it does not read card memory addresses directly (the SysEx getter answers for
+the card area only when a card is in: 0x0E12294C asks 0x0E11E878 and returns an error code without
+one). GM mode, and receiving panel edits (implemented, not tried: it needs Tx Edit Data and someone
+at the panel). The internal wave names (INT-A 255, INT-B
 193) are the owner's manual's (`roland-jv2080-waves.js`), since the wave ROM is not in the flash.
 
 ## Translator (Head Library)
 
 `js/devices/defs/roland-jv2080-translate.js` moves patches, performances and rhythm sets through
-the shared synth model (`docs/HEAD_LIBRARY.md`). Each keeps its exact bytes in `common.extra`
+the shared synth model (`intdocs/HEAD_LIBRARY.md`). Each keeps its exact bytes in `common.extra`
 (family `roland-jv`), so another JV-2080 gets it back byte for byte.
 
 **Patch.** Every tone that is switched on is an oscillator: its wave as `rom:<name>` (INT-A/INT-B
@@ -211,7 +315,8 @@ the EFX STEREO-DELAY. Reported: sync, ring and cross modulation, tone, velocity 
 depths dropped; waves on boards that must be installed.
 
 **Performance** as `keyMode: 'multi'`, `tempo` and 16 `parts` (`on` = receive switch, `channel`,
-`program` {type, group, number}, `level`, `pan`, `transpose` = coarse tune + 12 x octave shift,
+`program` {type, group, number}, `level`, `pan`, `transpose` = coarse tune (the part octave shift is
+a JV-1080 / XP-80 byte the JV-2080 does not store),
 `fine`, `low`/`high` key range, `rhythm` for part 10). From another model the parts' layout is set
 (parts fill 1-9 and 11-16; part 10 stays the rhythm part), keyboard key modes put the parts on one
 channel, a split sets the key ranges at the split point, and the patches are left to choose.
@@ -219,3 +324,9 @@ channel, a split sets the key ranges at the split point, and the patches are lef
 **Rhythm set** as `kind: 'rhythm'` with `notes` for the keys that are switched on: `{note, wave,
 coarse (source key - note), fine, level, pan, muteGroup, sustain, filter {type, cutoff,
 resonance}, env}`. Keys outside 35-98 are dropped.
+
+Checked on the JV-2080 (2026-11-27, `tools/roland/jv2080_rhythm_check.py`, port "2- JV2080"): every preset rhythm
+set PR-A 1 to PR-E 2 put on part 10 and read back equal to the set decoded from the v1.02 flash; USER 1 / 2
+(HouseDrumSet, JazzDrumSet1) read back; board 05 answers with its rhythm set; part 13h-18h are not stored
+(defaults 3 0 0 0 8 0), part 19h, performance 40h and system 2Bh / 58h are stored. Everything restored byte for byte.
+

@@ -39,8 +39,21 @@ The editor trims those option lists and bank lists; parts 7-8 of a performance a
 7-8 are shown read-only. Their menus are the SuperNova II Keyboard ones (Ext part MIDI ch, bank,
 program, notes, velocities, MIDI stream byte).
 
+## Emulator check (no unit)
+
+No Nova II was available. Its Keyboard OS 2 runs in the H8/300H emulator (`tools/novation/h8`;
+the SuperNova II board map). With the SuperNova II Keyboard factory files loaded over MIDI,
+`node tools/novation/h8/check_editor.mjs nova2` drives the editor's fetch / Send / Store / Recall
+against it: a program (351 parameters changed) and a performance (602) sent, stored into bank A 7,
+recalled and read back byte for byte equal, except part slots 7-8 and External Parts 7-8, which its
+transmitter fills itself (read only in the editor) (2026-11-27). **Validated in an emulator of its
+OS, not on hardware.** Found with it: 1E 9 Keyboard octave goes to 68 (+4) and is applied when a
+program is selected (a key played 24 semitones down with 62); program byte 237 bits 4-6 is the
+effects page (switches 22, 19, 20, 18, 23, 21, 63: Distortion, Reverb, Chorus, Delay, Pan, Fx config,
+Vocoder). The other SuperNova II Keyboard findings (External Parts, transpose zone, part mutes) apply.
+
 ## Open
 
-1. Checks on a Nova II (none available).
-2. The SuperNova II Keyboard open items (External Parts Tx option bits and stream bytes).
+1. A check on a Nova II unit (none available): the emulator check above stands in for it.
+2. The SuperNova II Keyboard open items (the MIDI stream bytes).
 3. Message 1D has length 0 here (not accepted).

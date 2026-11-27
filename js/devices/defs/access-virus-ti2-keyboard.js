@@ -5,4 +5,4 @@
 // this model (docs/devices/access-virus-ti2-keyboard.md).
 import { tiModel } from './access-virus-ti2.js';
 
-export default tiModel({ model: "Virus TI2 Keyboard", note: "Desktop, Keyboard and Polar run the same TI2 OS image (vti_2.bin), checked on a TI2 Desktop. Not checked on this model: only a TI2 Desktop was connected." });
+export default tiModel({ model: "Virus TI2 Keyboard", note: "the Desktop, Keyboard and Polar run the same TI2 system software; the editor was checked on a TI2 Desktop. Not checked on this model." });

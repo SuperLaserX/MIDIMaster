@@ -5,5 +5,5 @@ import * as T from './access-virus-b-os.js';
 
 export default abcModel({
   model: 'Virus kb', id: 'access-virus-kb', T, banks: BANKS_AH, panelByte: true,
-  note: 'runs the Virus B OS 4.9 (its boot text "VIRUS kb"); mapped from that OS (docs/devices/access-virus-b.md).',
+  note: 'runs the Virus B system software (OS 4.9); the editor is built from it.',
 });

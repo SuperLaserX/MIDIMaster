@@ -5,5 +5,5 @@ import * as T from './access-virus-b-os.js';
 
 export default abcModel({
   model: 'Virus b', id: 'access-virus-b', T, banks: BANKS_AH, panelByte: true,
-  note: 'mapped from its OS 4.9 (the Virus b / kb / Indigo OS; docs/devices/access-virus-b.md).',
+  note: 'built from its system software (OS 4.9, shared with the kb and Indigo).',
 });

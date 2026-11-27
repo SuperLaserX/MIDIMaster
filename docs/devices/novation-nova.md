@@ -84,7 +84,34 @@ with 1DE84 (it does so for model 21 too). Performances through the SuperNova II'
 performances with their vocoder blocks, 128 arpeggio patterns and the global, all with model 21.
 It was used to check the defaults (global 0F/15, vocoder block) and the reserved bytes.
 
+## Emulator check (no unit)
+
+No Nova was available. Its own OS 4.1 runs in the H8/300H emulator (`tools/novation/h8`; flash
+800000-8FFFFF, RAM A00000, DSP host ports 400h apart from 900000). With Novation's factory file
+loaded over MIDI, `node tools/novation/h8/check_editor.mjs nova` drives the editor's fetch / Send /
+Store / Recall against it: a program (284 parameters changed) and a performance (320) sent, stored
+into bank A 7, recalled and read back byte for byte equal, except part slots 7-8, which the Nova's
+transmitter fills with copies of other parts (16F3A-16F74; read only in the editor) (2026-11-27).
+**Validated in an emulator of its OS, not on hardware.**
+
+Vocoder message 1B: the transmitter (16EE0) takes the block from the performance at +148h, writes
+21h into byte 0, clears bytes 9-15 (16F18-16F34: never sent other than 0) and sends bytes 5 and 8
+as stored; the receiver's fix-up (1761C) only limits bytes 1-2. No menu field, CC or NRPN writes 5 or
+8, and no other code addresses the block at a fixed offset (a search of every @(148h-157h, ERn) and
+#148h in the image). They stay read only without a name (byte 5 is 3 or 4 in the factory data).
+Program byte 237 bits 4-6 is the effects page (as on the Nova II; `novation-supernova2.md`, "Panel
+selections").
+
 ## Open
 
-1. Checks on a Nova (none available).
+1. A check on a Nova unit (none available): the emulator check above stands in for it.
+3. Vocoder bytes 5 and 8: their use was not found (read only).
 2. Whether banks C-D / performance bank B can be read or selected over MIDI (not offered by the menus).
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- Format marker (2): Set on programs in the OS 4 value scale; without it the OS converts the program (Nova 176D2 / 1763C)
+- Global Format: Always 21h: the OS 4.1 transmitter writes it (SuperNova 1591E)
+- SuperNova global 15 13: rs(13, 'The SuperNova transmitter always writes 5Fh (1593E)

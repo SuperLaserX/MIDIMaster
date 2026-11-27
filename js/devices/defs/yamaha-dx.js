@@ -230,7 +230,7 @@ export function buildDX(M) {
   const groupInfo = {
     Algorithm: {
       wide: true,
-      note: 'The operators and how they connect (the DX7\'s printed algorithm chart): carriers sound on the output line, the others modulate the operator below them; the accent loop is the feedback path FEEDBACK sets.',
+      note: 'How the operators connect, as on the DX7\'s printed algorithm chart. Carriers sound on the output line; the others modulate the operator below them; the accent loop is the feedback path FEEDBACK sets.',
       draw: ({ data }) => algorithmCard({
         algorithms: ALGORITHMS, current: data[134] & 31,
         on: opOn(data), level: (op) => data[opBase(op) + 16] / 99,
@@ -287,7 +287,7 @@ export function buildDX(M) {
       return p.vced === OPON ? msg.voiceParam(ch(ctx), OPON, d[OPON]) : msg.voiceParam(ch(ctx), p.vced, d[p.offset]);
     },
     sendAll: {
-      label: 'Send to edit buffer', title: `Send the whole voice (${A ? `${A.label}, format ${A.format}, then ` : ''}single-voice bulk, format 0); the operator on/off switches follow as a parameter change`,
+      label: 'Send to edit buffer', title: `Send the whole voice${A ? ' with its additional settings' : ''} to the unit's edit buffer, and the operator on/off switches`,
       build: (d, ctx) => [...voiceMsgs(ch(ctx), d), ...(d[OPON] !== 0x3f ? [msg.voiceParam(ch(ctx), OPON, d[OPON])] : [])],
     },
     toSyx: (d, ctx) => voiceMsgs(ch(ctx), d),
@@ -333,7 +333,7 @@ export function buildDX(M) {
     actions: [
       { label: 'Init', title: `The ${M.name}'s VOICE INIT (not sent until you change something or press Send)`, run: (api) => api.setData(init()) },
       {
-        label: 'Rename', title: 'Change the voice name (sent as parameter changes 145-154)', run: async (api) => {
+        label: 'Rename', title: 'Change the voice name; the new name is sent to the unit', run: async (api) => {
           const r = await api.form('Voice name', [{ key: 'name', label: 'Name (10 characters)', value: voiceName(api.data), maxlength: 10 }]);
           if (!r) return;
           const d = setVoiceName(Uint8Array.from(api.data), r.name);
@@ -342,7 +342,7 @@ export function buildDX(M) {
         },
       },
       {
-        label: `Get ${INTERNAL.length * 32} voices`, title: M.requests ? `Ask for the internal voices (${AM ? 'their additional data (AMEM), then ' : ''}32-voice bulk${INTERNAL.length > 1 ? `, for each of ${INTERNAL.map(bankLabel).join(' and ')}` : ''})` : `Wait for the ${M.name} to send its 32 voices (FUNCTION, MIDI TRANSMIT)`,
+        label: `Get ${INTERNAL.length * 32} voices`, title: M.requests ? `Read the ${INTERNAL.length * 32} internal voices${AM ? ' with their additional settings' : ''} from the unit` : `Wait for the ${M.name} to send its 32 voices (start it on the unit: FUNCTION, MIDI TRANSMIT)`,
         run: async (api) => {
           const g = api.g;
           try {
@@ -389,7 +389,7 @@ export function buildDX(M) {
         },
       },
       {
-        label: 'Send bank', title: 'Send the editor\'s 32 voices to the unit (32-voice bulk): replaces every internal voice of the bank',
+        label: 'Send bank', title: 'Send the editor\'s 32 voices to the unit: replaces every internal voice of the bank',
         run: async (api) => {
           const r = await pickBank(api, 'Send bank');
           if (!r) return;
@@ -531,7 +531,7 @@ function functionObject(M, ch) {
       next[pc.num - 64] = pc.value;
       return next;
     },
-    sendAll: { label: 'Send all', title: 'Send every function value (parameter changes, group 2)', build: (d, ctx) => ps.filter((p, i) => ps.findIndex((q) => q.num === p.num) === i).map((p) => msg.functionParam(ch(ctx), p.num, d[p.offset])) },
+    sendAll: { label: 'Send all', title: 'Send every function value to the unit', build: (d, ctx) => ps.filter((p, i) => ps.findIndex((q) => q.num === p.num) === i).map((p) => msg.functionParam(ch(ctx), p.num, d[p.offset])) },
   };
 }
 

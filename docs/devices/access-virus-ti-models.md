@@ -20,6 +20,13 @@ Keyboard and Polar add a keyboard; its global settings (Global Keyboard Paramete
 description and sent the same way. Whatever differs in the hardware of the first TI and the TI2 does not show
 in the OS images; nothing in the SysEx differs.
 
+## DIN and USB
+
+The same for all six (one host OS): see access-virus-ti2.md, "DIN and USB". Over USB the editor uses "Virus TI
+Synth"; "Virus TI MIDI" is the Virus's own MIDI sockets and never reaches the synth; through a MIDI interface on
+the MIDI In / Out sockets everything works while the Virus's USB MIDI is off (global "USB MidiPort active" No, play
+mode not Remote; the pages say so while the connection is DIN). Not checked over DIN on any model.
+
 ## Not checked
 
 Only a TI2 Desktop was connected: nothing was checked on a first TI or on a Keyboard or Polar. The Snow runs

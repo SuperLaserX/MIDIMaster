@@ -99,7 +99,7 @@ const sendEdit = (_v, ctx, data) => msg.edit(ctx, fitted(data));
 const programParams = [
   {
     key: 'position', group: 'Program', label: 'Edit position', offset: 0, sendKey: 'edit', send: sendEdit,
-    help: 'The page and slider the Wedge shows when the program is recalled (page x 4 + slider; a parameter change moves it)',
+    help: 'The page and slider the Wedge shows when the program is recalled; changing a parameter moves it there',
     dynamic: (d) => {
       const a = alg(d);
       const options = [];
@@ -109,7 +109,7 @@ const programParams = [
   },
   {
     key: 'config', group: 'Program', label: 'Configuration', offset: 1, options: ALGORITHMS.map((a, n) => [n, a.name]), relayout: true, sendKey: 'edit', send: sendEdit,
-    help: 'The effect configuration (algorithm); changing it sends the whole program to the edit buffer',
+    help: 'The effect configuration (algorithm); changing it sends the whole program to the Wedge',
     after: (d) => (fitProgram(d) ? 'Values above the new configuration\'s ranges were limited to its maxima.' : null),
   },
   ...Array.from({ length: 12 }, (_, i) => ({ key: `name${i}`, group: 'Program', label: `Name ${i + 1}`, offset: 2 + i, min: 32, max: 127, kind: 'char', hidden: true })),
@@ -150,11 +150,11 @@ const systemParams = [
   { key: 'ampX', section: 'global', group: 'Modulators', label: 'AmpX', offset: 5, options: modAmt, send: sendGlobal, sendKey: 'global', help: 'Amplitude of modulator X (-99 to +98; 00 = off)' },
   { key: 'modY', section: 'global', group: 'Modulators', label: 'Mod#Y', offset: 6, options: modSrc, send: sendGlobal, sendKey: 'global', help: 'MIDI source of modulator Y' },
   { key: 'ampY', section: 'global', group: 'Modulators', label: 'AmpY', offset: 7, options: modAmt, send: sendGlobal, sendKey: 'global', help: 'Amplitude of modulator Y' },
-  { key: 'thru', section: 'global', group: 'MIDI flags', label: 'Thru', offset: 8, bits: 1, shift: 0, options: onOff, send: sendGlobal, sendKey: 'global', help: 'MIDI page "Thru": echo MIDI In to MIDI Out (16CB)' },
-  { key: 'omni', section: 'global', group: 'MIDI flags', label: 'Omni', offset: 8, bits: 1, shift: 1, options: onOff, send: sendGlobal, sendKey: 'global', help: 'Receive on every channel (CC 125 Omni On / CC 124 Omni Off set it; not shown on the LCD)' },
-  { key: 'dry', section: 'global', group: 'MIDI flags', label: 'Dry defeat switch', offset: 8, bits: 1, shift: 2, options: onOff, send: sendGlobal, sendKey: 'global', help: 'State of the dry-signal switch (0400 drives it when the global message arrives; the Util "Dry Defeat" page sets it)' },
-  { key: 'edited', section: 'global', group: 'MIDI flags', label: 'Program edited', offset: 8, bits: 1, shift: 3, options: onOff, readOnly: true, help: 'Set by the Wedge when a parameter changes (2276), cleared when a program is stored or recalled' },
-  { key: 'second', section: 'global', group: 'MIDI flags', label: 'Second effect page shown', offset: 8, bits: 1, shift: 6, options: onOff, readOnly: true, help: 'Set by the Wedge while a page of a configuration\'s second effect is shown (2225, descriptor byte 0Eh); lights a panel icon' },
+  { key: 'thru', section: 'global', group: 'MIDI flags', label: 'Thru', offset: 8, bits: 1, shift: 0, options: onOff, send: sendGlobal, sendKey: 'global', help: 'MIDI page "Thru": pass everything from MIDI In on to MIDI Out' },
+  { key: 'omni', section: 'global', group: 'MIDI flags', label: 'Omni', offset: 8, bits: 1, shift: 1, options: onOff, send: sendGlobal, sendKey: 'global', help: 'Receive on every channel (CC 125 Omni On / CC 124 Omni Off set it; the Wedge\'s display does not show it)' },
+  { key: 'dry', section: 'global', group: 'MIDI flags', label: 'Dry defeat switch', offset: 8, bits: 1, shift: 2, options: onOff, send: sendGlobal, sendKey: 'global', help: 'State of the dry-signal switch, set on the Util "Dry Defeat" page; the Wedge applies it when the global settings arrive' },
+  { key: 'edited', section: 'global', group: 'MIDI flags', label: 'Program edited', offset: 8, bits: 1, shift: 3, options: onOff, readOnly: true, help: 'Set by the Wedge when a parameter changes, cleared when a program is stored or recalled' },
+  { key: 'second', section: 'global', group: 'MIDI flags', label: 'Second effect page shown', offset: 8, bits: 1, shift: 6, options: onOff, readOnly: true, help: 'Set by the Wedge while a page of a configuration\'s second effect is shown; lights a panel icon' },
   ...Array.from({ length: 128 }, (_, n) => ({
     key: `t${n}`, section: 'table', group: 'Program change table', label: `MIDI ${pad3(n)}`, offset: TABLE_AT + n, options: tableOptions,
     send: sendTable, sendKey: 'table', help: `Wedge program recalled by program change ${n} when PChg is tbL`,
@@ -287,7 +287,7 @@ const BANKS = [[0, 'User'], [1, 'Preset']];
 const PRESET_NAMES = PRESETS.map((h) => nameOf(hex(h)));
 
 export default {
-  coverage: `Every byte of programs (all 28 configurations, each parameter with the LCD text its firmware display routine shows), the global settings and the program change table, from ${FIRMWARE}. Edit buffer, user bank and program dumps, store, live parameter changes. Not checked on hardware.`,
+  coverage: 'Edits the Wedge\'s programs (all 28 configurations, each value shown as the Wedge\'s display shows it), its global settings and its program change table. Reads the current program and the user bank, sends programs, stores them into user slots, and sends each change as you make it. Not checked on hardware.',
   sysex: { manufacturer: [0x00, 0x00, 0x0e], model: 0x15 },
   minGap: 20,
   describe,
@@ -313,8 +313,8 @@ export default {
       fromCommon: (c, base) => TR.fromCommon(c, base),
       cols: 4,
       layout: [{ group: 'Program' }, ...Array.from({ length: 6 }, (_, p) => ({ group: `Page ${p + 1}` }))],
-      note: 'Each slider change is sent as a parameter change (opcode 06), which the Wedge applies to its edit buffer. Changing the configuration or the name sends the whole program. Store writes the program into a user slot.',
-      sendAll: { label: 'Send to edit buffer', title: 'Send the whole program to the edit buffer (opcode 02)', build: (data, ctx) => msg.edit(ctx, fitted(data)) },
+      note: 'Each slider change is sent at once to the program the Wedge is playing. Changing the configuration or the name sends the whole program. Store writes the program into a user slot.',
+      sendAll: { label: 'Send to edit buffer', title: 'Send the whole program to the Wedge (it plays it but does not store it)', build: (data, ctx) => msg.edit(ctx, fitted(data)) },
       toSyx: (data, ctx) => msg.edit(ctx, fitted(data)),
       fromSyx: programFromSyx,
       actions: [
@@ -326,7 +326,7 @@ export default {
           api.send(msg.edit(api.ctx, fitted(d)));
           api.setData(d);
         } },
-        { label: 'Store via Wedge', title: 'Send the program to the edit buffer, then have the Wedge store it (opcode 05) into a user slot', run: async (api) => {
+        { label: 'Store via Wedge', title: 'Send the program to the Wedge, then have the Wedge store it into a user slot', run: async (api) => {
           const r = await api.form('Store into user program', [{ key: 'n', label: 'User program (0-127)', value: '0', type: 'number', min: 0, max: 127 }]);
           if (!r) return;
           const n = Math.max(0, Math.min(127, Math.round(Number(r.n) || 0)));
@@ -336,7 +336,7 @@ export default {
       slots: {
         label: 'Programs', banks: BANKS, count: 128,
         slotLabel: (bank, i) => `${bank ? 'Pset' : 'User'} ${pad3(i)}`,
-        note: (bank) => (bank ? 'Preset programs are in the Wedge\'s ROM: their contents come from the firmware. ' : 'Reading a user program reads the whole user bank (the v1.02 Wedge does not answer single-program requests). ')
+        note: (bank) => (bank ? 'Preset programs are built into the Wedge: the editor shows them from its own copy. ' : 'Reading one user program reads the whole user bank (the Wedge cannot send single programs). ')
           + 'Play sends Controller 0 (0 = Preset, 1 = User bank) and a program change: the Wedge follows them when PChg is On.',
         names: (bank) => (bank === 1 ? PRESET_NAMES : null),
         writable: (bank) => bank === 0,
@@ -362,7 +362,7 @@ export default {
       sections: [{ key: 'global', label: 'Levels, modulators, MIDI' }, { key: 'table', label: 'Program change table' }],
       params: systemParams,
       cols: 3,
-      note: 'Global settings go out together (opcode 00), the table as a whole (opcode 01). The MIDI channel, PChg mode and Dry Defeat page are front-panel settings that no message carries.',
+      note: 'The global settings are sent together, the program change table as a whole. The MIDI channel, PChg mode and Dry Defeat page can only be set on the Wedge\'s front panel.',
       toSyx: (data, ctx) => [msg.global(ctx, data), msg.table(ctx, data)],
       fromSyx: systemFromSyx,
     },

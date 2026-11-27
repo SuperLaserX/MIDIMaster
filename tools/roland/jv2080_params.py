@@ -34,7 +34,8 @@ def main():
     for key, first, last, addr, desc in BLOCKS:
         params = []
         for gid in range(first, last + 1):
-            a = TABLE - BASE + gid * 8
+            # system 52h-5Fh: the SysEx getter (0x0E12C14E) and setter (0x0E12C1CC) use IDs 6Dh-7Ah
+            a = TABLE - BASE + (gid + 0x1B if key == 'system' and 0x52 <= gid <= 0x5F else gid) * 8
             mask, byte, shift, default, mn, mx = struct.unpack('>HBBBBB', d[a:a + 7])
             params.append({'offset': gid - first, 'id': gid, 'default': default, 'min': mn, 'max': mx, 'mask': mask, 'byte': byte, 'shift': shift})
         out[key] = {'address': addr, 'description': desc, 'size': last - first + 1, 'params': params}

@@ -88,8 +88,8 @@ test('OS 4.1 arpeggio patterns (SuperNova II format, bank U) and the Nova messag
     assert.ok(pat.groupInfo.Steps.pattern, 'the generic step grid model');
   }
   assert.deepEqual(NV.msg.copyBanks(ctx), [[0xbf, 99, 127], [0xf0, 0, 0x20, 0x29, 1, 0x21, 0x7f, 0x1d, 0x7f, 0xf7]]);
-  assert.ok(obj(nova, 'global').actions.some((a) => /1D/.test(a.label)));
-  assert.ok(!obj(sn1, 'global').actions.some((a) => /1D/.test(a.label)));
+  assert.ok(obj(nova, 'global').actions.some((a) => a.label === 'Copy banks'));
+  assert.ok(!obj(sn1, 'global').actions.some((a) => a.label === 'Copy banks'));
 });
 
 test('Nova II: 6 External Parts; SuperNova II: program polyphony and no typed spare bytes', () => {
@@ -99,5 +99,19 @@ test('Nova II: 6 External Parts; SuperNova II: program polyphony and no typed sp
   const poly = SN2.programParams.find((p) => p.label === 'Polyphony');
   assert.deepEqual([poly.offset, poly.bits, poly.options.map((o) => o[0])], [238, 2, [1, 2]]);
   for (const list of [SN2.programParams, SN2.performanceParams]) assert.ok(!list.some((p) => p.group === 'Spare bytes'));
-  assert.ok(SN2.programParams.filter((p) => p.group === 'Reserved' && p.offset >= 286 + 9 && p.offset <= 286 + 12).every((p) => p.readOnly && /new program/.test(p.help)));
+  // 1E 9-12 are the program-mode Keyboard settings now (found in the Keyboard OS run in the emulator)
+  assert.ok(!SN2.programParams.some((p) => p.group === 'Reserved' && p.offset >= 286 + 9 && p.offset <= 286 + 12));
+  const oct = obj(nova2, 'program').params.find((p) => p.label === 'Keyboard octave');
+  assert.deepEqual([oct.offset, oct.options[0], oct.options.at(-1)], [286 + 9, [61, '-3'], [68, '+4']], 'the Nova II keyboard goes to +4');
+});
+
+test('OS 4.1 (SuperNova): its panel pages and the shared part mutes', () => {
+  const prog = obj(sn1, 'program');
+  const page = (l) => prog.params.find((p) => p.label === l);
+  assert.deepEqual(page('Osc page').options.map((o) => o[1]), ['Pitch', 'Width', 'Sync', 'Mix', 'Soften'], 'the SuperNova shows "Soften level"');
+  assert.deepEqual(page('Tune page').options.map((o) => o[1]), ['Fine tune', 'Coarse tune', 'Octave']);
+  assert.deepEqual(page('Filter mod. page').options.map((o) => o[1]), ['Freq', 'Res/width']);
+  const mutes = obj(sn1, 'performance').params.filter((p) => p.label === 'Part mute');
+  assert.equal(mutes.length, 8);
+  assert.deepEqual(mutes.map((p) => [p.offset, p.shift]), [[19, 0], [19, 1], [19, 2], [19, 3], [19, 4], [19, 5], [19, 6], [16, 6]]);
 });

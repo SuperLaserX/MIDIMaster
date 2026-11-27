@@ -75,7 +75,7 @@ export function presentSystem(built, { dt1Of, slotNo }) {
       set: (d, v) => { d[msb.offset] = (v >> 14) & 127; d[msb.offset + 1] = (v >> 7) & 127; d[msb.offset + 2] = v & 127; },
       send: (_v, ctx, d) => dt1Of(msb.at, Array.from(d.slice(msb.offset, msb.offset + 3)), ctx),
       readOnly: true,
-      help: `The patch Part ${n} plays (bank select 87/0-3 and a program number in the setup). Choose patches in the Patch page's list.`,
+      help: `The patch Part ${n} plays. Choose patches in the Patch page's list.`,
       dynamic: (d, ctx) => {
         const names = ctx?.names?.patch;
         const options = [];

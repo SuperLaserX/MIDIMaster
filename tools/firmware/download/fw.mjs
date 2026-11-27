@@ -1,6 +1,8 @@
 // Firmware download helper (tools/firmware/download; the log dl_log.jsonl and notes dl_notes.jsonl are kept here).
 //   node fw.mjs get <Maker> <Model> <version> <url> [--name file] [--note text] [--folder sub] [--source text] [--html-ok]
 //                   [--current] [--supersedes "what the collection had"] [--current-key "product line"]   (an update: newest version)
+//   node fw.mjs local <Maker> <Model> <version> <file> --url <container-url#member> [same options as get]
+//                   files a file read out of a downloaded container (e.g. firmware embedded in a maker's app)
 //   node fw.mjs head <url>                      status, type, length, final URL
 //   node fw.mjs note <Maker> <Model> <status> <why>   status: none | skipped | have
 //   node fw.mjs manifest [Maker ...]            rewrite MANIFEST.md of those makers (all with log entries if none) and DOWNLOADS.md
@@ -202,6 +204,38 @@ export async function get(maker, model, version, url, opts = {}) {
   }
 }
 
+/**
+ * File a local file into the collection with the same checks as get() (type, zip listing, SHA-256, same file anywhere
+ * in the collection, never overwriting). For firmware read out of a downloaded container (e.g. an image embedded in a
+ * maker's updater app): url names the container and the member, e.g. "https://.../app.zip#qrc:/bin/fw.bin".
+ */
+export function addLocal(maker, model, version, src, opts = {}) {
+  const { name, note, folder, source, url, current, supersedes, currentKey } = opts;
+  if (!url) return { status: 'fail', msg: 'FAIL local needs --url (container URL#member)' };
+  const got = fs.statSync(src).size;
+  const kind = kindOf(src);
+  let members = null;
+  if (kind === 'zip') { members = zipMembers(src); if (!members) return { status: 'fail', msg: `FAIL zip has no readable directory ${src}` }; }
+  const hash = sha256(src);
+  const dup = sameSizeFiles(got).find((p) => sha256(p) === hash);
+  if (dup) return { status: 'have', msg: `HAVE same file already: ${dup}`, dup, sha256: hash };
+  const fname = safe(path.basename(name || src)) || 'file';
+  const dir = destDir(maker, model, folder);
+  fs.mkdirSync(dir, { recursive: true });
+  let dest = path.join(dir, fname);
+  if (fs.existsSync(dest)) { const p = path.parse(fname); dest = path.join(dir, `${p.name} (${hash.slice(0, 8)})${p.ext}`); }
+  if (fs.existsSync(dest)) return { status: 'fail', msg: `FAIL ${path.relative(FW, dest)} exists (not overwritten)` };
+  fs.copyFileSync(src, dest, fs.constants.COPYFILE_EXCL);
+  sizeIndex?.get(got)?.push(dest) ?? sizeIndex?.set(got, [dest]);
+  const rec = { maker, model, folder: folder || undefined, version, file: path.relative(FW, dest).replace(/\\/g, '/'), size: got, sha256: hash, kind, url, date: new Date().toISOString().slice(0, 10), note, source: source || undefined };
+  if (members) rec.members = members.length;
+  if (current) rec.current = true;
+  if (supersedes) rec.supersedes = supersedes;
+  if (currentKey) rec.currentKey = currentKey;
+  fs.appendFileSync(LOG, JSON.stringify(rec) + '\n');
+  return { status: 'ok', msg: `OK ${rec.file} ${human(got)} ${kind}`, rec };
+}
+
 /** Record a device checked without a download (status: none | skipped | have). */
 export function note(maker, model, status, why) {
   const rec = { maker, model, status, why, date: new Date().toISOString().slice(0, 10) };
@@ -263,7 +297,7 @@ export function manifest(makers = [], { quiet = false } = {}) {
   const byMk = new Map();
   for (const r of log) { const m = byMk.get(r.maker) || { files: 0, size: 0, models: new Set() }; m.files++; m.size += r.size; m.models.add(r.model); byMk.set(r.maker, m); }
   const total = log.reduce((n, r) => n + r.size, 0);
-  const D = ['# Firmware downloads', '', 'Official OS/firmware files (and some archived ones) fetched for the devices in `docs/FIRMWARE_WANTED.md` of MIDIMaster.',
+  const D = ['# Firmware downloads', '', 'Official OS/firmware files (and some archived ones) fetched for the devices in `intdocs/FIRMWARE_WANTED.md` of MIDIMaster.',
     'Each maker folder has a `MANIFEST.md` (Korg: `korg/MANIFEST_WEB.md`) with versions, sizes, SHA-256 and source URLs, and the devices checked',
     'that have no public download.', '', `Total: ${log.length} files, ${human(total)}, ${new Set(log.map((r) => r.maker + '/' + r.model)).size} devices.`, '',
     '| Maker | Devices | Files | Size | Manifest |', '|---|---:|---:|---:|---|'];
@@ -305,6 +339,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     const supersedes = opt('--supersedes'), currentKey = opt('--current-key'), current = flag('--current') || !!supersedes;
     const [maker, model, version, url] = args;
     try { console.log((await get(maker, model, version, url, { name, note: noteText, folder, source, htmlOk, current, supersedes, currentKey })).msg); } catch (e) { console.log(`FAIL ${e.message} ${url}`); }
+  } else if (cmd === 'local') {
+    const name = opt('--name'), noteText = opt('--note'), folder = opt('--folder'), source = opt('--source'), url = opt('--url');
+    const supersedes = opt('--supersedes'), currentKey = opt('--current-key'), current = flag('--current') || !!supersedes;
+    const [maker, model, version, file] = args;
+    console.log(addLocal(maker, model, version, file, { name, note: noteText, folder, source, url, current, supersedes, currentKey }).msg);
   } else if (cmd === 'note') {
     const [maker, model, status, ...why] = args;
     note(maker, model, status, why.join(' '));

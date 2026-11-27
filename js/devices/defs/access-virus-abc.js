@@ -110,14 +110,14 @@ const hex2 = (v) => `${v.toString(16).toUpperCase().padStart(2, '0')}h`;
 const PANEL_BITS = (v) => `${['none', 'Filter 1', 'Filter 2', 'Filter 1+2'][v & 3]}; Osc 1 knob ${v & 0x20 ? 'Pulse Width' : 'Wave'}; Osc 2 knob ${v & 0x40 ? 'Pulse Width' : 'Wave'} (${hex2(v)})`;
 /** The panel selections a sound keeps (offset -> parameter): the B / Classic keep them in page A 4. */
 export const B_PANEL = {
-  4: { label: 'Panel selections', format: PANEL_BITS, help: "Page A 4 holds the panel's selections stored with the sound (the host reads them for the panel knobs: bits 0-1 the filter the Cutoff / Resonance knobs edit, bit 5 / 6 whether the Osc 1 / Osc 2 knob edits Wave or Pulse Width). The controller 4 (Foot) is a performance control, not stored here." },
+  4: { label: 'Panel selections', format: PANEL_BITS, help: "Page A 4 holds the panel selections stored with the sound: bits 0-1 the filter the Cutoff / Resonance knobs edit, bit 5 / 6 whether the Osc 1 / Osc 2 knob edits Wave or Pulse Width. Controller 4 (Foot) is a performance control, not stored here." },
 };
 /** The C OS 6.6 keeps the filter select in page A 4 and the panel's section selections in page B 125-127 (its knob
  * handlers read them: 3A76 LFO, 3B4C / 3DA7 / 3E11 / 3E75 oscillator, 3BF2 / 3D37 effects, 3CCE / 3EA8 filter). */
 /** The Rack XL keeps only the filter select (page A 4 bits 0-1; its knob pages replace the C's section selects). */
 export const RXL_PANEL = { get 4() { return C_PANEL[4]; } };
 export const C_PANEL = {
-  4: { label: 'Filter select', group: 'Panel selections', format: (v) => `${['none', 'Filter 1', 'Filter 2', 'Filter 1+2'][v & 3]} (${hex2(v)})`, help: "Page A 4 bits 0-1: the filter the Cutoff, Resonance, Env Amount and Keyfollow knobs edit (stored with the sound; the OS reads it at 15F0). The controller 4 (Foot) is a performance control, not stored here." },
+  4: { label: 'Filter select', group: 'Panel selections', format: (v) => `${['none', 'Filter 1', 'Filter 2', 'Filter 1+2'][v & 3]} (${hex2(v)})`, help: "Page A 4 bits 0-1: the filter the Cutoff, Resonance, Env Amount and Keyfollow knobs edit (stored with the sound). Controller 4 (Foot) is a performance control, not stored here." },
   253: { label: 'Effects select', group: 'Panel selections', readOnly: false, input: undefined, max: 2, options: [[0, 'Distortion'], [1, 'Phaser'], [2, 'Chorus']], help: "Page B 125: the effect the two effects knobs edit (Distortion type / intensity, Phaser mix / feedback, Chorus mix / depth); stored with the sound, set with the panel's effects button (no screen text: the names are the parameters the knobs edit)." },
   254: { label: 'LFO select', group: 'Panel selections', readOnly: false, input: undefined, max: 2, options: [[0, 'LFO 1'], [1, 'LFO 2'], [2, 'LFO 3']], help: "Page B 126: the LFO the LFO Rate knob edits (its rate, or its clock when the clock is on); stored with the sound, set with the panel's LFO button." },
   255: { label: 'Oscillator select', group: 'Panel selections', readOnly: false, input: undefined, max: 2, options: [[0, 'Osc 1'], [1, 'Osc 2'], [2, 'Osc 3']], help: "Page B 127: the oscillator the Wave / PW, Detune, Semitone and Sub / Osc 3 knobs edit (Osc 1 / 2: Wave while its Shape is below 64, else Pulse Width; Osc 3: its mode); stored with the sound, set with the panel's oscillator button." },
@@ -157,19 +157,19 @@ function singleParams(T, panel) {
     const cls = T.CLASS[`${'AB'[o >> 7]}${i}`];
     const cc = o < 128 ? T.CC_NAMES[i] : '';
     const p = { key: `s${o}`, offset: o, group: 'Not in the sound', section: 'reserved', min: 0, max: 127, input: 'number', readOnly: true };
-    if (o === 0) { out.push({ ...p, label: 'Sound format', group: 'Common', section: 'common', help: 'Page A 0: the sound version the OS writes (6 in Virus B sounds, 7 in Virus C sounds); the Virus updates older sounds when they arrive. No screen shows it.' }); continue; }
+    if (o === 0) { out.push({ ...p, label: 'Sound format', group: 'Common', section: 'common', help: 'Page A 0: the sound\'s version (6 in Virus B sounds, 7 in Virus C sounds); the Virus updates older sounds when they arrive. No screen shows it.' }); continue; }
     if (panel?.[o]) { out.push({ ...p, group: 'Common', section: 'common', ...panel[o] }); continue; }
     const button = PANEL_BUTTONS[o];
     if (button && cls === 'single') {
       out.push({ key: `s${o}`, offset: o, label: cc || button[2], group: button[0], section: sectionOf(button[0].toUpperCase()), min: 0, max: button[1].length - 1, options: button[1].map((t, v) => [v, t]),
-        help: `${pageIndex(o)}, controller ${i} "${cc}": set with a panel button and shown by its LEDs only (no menu, knob or screen text in the OS); the value names are Access's (Virus A OS 2.8 addendum).` });
+        help: `${pageIndex(o)}: set with a panel button and shown by its LEDs only (no menu or screen text); the value names are from Access's documentation.` });
       continue;
     }
-    const what = cls === 'controller' ? `a performance controller (${cc || `controller ${i}`}), read from the controller table, not from the sound`
-      : cls === 'dsp' ? 'asked from the DSP by the OS (no menu shows it)'
-        : cls === 'alias' ? 'the OS reads another parameter under this index (on the Rack XL, B 126 / 127: resonance / env amount of the selected filter, page A 42 / 43 or 44 / 45 by the filter select), not this byte'
-          : 'no menu, knob or other screen of the OS shows it';
-    out.push({ ...p, label: o < 128 ? `Controller ${i}${cc ? ` (${cc})` : ''}` : `Reserved (${pageIndex(o)})`, help: `${pageIndex(o)}: ${what}. Kept as the dump brings it.` });
+    const what = cls === 'controller' ? `a performance controller (${cc || `controller ${i}`}), not part of the sound`
+      : cls === 'dsp' ? 'used inside the Virus\'s sound engine; no menu shows it'
+        : cls === 'alias' ? 'the Virus uses this number for another setting (on the Rack XL, B 126 / 127 are the resonance / env amount of the selected filter, kept at A 42 / 43 or 44 / 45), not this value'
+          : 'no menu, knob or screen of the Virus shows it';
+    out.push({ ...p, label: o < 128 ? `Controller ${i}${cc ? ` (${cc})` : ''}` : `Reserved (${pageIndex(o)})`, help: `${pageIndex(o)}: ${what}. Kept as the Virus sends it.` });
   }
   return out;
 }
@@ -200,7 +200,7 @@ function multiParams(T, names = () => []) {
     }
     const at = partAt(33, part);
     out.push({ key: `p${part}_sound`, offset: at, label: 'Sound', group: g, section: `part${part}`, min: 0, max: 127, readOnly: true, part,
-      help: 'The single in this part\'s edit buffer (read with the multi by request 34)', dynamic: (d) => ({ options: [[d[at], names(d)[part] ?? '(not read)']] }) });
+      help: 'The single this part holds now (read with the multi)', dynamic: (d) => ({ options: [[d[at], names(d)[part] ?? '(not read)']] }) });
   }
   const used = new Set(out.filter((p) => !p.bits).map((p) => p.offset));
   for (let o = 0; o < MULTI_SIZE; o++) {
@@ -208,7 +208,7 @@ function multiParams(T, names = () => []) {
     const page = o >= 32 ? 32 + ((o - 32) >> 4) : o;
     out.push({ key: `m${o}`, offset: o, group: 'Reserved bytes', section: 'reserved', min: 0, max: 127, input: 'number', readOnly: true,
       label: o >= 32 ? `Part ${((o - 32) & 15) + 1} (page C ${page})` : `Multi byte ${o}`,
-      help: o >= 32 ? `Page C ${page} of part ${((o - 32) & 15) + 1}: no menu of the OS shows it. Kept as the dump brings it.` : `Page C ${o}: ${T.CLASS[`C${o}`] === 'global' ? 'a global setting (Global page), not the multi\'s' : 'no multi parameter in the OS'}. Kept as the dump brings it.` });
+      help: o >= 32 ? `Page C ${page} of part ${((o - 32) & 15) + 1}: no menu of the Virus shows it. Kept as the Virus sends it.` : `Page C ${o}: ${T.CLASS[`C${o}`] === 'global' ? 'a global setting (Global page), not the multi\'s' : 'not a multi setting'}. Kept as the Virus sends it.` });
   }
   return out;
 }
@@ -394,7 +394,7 @@ export function abcModel({ model, id, T, banks, multis = 128, format = 6, note, 
   const singleBanks = banks.map(([b, n]) => [b, n]);
   const DEF = {
     model,
-    coverage: `${model}: ${note} Singles (every parameter its host OS's menus and panel knobs edit, with the screen's labels, ranges and value texts; bytes no screen shows kept read-only), the multi (16 parts; MIDI channels page), the global settings, the single banks with names, the RAM multis, store to RAM, Branch Library, translator for the Head Library, simulator. Not checked on a unit.`,
+    coverage: `${model}: ${note} Edits the singles (every parameter the Virus's menus and panel knobs edit, with its own labels, ranges and value texts; values no screen shows are kept read-only), the multi (16 parts, with a MIDI channels page) and the global settings; the single banks with their names, the RAM multis, Store to RAM, the Branch Library and Head Library. Not checked on a unit.`,
     sysex: { manufacturer: [0x00, 0x20, 0x33], model: 0x01, deviceIdDefault: OMNI },
     minGap: 20,
     describe,
@@ -411,11 +411,11 @@ export function abcModel({ model, id, T, banks, multis = 128, format = 6, note, 
         fetch: (api) => fetchSingle(api, 0, unit.part),
         target: PART_TARGET,
         sections: SINGLE_SECTIONS,
-        groupInfo: { 'Not in the sound': { note: 'Page A / B bytes no menu, panel knob or other screen of the OS shows: performance controllers (page A 1-16, 64-66: the Virus reads them from its controller table, not from the sound) and bytes without a parameter. Kept as the dump brings them, so a backup restores exactly.', table: true, wide: true } },
+        groupInfo: { 'Not in the sound': { note: 'Values no menu, panel knob or screen of the Virus shows: performance controllers (page A 1-16, 64-66, not part of the sound) and places without a setting. Kept as the Virus sends them, so a backup restores exactly.', table: true, wide: true } },
         sendParam: (p, _v, data, ctx) => abcMsg.param(ctx, p.offset >> 7, unit.part, p.offset & 127, data[p.offset]),
         receive,
-        note: 'Each change is sent as a SysEx parameter (page A or B) to the edit buffer chosen above. Store writes the single into a RAM slot.',
-        sendAll: { label: 'Send to Virus', title: 'Send the whole single into the chosen edit buffer (message 10)', build: (data, ctx) => abcMsg.single(ctx, 0, unit.part, data) },
+        note: 'Each change is sent at once to the edit buffer chosen above. Store writes the single into a RAM slot.',
+        sendAll: { label: 'Send to Virus', title: 'Send the whole single into the chosen edit buffer', build: (data, ctx) => abcMsg.single(ctx, 0, unit.part, data) },
         toSyx: (data, ctx) => [abcMsg.single(ctx, 0, SINGLE_PART, data)],
         fromSyx: (msgs) => { const m = msgs.find((x) => cmdOf(x) === 0x10); return m ? singleFrom(m) : null; },
         toCommon: (d) => TR.singleToCommon(d, id, fxModes),
@@ -431,7 +431,7 @@ export function abcModel({ model, id, T, banks, multis = 128, format = 6, note, 
           scanBank: scan(0x10), namesOnOpen: true,
           store: (bank, i, ctx, data) => abcMsg.single(ctx, bank, i, data),
           writable: (bank) => banks.some(([b, , w]) => b === bank && w),
-          note: (bank) => `Play reads the single and sends it into the edit buffer chosen above. Read names asks for the whole bank (message 32).${banks.some(([b, , w]) => b === bank && w) ? ' Store writes into this RAM slot (Memory Protect Off, MIDI Dump RX Enable).' : ' ROM banks cannot be written.'}`,
+          note: (bank) => `Play reads the single and sends it into the edit buffer chosen above. Read names reads the whole bank.${banks.some(([b, , w]) => b === bank && w) ? ' Store writes into this RAM slot (Memory Protect Off, MIDI Dump RX Enable).' : ' ROM banks cannot be written.'}`,
         },
       },
       {
@@ -439,10 +439,10 @@ export function abcModel({ model, id, T, banks, multis = 128, format = 6, note, 
         init: initMulti, params: mParams, name: multiNameOf, cols: 3,
         fetch: (api) => fetchArrangement(api),
         sections: [{ key: 'common', label: 'Common' }, ...Array.from({ length: 16 }, (_, i) => ({ key: `part${i}`, label: `Part ${i + 1}` })), { key: 'reserved', label: 'Reserved bytes' }],
-        groupInfo: { 'Reserved bytes': { note: 'Multi bytes no menu of the OS shows. Kept as the dump brings them.', table: true, wide: true } },
+        groupInfo: { 'Reserved bytes': { note: 'Multi values no menu of the Virus shows. Kept as the Virus sends them.', table: true, wide: true } },
         sendParam: (p, _v, data, ctx) => (p.part === undefined ? abcMsg.param(ctx, 2, 0, p.offset, data[p.offset]) : abcMsg.param(ctx, 2, p.part, p.page, readParam(data, p))),
-        note: 'Each change is sent as a page C parameter (message 72). A part plays the single of its Bank and Patch on its MIDI channel; in multi mode the parts\' sounds are in their part edit buffers (Single page, Edit buffer: Multi part n).',
-        sendAll: { label: 'Send to Virus', title: 'Send the multi into the multi edit buffer (message 11 00 7F)', build: (data, ctx) => abcMsg.multi(ctx, 0, 0x7f, data) },
+        note: 'Each change is sent at once. A part plays the single of its Bank and Patch on its MIDI channel; in multi mode the parts\' sounds are in their part edit buffers (Single page, Edit buffer: Multi part n).',
+        sendAll: { label: 'Send to Virus', title: 'Send the multi into the Virus\'s multi edit buffer', build: (data, ctx) => abcMsg.multi(ctx, 0, 0x7f, data) },
         toSyx: (data, ctx) => [abcMsg.multi(ctx, 0, 0x7f, data)],
         fromSyx: (msgs) => { const m = msgs.find((x) => cmdOf(x) === 0x11); return m ? dataFrom(m, 0x11) : null; },
         toCommon: (d) => TR.multiToCommon(d, id),
@@ -460,7 +460,7 @@ export function abcModel({ model, id, T, banks, multis = 128, format = 6, note, 
             { label: 'Key range', params: [mParams.find((p) => p.part === 0 && p.page === 35)?.label ?? 'LowKey', mParams.find((p) => p.part === 0 && p.page === 36)?.label ?? 'HighKey'] },
           ].filter((c) => c.params.every((n) => mParams.some((p) => p.part === 0 && p.label === n))), // the A's parts have no pan
           on: (i, d) => readParam(d, findMulti(i, 72)) === 1,
-          note: 'Each part plays the single in its edit buffer (Sound) on its MIDI channel; Part enable switches it on. Get from device reads the multi and the 16 part singles (request 34). Changes go to the multi edit buffer; store the multi to keep them.',
+          note: 'Each part plays the single in its edit buffer (Sound) on its MIDI channel; Part enable switches it on. Get from device reads the multi and the 16 part singles. Changes go to the multi edit buffer; store the multi to keep them.',
         },
         slots: {
           label: 'Multis', banks: [[1, 'RAM multis']], count: multis,
@@ -469,7 +469,7 @@ export function abcModel({ model, id, T, banks, multis = 128, format = 6, note, 
           scanBank: scan(0x11), namesOnOpen: true,
           store: (_bank, i, ctx, data) => abcMsg.multi(ctx, 1, i, data),
           writable: () => true,
-          note: () => 'Read names asks for all multis (message 33). Store writes the multi into its slot (Memory Protect Off).',
+          note: () => 'Read names reads all multis. Store writes the multi into its slot (Memory Protect Off).',
         },
       },
       {
@@ -480,7 +480,7 @@ export function abcModel({ model, id, T, banks, multis = 128, format = 6, note, 
         sendParam: (p, _v, data, ctx) => abcMsg.param(ctx, 2, 0, p.offset, data[p.offset]),
         toSyx: (data, ctx) => [abcMsg.global(ctx, data)],
         fromSyx: (msgs) => { const m = msgs.find((x) => cmdOf(x) === 0x12); return m ? globalFrom(m) : null; },
-        note: 'The global settings (page C). Get from device asks for them (request 35, answered with a 12 dump); each change is sent at once (message 72). Memory Protect should stay Off.',
+        note: 'The global settings. Get from device reads them; each change is sent at once. Memory Protect should stay Off.',
       },
     ],
     // Each step ends as soon as its dumps are in (expect). The seconds are an estimate (not measured on these models:

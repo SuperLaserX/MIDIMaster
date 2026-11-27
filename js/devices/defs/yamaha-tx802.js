@@ -254,13 +254,13 @@ function sysParams() {
   P(12, 'Control change', 'Midi message receive switch', { options: RX_OPTS });
   P(6, 'Note on/off', 'Midi message receive switch', { options: opts(['all', 'odd', 'even']) });
   P(1, 'System exclusive device number', 'System exclusive', { options: CH_OPTS, help: 'SYSTEM4: off, 1-16 or all; the editor needs it on its channel (or all).' });
-  P(2, 'Voice data receive block', 'System exclusive', { options: opts(['1-32', '33-64']), help: 'SYSTEM4: where a received 32-voice bulk goes, and which 32 a voice bulk request answers with (565Fh: receiver 9F94, request ABF3); also parameter change 19h 4Dh. The Voices slot list switches it for I33-I64 and back.' });
+  P(2, 'Voice data receive block', 'System exclusive', { options: opts(['1-32', '33-64']), help: 'SYSTEM4: where a received bank of 32 voices goes, and which 32 voices the TX802 sends when asked. The Voices slot list switches it for I33-I64 and back.' });
   P(0, 'Perform select channel', 'Performance select', { options: CH_OPTS, help: 'SYSTEM3: the channel whose program changes select a performance (off, 1-16, all).' });
   P(7, 'Perform select assign table', 'Performance select', { options: opts(['off', 'on']), help: 'SYSTEM3: on = a program change selects the performance the table below assigns to it.' });
   P(8, 'TX802 bank', 'Cartridge bank select', { format: (v) => String(v + 1) });
   P(9, 'Frac.scaling bank', 'Cartridge bank select', { format: (v) => String(v + 1) });
   P(10, 'M.tuning bank', 'Cartridge bank select', { format: (v) => String(v + 1) });
-  P(11, 'Master tuning', 'Master tuning', { format: (v) => `${v >= 64 ? '+' : '-'}${Math.abs(v - 64)}`, help: 'SYSTEM7 (E4AE): 64 = centre; sent as F0 43 1n 04 40 vv F7.' });
+  P(11, 'Master tuning', 'Master tuning', { format: (v) => `${v >= 64 ? '+' : '-'}${Math.abs(v - 64)}`, help: 'SYSTEM7: 64 = centre.' });
   for (let c = 0; c < 122; c++) P(13 + c, `Control ${c}`, 'Control number assign', { max: 127, options: CTRL_FN.map((f, i) => [f, CTRL_NAMES[i]]), help: 'SYSTEM2: what this control number does (each function stored as its own usual number).' });
   for (let p = 0; p < 128; p++) P(135 + p, `Program ${p + 1}`, 'Perform select number assign', { max: 127, options: Array.from({ length: 128 }, (_, n) => [n, `${n < 64 ? 'INT' : 'CRT'}${String((n & 63) + 1).padStart(2, '0')}`]), help: 'SYSTEM3: the performance this program change selects (with the assign table on).' });
   return ps;
@@ -273,18 +273,18 @@ function systemObject(ch) {
     request: (ctx) => dumpRequestHeader(ch(ctx), SYS),
     match: isSysData,
     decode: (raw) => Uint8Array.from(parseBulk(raw).body),
-    note: 'The SYSTEM SETUP MENU pages (midi, ctrl, pfrm, syex, bank, mtun). The TX802 takes parameter changes only for the receive block and the master tuning: any other change sends the whole setup (internal memory protect off).',
+    note: 'The SYSTEM SETUP MENU pages (midi, ctrl, pfrm, syex, bank, mtun). The receive block and the master tuning are sent on their own; any other change sends the whole setup (internal memory protect must be off).',
     sendParam: (p, _v, d, ctx) => {
       if (p.offset === 2) return [0xf0, YAMAHA, 0x10 | ch(ctx), 0x19, 0x4d, d[2], 0xf7];
       if (p.offset === 11) return [0xf0, YAMAHA, 0x10 | ch(ctx), 0x04, 0x40, d[11], 0xf7];
       return bulkHeader(ch(ctx), SYS, d);
     },
-    sendAll: { label: 'Send', title: 'Send the system setup ("LM  8952S ")', build: (d, ctx) => bulkHeader(ch(ctx), SYS, d) },
+    sendAll: { label: 'Send', title: 'Send the whole system setup to the TX802', build: (d, ctx) => bulkHeader(ch(ctx), SYS, d) },
     toSyx: (d, ctx) => bulkHeader(ch(ctx), SYS, d),
     fromSyx: (msgs) => { const m = msgs.find(isSysData); return m ? Uint8Array.from(parseBulk(m).body) : null; },
     receive: (raw, d) => (isSysData(raw) ? Uint8Array.from(parseBulk(raw).body) : null),
     actions: [
-      { label: 'Init', title: 'The TX802\'s initial setup (DBC2, with UTIL6\'s control number and program change tables; not sent until you press Send)', run: (api) => api.setData(initSystem()) },
+      { label: 'Init', title: 'The TX802\'s initial setup, with the control number and program change tables of UTIL6 (not sent until you press Send)', run: (api) => api.setData(initSystem()) },
     ],
   };
 }
@@ -434,9 +434,9 @@ const def = buildDX7II({
       decode: (raw) => Uint8Array.from(parseTx802(raw).body),
       name: perfName,
       setName: setPerfName,
-      note: 'Eight tone generators of two notes each. A TG that starts a group plays its voice on its receive channel; the TGs that join it add notes. Changes are parameter changes (1Ah, number = byte; a link change starts or ends a group).',
+      note: 'Eight tone generators of two notes each. A TG that starts a group plays its voice on its receive channel; the TGs that join it add notes. Each change is sent as you make it; changing Link starts or ends a group.',
       sendParam: (p, _v, d, c2) => perfParam(ch(c2), p.offset, p.offset < 8 ? 0 : d[p.offset]),
-      sendAll: { label: 'Send', title: 'Send the performance edit buffer ("LM  8952PE")', build: (d, c2) => tx802Bulk(ch(c2), PE, d) },
+      sendAll: { label: 'Send', title: 'Send the performance to the TX802\'s edit buffer', build: (d, c2) => tx802Bulk(ch(c2), PE, d) },
       toSyx: (d, c2) => tx802Bulk(ch(c2), PE, d),
       fromSyx: (msgs) => {
         const m = msgs.find(isPe);
@@ -481,10 +481,10 @@ const def = buildDX7II({
       fromCommon: (c) => perfFromCommon(c),
     });
     def2.objects.push(systemObject(ch));
-    def2.objects.push(tgObject(D2.microTuningObject({ name: 'TX802' }, ch), ch, 'micro tuning (RAM 3000h + TG x 100h: the bulk sender AB04, receiver A039 and the 18h 7Eh key change A7AB all use the TG being edited)'));
-    def2.objects.push(tgObject(D2.fractionalObject({ name: 'TX802' }, ch), ch, 'fractional scaling (the voice of the TG being edited: sender A8E2 from its voice buffer 2000h + TG x 200h)'));
+    def2.objects.push(tgObject(D2.microTuningObject({ name: 'TX802' }, ch), ch, 'micro tuning of the TG being edited'));
+    def2.objects.push(tgObject(D2.fractionalObject({ name: 'TX802' }, ch), ch, 'fractional scaling of the voice of the TG being edited'));
   },
-  coverage: 'The DX7II voice editor (VCED + ACED, the TX802\'s voice format) with its 64 internal voices in the slot list (two 32-voice blocks through the Voice data receive block) and the cartridge and preset banks (selected in a TG and read back), the Branch Library, and the TX802\'s own eight-TG performance (TG link, receive channel, voice, detune, volume, output, note limits, note shift, EG forced damp, alternate assign, micro tuning, name) with its MIDI channels page, mapped from the v1.5 firmware and its data ROM\'s screens; the 64 performance memories are read by the Branch Library (unpacked). The system setup is kept as data. Not yet checked on a TX802.',
+  coverage: 'Edits the TX802\'s voices, its eight-TG performance and its voice banks. The DX7II voice editor (the TX802 uses the same voices) with its 64 internal voices, the cartridge and the preset banks in the slot list, the Branch Library, and the TX802\'s own eight-TG performance (TG link, receive channel, voice, detune, volume, output, note limits, note shift, EG forced damp, alternate assign, micro tuning, name) with its MIDI channels page, all with the TX802\'s own screen names; the 64 performance memories are read by the Branch Library. The system setup is kept as data. Not yet checked on a TX802.',
 });
 
 /**
@@ -498,7 +498,7 @@ function tx802Voice(v) {
   for (const p of v.params) {
     if (p.aced >= 39) Object.assign(p, { readOnly: true, help: NOT_USED });
     if (p.aced === 18) Object.assign(p, { readOnly: true, help: 'The TX802 has no pitch bend mode (its maximum is 0); kept for DX7II voices.' });
-    if (p.aced === 15) Object.assign(p, { options: [[0, 'poly'], [1, 'mono'], [2, 'poly (DX7II unison poly)'], [3, 'mono (DX7II unison mono)']], help: 'Key mode: the TX802 plays poly or mono (bit 0); the DX7II\'s unison modes read as their poly / mono.' });
+    if (p.aced === 15) Object.assign(p, { options: [[0, 'poly'], [1, 'mono'], [2, 'poly (DX7II unison poly)'], [3, 'mono (DX7II unison mono)']], help: 'Key mode: the TX802 plays poly or mono; the DX7II\'s unison modes read as their poly / mono.' });
   }
   const ctl = v.layout.find((l) => l.group === 'Controllers');
   if (ctl) ctl.rows = ctl.rows.filter((r) => !/Foot control 2|MIDI IN control/.test(r.label));
@@ -521,7 +521,7 @@ function tgObject(o, ch, what) {
   return {
     ...o,
     target: { label: 'TG', title: 'The tone generator whose data these pages read and change', options: () => Array.from({ length: 8 }, (_, t) => [t, `TG${t + 1}`]), value: () => tg.n, set: (v) => { tg.n = Number(v) & 7; } },
-    note: `${o.note} The TX802 keeps one per TG: this is the ${what}. With the performance read from the TX802, the TG chosen above is selected first (its receive channel is sent again unchanged); otherwise the TX802's own edited TG is used.`,
+    note: `${o.note} The TX802 keeps one per TG: this is the ${what}. With the performance read from the TX802, the editor first selects the TG chosen above; otherwise the TG being edited on the TX802 is used.`,
     fetch: async (api) => {
       const s = select(api.ctx);
       if (s) api.send(s);

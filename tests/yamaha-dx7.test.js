@@ -209,3 +209,11 @@ test('DX7: Head Library translation (exact DX to DX, built from another family w
   }
   assert.equal(r.data[134], 4, 'algorithm 5');
 });
+
+test('DX7: the editor against its own v1.8 OS run in an emulator (skipped when the firmware is absent)', async (t) => {
+  if (!existsSync('re/dx/fw/dx7/DX7-V1-8.OBJ')) { t.skip('re/dx/fw/dx7/DX7-V1-8.OBJ not present'); return; }
+  const { check } = await import('../tools/yamaha/check_editor.mjs');
+  const report = await check('dx7');
+  assert.ok(report.length >= 15, 'every step ran');
+  assert.deepEqual(report.filter((l) => l.startsWith('FAIL')), []);
+});

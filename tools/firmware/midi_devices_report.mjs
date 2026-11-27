@@ -1,8 +1,8 @@
-// Rebuilds docs/MIDI_DEVICE_LIST.md and docs/FIRMWARE_WANTED.md from tools/firmware/midi_devices.json.
+// Rebuilds intdocs/MIDI_DEVICE_LIST.md and intdocs/FIRMWARE_WANTED.md from tools/firmware/midi_devices.json.
 //
 // Usage: node tools/firmware/midi_devices_report.mjs [--match] [--add list.txt ...]
 //   (no options)  rebuild the two docs from the JSON
-//   --match       also re-check every device's `inCollection` against docs/FIRMWARE_CHECKLIST.md
+//   --match       also re-check every device's `inCollection` against intdocs/FIRMWARE_CHECKLIST.md
 //                 (run it after `node tools/firmware_checklist.mjs` when firmware was added); files from
 //                 retrofit-kit folders (also.json entries with "factory": false) do not count as a host device's
 //                 own firmware: such a device gets `kitInCollection` and stays in the wanted list
@@ -24,9 +24,9 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const JSON_PATH = path.join(ROOT, 'tools/firmware/midi_devices.json');
-const CHECKLIST = path.join(ROOT, 'docs/FIRMWARE_CHECKLIST.md');
-const LIST_MD = path.join(ROOT, 'docs/MIDI_DEVICE_LIST.md');
-const WANTED_MD = path.join(ROOT, 'docs/FIRMWARE_WANTED.md');
+const CHECKLIST = path.join(ROOT, 'intdocs/FIRMWARE_CHECKLIST.md');
+const LIST_MD = path.join(ROOT, 'intdocs/MIDI_DEVICE_LIST.md');
+const WANTED_MD = path.join(ROOT, 'intdocs/FIRMWARE_WANTED.md');
 
 export const CATS = {
   syn: 'Synthesizers and sound modules', wks: 'Workstations', smp: 'Samplers',
@@ -54,7 +54,7 @@ const slug = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCa
 function load() {
   if (!fs.existsSync(JSON_PATH)) {
     return {
-      about: 'MIDI-capable hardware (1983-) researched maker by maker, compared with the firmware collection (docs/FIRMWARE_CHECKLIST.md). '
+      about: 'MIDI-capable hardware (1983-) researched maker by maker, compared with the firmware collection (intdocs/FIRMWARE_CHECKLIST.md). '
         + 'Docs: node tools/firmware/midi_devices_report.mjs. Device fields: midi.din (in/out/thru), midi.usb, firmware.storage '
         + '(where the OS lives / how it is updated), firmware.officialDownload (maker publishes the update), versions (known OS versions), '
         + 'inCollection (false, or the matching checklist device and its files), match (checklist names to match; "-" = never), sources (per maker).',
@@ -116,7 +116,7 @@ function parseCompact(text, db) {
   return added;
 }
 
-// --- collection matching against docs/FIRMWARE_CHECKLIST.md ---
+// --- collection matching against intdocs/FIRMWARE_CHECKLIST.md ---
 function readChecklist() {
   const text = fs.readFileSync(CHECKLIST, 'utf8');
   const devs = []; let cur = null; let group = '';
@@ -211,7 +211,7 @@ function haveText(r) {
   if (!r.inCollection) return '';
   const infos = r.inCollection.flatMap((c) => c.files.map((f) => (f.info || '').split(';')[0].trim()).filter(Boolean));
   const uniq = [...new Set(infos)].slice(0, 4);
-  const cur = (r.current || []).map((c) => (c.line ? c.line + ' ' : '') + c.version);
+  const cur = (r.current || []).map((c) => (c.line && !c.version.toLowerCase().includes(c.line.toLowerCase()) ? c.line + ' ' : '') + c.version);
   return (cur.length ? 'current: ' + cur.join(', ') + '; ' : '') + 'have: ' + (uniq.length ? uniq.join(', ') : r.inCollection.reduce((n, c) => n + c.files.length, 0) + ' file(s)');
 }
 function midiText(m) { return [m.din !== 'none' ? 'DIN ' + m.din : '', m.usb ? 'USB' : '', m.retrofit ? 'retrofit' : ''].filter(Boolean).join(', ') || 'none'; }
@@ -249,9 +249,9 @@ function build(db) {
   const L = [];
   L.push('# MIDI device list', '',
     'Every MIDI-capable hardware device researched so far (1983 to now), and whether its firmware is in the',
-    'collection (`z:\\firmwares`, as listed in `docs/FIRMWARE_CHECKLIST.md`).', '',
+    'collection (`z:\\firmwares`, as listed in `intdocs/FIRMWARE_CHECKLIST.md`).', '',
     `Generated ${today} by \`node tools/firmware/midi_devices_report.mjs\` from \`tools/firmware/midi_devices.json\`. Do not edit by hand;`,
-    'edit the JSON (or merge a compact list with `--add`) and run the script again. Missing firmware: `docs/FIRMWARE_WANTED.md`.', '',
+    'edit the JSON (or merge a compact list with `--add`) and run the script again. Missing firmware: `intdocs/FIRMWARE_WANTED.md`.', '',
     '## Summary', '',
     `- **${devs.length} devices** from **${makers.length} makers**: **${have.length}** with firmware in the collection, **${miss.length}** missing.`,
     `- **${devs.filter((d) => d.firmware.officialDownload).length}** devices have official OS/firmware downloads from their maker (${miss.filter((d) => d.firmware.officialDownload).length} of them missing).`,
@@ -288,7 +288,7 @@ function build(db) {
   }
   L.push('');
   if ((db.checklistNotListed || []).length) {
-    L.push('## Collection devices not matched here', '', 'In `docs/FIRMWARE_CHECKLIST.md` but not matched to a device above (add the device, or a `match` name):', '');
+    L.push('## Collection devices not matched here', '', 'In `intdocs/FIRMWARE_CHECKLIST.md` but not matched to a device above (add the device, or a `match` name):', '');
     for (const n of db.checklistNotListed) L.push(`- ${md(n)}`);
     L.push('');
   }
@@ -300,7 +300,7 @@ function build(db) {
   const soft = rest.filter((d) => !/EPROM|mask ROM|MCU internal ROM/.test(d.firmware.storage.join()) || /flash|disk|SysEx|USB|ROM-card/.test(d.firmware.storage.join()));
   const chips = rest.filter((d) => !soft.includes(d));
   W.push('# Firmware wanted', '',
-    `Devices from \`docs/MIDI_DEVICE_LIST.md\` whose firmware is not in the collection yet: **${miss.length}** of ${devs.length}.`,
+    `Devices from \`intdocs/MIDI_DEVICE_LIST.md\` whose firmware is not in the collection yet: **${miss.length}** of ${devs.length}.`,
     `Generated ${today} by \`node tools/firmware/midi_devices_report.mjs\` from \`tools/firmware/midi_devices.json\`. Do not edit by hand.`, '',
     `1. [Official downloads](#1-official-downloads-easy-wins) (${official.length}): the maker publishes the OS/firmware update; fetch it from the support page.`,
     `2. [Updatable OS, no official download known](#2-updatable-os-no-official-download-known) (${soft.length}): flash, disk, SysEx or card OS; look for update disks, SysEx files, card images, user archives.`,

@@ -72,3 +72,9 @@ PMEM byte 0 bits 0-4 hold the receive channel (26BFh), byte 2 Dual Detune, byte 
 Mode (packing B6F0, unpacking B775).
 
 Open: a hardware check (none of this was tried on a DX21).
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- Every change is a parameter change (12h); voices and the 32-voice bank are read by request (formats 3 and 4; the DX21 answers while Sys Info is on). Its performance memories (PMEM) have no MIDI format: they go to tape only.

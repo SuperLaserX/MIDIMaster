@@ -65,7 +65,7 @@ function acedParams(variant = {}) {
   // variant.aced: {key: {label, options, help...}}, a model's own screen texts for a byte (the DX7s)
   const P = (aced, key, label, group, section, extra = {}) => ps.push({ key, label, aced, min: 0, max: MAX[aced], group, section, ...extra, ...(variant.aced?.[key.replace(/^op\d_/, 'op_')] || {}) });
   for (let op = 1; op <= 6; op++) {
-    P(6 - op, `op${op}_scm`, 'Scaling mode', `OP${op} Keyboard level scaling`, `op${op}`, { options: opts(list('FA13', 'FA1E')), help: 'normal, or fractional scaling (the fractional scaling data, "LM  FKSYE").' });
+    P(6 - op, `op${op}_scm`, 'Scaling mode', `OP${op} Keyboard level scaling`, `op${op}`, { options: opts(list('FA13', 'FA1E')), help: 'normal, or fractional scaling (set on the Fractional scaling page).' });
     P(12 - op, `op${op}_ams7`, 'Ams', `OP${op} Output and sensitivity`, `op${op}`, { help: 'Amplitude modulation sensitivity 0-7.' });
   }
   P(12, 'pegr', 'Peg Rng', 'Pitch EG', 'voice', { options: opts(list('FAEF', 'FAF3', 'FAF7', 'FAFB')), help: 'Pitch EG range in octaves (8, 2, 1, 1/2).' });
@@ -120,17 +120,17 @@ function pcedParams(variant) {
   P(7, 'Split point', 'Voices', { options: Array.from({ length: 128 }, (_, n) => [n, NOTE(n)]) });
   P(13, 'Note shift A', 'Voices', { format: (v) => `${v > 24 ? '+' : ''}${v - 24}` });
   P(14, 'Note shift B', 'Voices', { format: (v) => `${v > 24 ? '+' : ''}${v - 24}` });
-  P(3, 'Micro tuning table', 'Micro tuning', { options: MICRO_OPTS, help: 'Micro tuning >Table select (names: table 859C; groups as the display at 98E2 shows them): Preset 1-11, the two internal user tables, the cartridge\'s.' });
+  P(3, 'Micro tuning table', 'Micro tuning', { options: MICRO_OPTS, help: 'Micro tuning >Table select: Preset 1-11, the two internal user tables, or the cartridge\'s.' });
   P(4, 'Micro tuning key', 'Micro tuning', { options: opts(FW.NOTES.items.map((t) => t.trim())), help: 'The key of Pure (Major), Pure (Minor), Mean tone and Pythagorean (presets 2-5; the page shows >Key for them only).' });
   P(5, 'Micro tuning A B', 'Micro tuning', { options: opts(AB) });
   P(17, 'Continuous slider 1', 'Controllers', { options: opts(FW.CS_ASSIGN.items.map(csName)) });
   P(18, 'Continuous slider 2', 'Controllers', { options: opts(FW.CS_ASSIGN.items.map(csName)) });
-  P(19, 'Continuous slider switch', 'Controllers', { input: 'number', help: '0-15: the A/B switches of the two sliders (bits).' });
+  P(19, 'Continuous slider switch', 'Controllers', { input: 'number', help: '0-15: the A/B switches of the two sliders, one bit each.' });
   P(9, 'Sustain foot switch', 'Controllers', { options: opts(AB) });
-  P(10, 'Foot switch Select', 'Controllers', { options: opts(FOOT_SW), relayout: true, help: 'Foot switch >Select (64-67): what the foot switch does, sent as control 64-67 (texts FD7C).' });
+  P(10, 'Foot switch Select', 'Controllers', { options: opts(FOOT_SW), relayout: true, help: 'Foot switch >Select: what the foot switch does.' });
   P(11, 'Foot switch A B', 'Controllers', { options: opts(AB) });
   P(8, 'EG forced damp', 'Controllers', { options: opts(OFFON) });
-  P(12, 'Soft pedal range', 'Controllers', { dynamic: (d) => ({ hidden: d[10] !== 3 }), help: 'Foot switch >Range (0-7, Yamaha\'s SPRNG): shown when the foot switch is Soft (upper bank C057).' });
+  P(12, 'Soft pedal range', 'Controllers', { dynamic: (d) => ({ hidden: d[10] !== 3 }), help: 'Foot switch >Range (0-7): the soft pedal range, shown when the foot switch is Soft.' });
   P(20, 'PAN Mode', 'PAN', { options: opts(list('FAFF', 'FB0F', 'FB1F', 'FB2F')) });
   P(21, 'PAN Range', 'PAN');
   P(22, 'PAN Select', 'PAN', { options: opts(list('FC2B', 'FC37', 'FC43')) });
@@ -220,11 +220,11 @@ function voiceBanks(variant, ch) {
       const was = sysOf(ctx)?.[13] ? 1 : 0;
       return was === b ? msgs : [setSys(ch(ctx), 13, b), ...msgs, setSys(ch(ctx), 13, was)];
     },
-    storeNote: '(the Receive block switched to this bank for it when it points at the other, then back)',
+    storeNote: '(the editor switches the Receive block to this bank for it, then back)',
     outBank: (ctx) => (sysOf(ctx)?.[12] ? 1 : 0),
     simOut: (unit) => (unit.sys?.[12] ? 1 : 0),
     simIn: (unit) => (unit.sys?.[13] ? 1 : 0),
-    notes: { 2: `Edit selects the voice and reads the edit buffer; Read names reads each in turn. With no cartridge in, the ${variant.name} keeps the voice it had (U 84DD), so Edit reads that one. The cartridge's voices have no bulk dump: Store is not offered.` },
+    notes: { 2: `Edit selects the voice and reads the edit buffer; Read names reads each in turn. With no cartridge in, the ${variant.name} keeps the voice it had, so Edit reads that one. The cartridge's voices have no bulk dump: Store is not offered.` },
   };
 }
 
@@ -257,10 +257,10 @@ export function buildDX7II(variant) {
     functionParams: null,
     formats: [5, 6, 0x7e],
     deviceIds: variant.deviceIds || [],
-    bankNote: variant.noAmem ? 'Memory protect INT must be off. The additional data of the 32 voices (AMEM) is not sent with them.'
-      : 'Memory protect INT must be off. The voices\' additional data (AMEM) goes first, as the unit needs it: a bank without it gets its additional data made from the voices.',
+    bankNote: variant.noAmem ? 'Memory protect INT must be off. The voices\' additional settings are not sent with them.'
+      : 'Memory protect INT must be off. The voices\' additional settings go first, as the unit needs them: a bank without them gets them made from the voices.',
     coverage: variant.coverage,
-    notes: { voice: `The ${variant.name} answers dump requests: Get from device reads the voice (additional data, then the voice). Every change is a parameter change (voice: group 0, additional data: group 6).` },
+    notes: { voice: `Get from device reads the voice being edited on the ${variant.name}, with its additional settings. Each change is sent as you make it.` },
     moreRequests: [
       ...(variant.noPerformance ? (variant.requests || []) : [
         { label: 'Performance edit buffer', bytes: (ctx) => dumpRequestHeader(ch(ctx), PE) },
@@ -364,7 +364,7 @@ export function buildDX7II(variant) {
           next[pc.num - 128] = pc.value;
           return next;
         },
-        sendAll: { label: 'Send', title: 'Send the performance edit buffer ("LM  8973PE")', build: (d, c2) => bulkHeader(ch(c2), PE, d) },
+        sendAll: { label: 'Send', title: 'Send the performance to the unit\'s edit buffer', build: (d, c2) => bulkHeader(ch(c2), PE, d) },
         toSyx: (d, c2) => bulkHeader(ch(c2), PE, d),
         fromSyx: (msgs) => { const m = msgs.find(isPced); return m ? Uint8Array.from(parseBulk(m).body) : null; },
         actions: [{
@@ -391,7 +391,7 @@ const def = buildDX7II({
   name: 'DX7II',
   banks64: true,
   deviceIds: ['yamaha-dx7s'],
-  coverage: 'Every voice parameter (VCED) and every byte of the additional voice data (ACED: scaling mode, Ams 0-7, pitch EG range/velocity/rate scaling, LFO mode, key mode, unison, random pitch, pitch bend, portamento, six controllers), and the performance (PCED: voice mode, voices A/B, balance, detune, split, note shift, micro tuning selection, sliders, foot switches, PAN and PAN EG), with the labels, value lists, ranges and initial values of the v1.9 firmware; the system setup (MIDI pages, cartridge banks, master tuning, program change table), the micro tuning edit buffer and user tables, and the fractional scaling as edited objects; 32 voices with their additional data (AMEM, packed as the firmware packs it); parameter-change numbers, dump requests and bulk formats read from the firmware\'s MIDI code. Not yet checked on a DX7II.',
+  coverage: 'Edits the DX7II\'s voices, performances, system setup, micro tunings and fractional scaling. Every voice parameter with all of the additional voice settings (scaling mode, Ams 0-7, pitch EG range / velocity / rate scaling, LFO mode, key mode, unison, random pitch, pitch bend, portamento, six controllers), the performance (voice mode, voices A and B, balance, detune, split, note shift, micro tuning, sliders, foot switches, PAN and PAN EG), the system setup (MIDI pages, cartridge banks, master tuning, program change table), micro tuning (edit buffer and user tables) and fractional scaling, and the internal voices with their additional settings, all with the DX7II\'s own names, value lists, ranges and initial values. Not yet checked on a DX7II.',
 });
 
 export const _test = { acedParams, pcedParams, isPced, PE };

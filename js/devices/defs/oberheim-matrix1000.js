@@ -137,15 +137,21 @@ export const patchName = (data) => readText(data, 0, 8, (b) => { const c = b & 0
 
 function typeSpec(type) {
   if (OPT[type]) return { options: OPT[type] };
-  if (type === 'u5x') return { min: 0, max: 31, help: 'The firmware stores this in 5 bits, so stored patches keep 0-31.' };
+  if (type === 'u5x') return { min: 0, max: 31, help: 'Stored patches keep only 0-31 for this value.' };
   const bits = Number(type.slice(1));
   if (type[0] === 's') return { signed: true, min: -(2 ** (bits - 1) - 1), max: 2 ** (bits - 1) - 1 };
   return { min: 0, max: 2 ** bits - 1 };
 }
 
+// Two remote edits are broken in OS 1.11 (the last Oberheim release; both fixed in the unofficial
+// 1.13): 53 (Env 1 sustain) is filed under Env 2 amplitude (its byte table at 0xDE48 holds 38h, not
+// 2Dh), and 29 (VCA 2 by Env 2) calls the wrong voice update (0x8DC1 holds 992Ch, not 8F34h), which
+// sends the OS astray when run in an emulator. So these two go out as the whole edit buffer (0D),
+// which every version takes (tools/matrix1000/check_editor.mjs, run on 1.11, 1.13 and 1.14).
+const WHOLE_PATCH = new Set([29, 53]);
 const patchParams = PATCH.map(([num, offset, group, label, type]) => ({
   key: `p${num}`, num, offset, group, label, ...typeSpec(type),
-  send: (v) => msg.param(num, v),
+  send: WHOLE_PATCH.has(num) ? (_v, _ctx, data) => msg.toEditBuffer(data) : (v) => msg.param(num, v),
 }));
 
 // Modulation matrix: 10 slots of (source, amount, destination) from byte 104.
@@ -191,7 +197,15 @@ const VIB_SRC = named(['Off', 'Lever 2', 'Pedal 1']);
 const ccOpt = { min: 0, max: 121, format: (v) => `CC ${v}` };
 
 // Master table offsets, from the code that reads them (CC handler 0xC506, note handler 0xC4BC,
-// vibrato 0x900D, front-panel functions 0xC19A-0xC404, defaults 0xB1A8 / 0xDC41).
+// vibrato 0x900D, front-panel functions 0xC19A-0xC404, defaults 0xB1A8 / 0xDC41). The Matrix-6 and
+// 6R keep the same table (their master menu at 0xE9C7, v2.11 / v2.13, names each byte): the bytes
+// the 1000 has no use for carry the Matrix-6 screen names; the 1000's own code never reads them
+// (docs/devices/oberheim-matrix1000.md, "Master bytes without a Matrix-1000 use").
+const M6 = 'Matrix-6 settings (not used by the Matrix-1000)';
+const SPARE = 'Bytes without a use';
+const GROUP_BITS = 'Group mode per patch';
+const M6_ONOFF = named(['OFF', 'ON']);
+const m6 = (help) => ({ group: M6, help });
 const masterParams = [
   { key: 'vibSpeed', group: 'Vibrato', label: 'Speed', offset: 1, min: 0, max: 63 },
   { key: 'vibSpeedSrc', group: 'Vibrato', label: 'Speed mod source', offset: 2, options: VIB_SRC },
@@ -203,8 +217,6 @@ const masterParams = [
   { key: 'tune', group: 'Tuning', label: 'Master tune', offset: 8, ...s8(-31, 31) },
   { key: 'transpose', group: 'Tuning', label: 'Transpose', offset: 34, ...s8(-24, 24), unit: ' st' },
   { key: 'bendRange', group: 'Tuning', label: 'Bend range', offset: 164, min: 1, max: 24, unit: ' st' },
-  { key: 'velCurve', group: 'Tuning', label: 'Velocity curve', offset: 9, min: 0, max: 3 },
-  { key: 'velAmount', group: 'Tuning', label: 'Velocity scale', offset: 10, min: 0, max: 63 },
   { key: 'channel', group: 'MIDI', label: 'Basic channel', offset: 11, min: 0, max: 15, format: (v) => `Ch ${v + 1}` },
   { key: 'omni', group: 'MIDI', label: 'Omni', offset: 12, options: OPT.onoff },
   { key: 'controllers', group: 'MIDI', label: 'Controllers', offset: 13, options: OPT.onoff },
@@ -216,7 +228,7 @@ const masterParams = [
   { key: 'pedal2', group: 'Controller numbers', label: 'Pedal 2 (sustain)', offset: 18, ...ccOpt },
   { key: 'lever2', group: 'Controller numbers', label: 'Lever 2', offset: 19, ...ccOpt },
   { key: 'lever3', group: 'Controller numbers', label: 'Lever 3', offset: 20, ...ccOpt },
-  { key: 'bank', group: 'Banks and units', label: 'Bank', offset: 165, bits: 4, min: 0, max: 9 },
+  { key: 'bank', group: 'Banks and units', label: 'Bank', offset: 165, bits: 4, min: 0, max: 9, readOnly: true, help: 'The bank of the current patch. The Matrix-1000 fills this in when it sends its master settings and ignores it when they arrive: choose a bank on the Patches page.' },
   { key: 'bankLock', group: 'Banks and units', label: 'Bank lock', offset: 165, shift: 7, bits: 1, options: OPT.onoff },
   { key: 'units', group: 'Banks and units', label: 'Units in group', offset: 166, min: 1, max: 16 },
   { key: 'unit', group: 'Banks and units', label: 'This unit', offset: 167, min: 0, max: 15 },
@@ -224,7 +236,36 @@ const masterParams = [
   { key: 'unison', group: 'Banks and units', label: 'Unison', offset: 169, options: OPT.onoff },
   { key: 'volInvert', group: 'Banks and units', label: 'Volume invert', offset: 170, options: OPT.onoff },
   { key: 'protect', group: 'Banks and units', label: 'Memory protect', offset: 171, options: OPT.onoff },
-].map((p) => ({ ...p, send: (_v, _ctx, data) => msg.master(data) }));
+  // Matrix-6 / 6R master menu names (their screen text); the Matrix-1000 only keeps these bytes.
+  { key: 'velCurve', ...m6('Matrix-6 keyboard velocity curve. The Matrix-1000 takes MIDI velocity as it comes (its copy of the curve code is never called). 3 is not on any Matrix-6 screen: the EXP1 curve made steeper.'), label: 'VEL SCALE', offset: 9, options: named(['LIN', 'EXP1', 'EXP2', '3 (no screen name)']) },
+  { key: 'velAmount', ...m6('Matrix-6 keyboard velocity sensitivity'), label: 'VEL SENS', offset: 10, min: 0, max: 63 },
+  { key: 'm6sysex', ...m6('Matrix-6: SysEx on or off. The Matrix-1000 always takes SysEx.'), label: 'SYSTEMX', offset: 15, options: M6_ONOFF },
+  { key: 'm6local', ...m6('Matrix-6 keyboard local control. The Matrix-1000 sets it to OFF each time it is switched on.'), label: 'LOCAL CTL', offset: 16, options: M6_ONOFF },
+  { key: 'm6ped2Inv', ...m6('Matrix-6: pedal 2 inverted'), label: 'PED2 INV', offset: 21, options: M6_ONOFF },
+  { key: 'm6leversInv', ...m6('Matrix-6: levers inverted'), label: 'LEVS INV', offset: 22, options: M6_ONOFF },
+  { key: 'm6display', ...m6('Matrix-6 display setting (1-31)'), label: 'SET DISP', offset: 23, min: 1, max: 31, input: 'number' },
+  { key: 'm6squick', ...m6('Matrix-6 SQUICK switch'), label: 'SQUICK', offset: 24, options: M6_ONOFF },
+  { key: 'm6pmapEcho', ...m6('Matrix-6: patch map echo'), label: 'PMAP ECHO', offset: 25, options: M6_ONOFF },
+  { key: 'm6stereo', ...m6('Matrix-6 STEREO switch'), label: 'STEREO', offset: 26, options: M6_ONOFF },
+  { key: 'm6channel', ...m6('Matrix-6 basic channel as its menu shows it (1-16). The Matrix-1000 uses Basic channel (MIDI card) instead.'), label: 'BASIC CHAN', offset: 27, options: named(['?', ...Array.from({ length: 16 }, (_, i) => String(i + 1))]) },
+  { key: 'm6standoff', ...m6('Matrix-6 STANDOFF value'), label: 'STANDOFF', offset: 28, min: 0, max: 63, input: 'number' },
+  { key: 'm6spillover', ...m6('Matrix-6: notes spill over to another unit'), label: 'SPILLOVER', offset: 29, options: M6_ONOFF },
+  { key: 'm6patchMap', ...m6('Matrix-6: patch map on or off'), label: 'PATCH MAP', offset: 33, options: M6_ONOFF },
+  { key: 'b0', group: SPARE, label: 'Byte 0', offset: 0, min: 0, max: 255, input: 'number', help: 'Neither the Matrix-1000 nor the Matrix-6 uses it on its own; it travels with the master settings.' },
+  { key: 'b30', group: SPARE, label: 'Byte 30', offset: 30, min: 0, max: 255, input: 'number', help: 'Set to 0 each time the Matrix-1000 (or Matrix-6) is switched on; nothing reads it.' },
+  { key: 'b162', group: SPARE, label: 'Byte 162', offset: 162, min: 0, max: 255, input: 'number', help: 'The Matrix-1000 does not use it on its own; it travels with the master settings.' },
+  { key: 'chanCopy', group: SPARE, label: 'Byte 163: channel copy', offset: 163, min: 0, max: 255, input: 'number', format: (v) => (v < 16 ? `Ch ${v + 1}` : String(v)), help: 'The Matrix-1000 writes the basic channel here when it is set on its front panel, and never reads it.' },
+  { key: 'b161', group: SPARE, label: 'Byte 161', offset: 161, min: 0, max: 255, input: 'number', help: 'After the last patch of the group mode bits (patch 999 is bit 7 of byte 160): the Matrix-1000 does not use it. Set to 255 when the memory is initialised.' },
+  // Group mode per patch: one bit per patch (byte 36 + patch / 8, bit patch % 8). When unit 0 of a group
+  // of two or more selects a patch, group mode follows that patch's bit (BC84, S8376); the front panel's
+  // group page sets it (BF5D). All set when the memory is initialised (DD0D).
+  ...Array.from({ length: 125 }, (_, i) => ({
+    key: `gb${i}`, group: GROUP_BITS, section: 'groupBits', offset: 36 + i, min: 0, max: 255, input: 'number',
+    label: `Patches ${String(i * 8).padStart(3, '0')}-${String(i * 8 + 7).padStart(3, '0')}`,
+    help: `Bit 0 = patch ${String(i * 8).padStart(3, '0')} ... bit 7 = patch ${String(i * 8 + 7).padStart(3, '0')}`,
+    format: (v) => (v === 255 ? 'all 8 in group mode' : v === 0 ? 'none' : Array.from({ length: 8 }, (_, b) => (v >> b) & 1 ? String(i * 8 + b).padStart(3, '0') : null).filter(Boolean).join(' ')),
+  })),
+].map((p) => ({ section: 'main', ...p, send: (_v, _ctx, data) => msg.master(data) }));
 
 // ------------------------------------------------------------------ simulator (demo mode, tests)
 function simulate() {
@@ -237,7 +278,7 @@ function simulate() {
     state: st,
     handle(d) {
       if (d[0] === 0xf0 && d[1] === 0x7e && d[3] === 0x06 && d[4] === 0x01) {
-        return [[0xf0, 0x7e, st.master[11], 0x06, 0x02, 0x10, 0x06, 0x00, 0x02, 0x00, 0x31, 0x31, 0x33, 0xf7]];
+        return [[0xf0, 0x7e, st.master[11], 0x06, 0x02, 0x10, 0x06, 0x00, 0x02, 0x00, 0x20, 0x31, 0x31, 0x33, 0xf7]]; // version " 113", as the OS sends it
       }
       if ((d[0] & 0xf0) === 0xc0) { st.edit = Uint8Array.from(st.patches[(st.locked ? st.bank * 100 : 0) + d[1]] || st.edit); return []; }
       if (!isOb(d)) return null;
@@ -292,6 +333,27 @@ function describe(raw) {
   return `Matrix-1000 ${name}`;
 }
 
+// ------------------------------------------------------------------ Branch Library items
+/** A dump split into its patches (each with a Set bank first when its name tells the bank: the 1000
+ *  names the patches it sends "BNKb: nn"), the master settings and the Matrix-6 split data. */
+function libraryItems(msgs) {
+  const items = [];
+  const splits = [];
+  for (const m of msgs) {
+    if (!isOb(m)) continue;
+    if (m[3] === 0x01 || m[3] === 0x0d) {
+      const d = decodePatch(m);
+      const name = patchName(d);
+      const bank = /^BNK(\d): (\d\d)$/.exec(name);
+      const label = bank ? `Patch ${bank[1]}${bank[2]}` : m[3] === 0x0d ? 'Edit buffer' : `Patch ${String(m[4]).padStart(2, '0')} (current bank)`;
+      items.push({ key: `p${items.length}`, label, name, object: 'patch', msgs: bank && m[3] === 0x01 ? [msg.setBank(Number(bank[1])), m] : [m] });
+    } else if (m[3] === 0x03) items.push({ key: `m${items.length}`, label: 'Master settings', name: '', object: 'master', msgs: [m] });
+    else if (m[3] === 0x02) splits.push(m);
+  }
+  if (splits.length) items.push({ key: 'splits', label: `Matrix-6 split data (${splits.length}, ignored by the Matrix-1000)`, name: '', msgs: splits });
+  return items;
+}
+
 // ------------------------------------------------------------------ definition
 const BANKS = Array.from({ length: 10 }, (_, b) => [b, `Bank ${b}${b < 2 ? ' (RAM)' : ' (ROM)'}`]);
 const decodePatch = (raw) => unnibble(raw, 5, PATCH_SIZE).data;
@@ -299,7 +361,7 @@ const decodePatch = (raw) => unnibble(raw, 5, PATCH_SIZE).data;
 const TR = matrixTranslator(patchParams);
 
 export default {
-  coverage: 'Every patch parameter, the modulation matrix and every master setting, read from and sent to the Matrix-1000 as found in the v1.13 firmware. Patch and master dumps, store, banks and group mode.',
+  coverage: 'Edits every patch parameter, the modulation matrix and every master setting (the Matrix-6 settings the 1000 only keeps carry their Matrix-6 names), for Matrix-1000 software 1.11, 1.13 and 1.14. Reads and sends patches and the master settings, stores patches, selects banks, sets group mode and makes a complete dump.',
   sysex: { manufacturer: [0x10], model: 0x06 },
   minGap: 20,
   describe,
@@ -325,8 +387,8 @@ export default {
         { group: 'Env 1' }, { group: 'Env 2' }, { group: 'Env 3' }, { group: 'LFO 1' }, { group: 'LFO 2' },
         { group: 'Portamento / ramps' }, { group: 'Voice' }, { group: 'Modulation matrix', rows: matrixRows, wide: true },
       ],
-      note: 'Env 2 drives VCA 2 (the output level) on every Matrix patch. Changes go to the edit buffer only; store them into a RAM slot (banks 0 and 1) to keep them.',
-      sendAll: { label: 'Send to edit buffer', title: 'Send the whole patch to the edit buffer (message 0D)', build: (data) => msg.toEditBuffer(data) },
+      note: 'Env 2 drives VCA 2 (the output level) on every Matrix patch. Changes go to the edit buffer only; store them into a RAM slot (banks 0 and 1) to keep them. Needs Matrix-1000 software 1.10 or later (the number it shows when switched on): 1.03 cannot send its edit buffer. Avoid using almost every modulation at once (all fixed amounts and all ten matrix slots): the Matrix-1000 can run out of room for them and stop.',
+      sendAll: { label: 'Send to edit buffer', title: 'Send the whole patch to the edit buffer (heard at once, not stored)', build: (data) => msg.toEditBuffer(data) },
       toSyx: (data) => msg.toEditBuffer(data),
       fromSyx: (msgs) => { const m = msgs.find((r) => isOb(r) && (r[3] === 0x01 || r[3] === 0x0d)); return m ? decodePatch(m) : null; },
       actions: [
@@ -354,15 +416,29 @@ export default {
       match: (raw) => isOb(raw) && raw[3] === 0x03,
       decode: (raw) => unnibble(raw, 5, MASTER_SIZE).data,
       params: masterParams,
+      sections: [{ key: 'main', label: 'Settings' }, { key: 'groupBits', label: 'Group mode per patch' }],
       cols: 3,
-      note: 'The Matrix-1000 applies master data as soon as it arrives, so each change sends the whole table. Bytes the firmware does not use (and the per-patch group bitmap in bytes 36-161) are kept as read.',
+      groupInfo: {
+        [M6]: { note: 'The Matrix-1000 keeps these Matrix-6 settings in its master table but does not use them. Names as the Matrix-6 shows them.' },
+        [SPARE]: { note: 'Kept as read and sent back unchanged.', table: true },
+        [GROUP_BITS]: { note: 'One bit per patch: when this unit is unit 0 of a group (Banks and units), selecting a patch whose bit is set turns group mode on, otherwise off.', table: true },
+      },
+      note: 'The Matrix-1000 applies master data as soon as it arrives, so each change sends the whole table.',
       toSyx: (data) => msg.master(data),
       fromSyx: (msgs) => { const m = msgs.find((r) => isOb(r) && r[3] === 0x03); return m ? unnibble(m, 5, MASTER_SIZE).data : null; },
     },
   ],
-  // Branch Library "Complete dump": the edit buffer and all ten banks (each with the master settings).
+  // Branch Library "Complete dump": all ten banks, each with the master settings. Each bank step keeps
+  // its own Set bank message (record) at the head of what it records, so that the bank's entry, sent
+  // back, stores the patches into that bank: the 1000 sends them as "01 nn" (store into slot nn of the
+  // current bank). The edit buffer is left out: the 1000 answers its request with "01 nn" as well
+  // (nn = the current patch), which sent back would overwrite the stored patch with the edit buffer.
   // Selecting a bank locks it, so the dump ends by unlocking (no reply expected).
-  fullDump: ['Edit buffer', ...Array.from({ length: 10 }, (_, b) => ({ request: `Bank ${b} (100 patches) + master`, timeout: 8000 })), { label: 'Unlock bank', bytes: () => msg.unlockBank(), timeout: 300, quiet: 300 }],
+  fullDump: [
+    ...Array.from({ length: 10 }, (_, b) => ({ request: `Bank ${b} (100 patches) + master`, timeout: 8000, seconds: 10, expect: (got) => got.some((r) => r[3] === 0x03), record: (m) => isOb(m) && m[3] === 0x0a })),
+    { label: 'Unlock bank', bytes: () => msg.unlockBank(), timeout: 300, quiet: 300 },
+  ],
+  libraryItems,
   requests: [
     { label: 'Edit buffer', bytes: () => msg.request(4, 0) },
     { label: 'Current bank (100 patches) + master', bytes: () => msg.request(0, 0) },

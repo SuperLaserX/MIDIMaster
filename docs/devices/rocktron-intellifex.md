@@ -112,3 +112,9 @@ receiver can write its EEPROM; the editor's SysEx gap is 2 s. A complete user-da
 - A hardware check: the dump format, the 2 s pacing on LOAD USER DATA and the program map.
 - Which front-panel key starts a dump on the MIDI DUMP/LOAD pages (the firmware reads it in the
   utility handler 03BB; the manual is not in the collection).
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- Controller assignments: the preset byte holds PARA + 1.

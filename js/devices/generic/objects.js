@@ -19,10 +19,46 @@ const hex = (b) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join(''
  * out at once unless SysEx is queued ahead of them, in which case they queue behind it so
  * the order holds (e.g. "switch to patch mode" before "select patch").
  */
+/** The capability a message needs over a connection (GenericContext.link). */
+export function capabilityOf(b) {
+  const s = b[0] & 0xf0;
+  if (b[0] === 0xf0) return 'sysex';
+  if (s === 0xb0) return [98, 99, 6, 38].includes(b[1]) ? 'nrpn' : 'cc';
+  if (s === 0xc0) return 'pc';
+  if (s === 0x80 || s === 0x90) return 'notes';
+  if (s === 0xa0) return 'poly';
+  if (s === 0xd0) return 'pressure';
+  if (s === 0xe0) return 'bend';
+  return null;
+}
+
+/** May the connection carry message b? Poly / channel pressure and pitch bend travel wherever notes do,
+ *  unless the link names them itself. */
+function linkAllows(g, b) {
+  const cap = capabilityOf(b);
+  if (!cap) return true;
+  const l = g.link;
+  if (['poly', 'pressure', 'bend'].includes(cap) && l?.can && !l.can.includes(cap)) return g.can('notes');
+  return g.can(cap);
+}
+
 export function sendOut(g, out, key) {
   g.recentSent ??= new Map();
   const now = performance.now();
-  const list = asList(out).map((bytes) => Uint8Array.from(bytes));
+  let list = asList(out).map((bytes) => Uint8Array.from(bytes));
+  // a transfer with exclusive use of the port (dumpjob.js startTransfer, e.g. a PLUG-OUT install)
+  if (g.job?.exclusive && list.length) {
+    if (!g._jobToast || now - g._jobToast > 8000) { g._jobToast = now; toast(`Not sent: ${g.job.title} is running.`, 'warn', 5000); }
+    return;
+  }
+  // messages the connection cannot carry (def.link: e.g. SysEx over DIN) are not sent; say so once a while
+  if (g.link) {
+    const dropped = list.filter((b) => !linkAllows(g, b));
+    if (dropped.length) {
+      list = list.filter((b) => linkAllows(g, b));
+      if (!g._linkToast || now - g._linkToast > 8000) { g._linkToast = now; toast(`Not sent: ${g.cannot(capabilityOf(dropped[0]))}`, 'warn', 6000); }
+    }
+  }
   const ordered = list.some((b) => b[0] === 0xf0) && list.length > 1;
   for (const b of list) {
     if (b[0] === 0xf0) g.recentSent.set(hex(b), now);
@@ -65,6 +101,7 @@ export const canFetch = (obj) => !!(obj.fetch || obj.request);
 
 /** Read an object from the device and store it in g.objectData. */
 export async function loadObject(g, obj, api = objectApi(g, obj)) {
+  if (g.cannot && !g.can(obj.needs)) throw new Error(g.cannot(obj.needs));
   const data = obj.fetch ? await obj.fetch(api) : await requestObject(g, obj.request(g.ctx), obj.match, obj.decode);
   g.setObjectData(obj.key, data);
   return data;
@@ -88,6 +125,7 @@ export const canScan = (obj, bank, ctx) => {
 /** Read every name in a bank, one slot at a time, so other messages can go in between. */
 export async function readBankNames(g, obj, bank, { onProgress, shouldStop } = {}) {
   const s = obj.slots;
+  if (g.cannot && !g.can(s.needs ?? obj.needs)) throw new Error(g.cannot(s.needs ?? obj.needs));
   const api = objectApi(g, obj);
   const count = typeof s.count === 'function' ? s.count(bank, g.ctx) : s.count;
   if (s.scanBank) {

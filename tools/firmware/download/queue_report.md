@@ -1,14 +1,14 @@
 # Firmware download queue report
 
-Written 2026-11-27T01:23:38Z by `node tools/firmware/download/queue.mjs` (queue: `tools/firmware/download/queue.jsonl`).
+Written 2026-11-27T04:13:20Z by `node tools/firmware/download/queue.mjs` (queue: `tools/firmware/download/queue.jsonl`).
 
-- Last run: 2026-11-26T21:39:29Z to 2026-11-27T01:23:37Z, ended because: stopped (--stop); 34 files, 57.9 MB downloaded (budget 50.00 GB).
-- Jobs: 487: **392 downloaded** (3.87 GB), 17 already in the collection, 0 skipped, 71 notes, **7 failed**, 0 waiting to retry, 0 pending.
-- Checklist (`node tools/firmware_checklist.mjs`): 1184 devices (41 with an editor, 35 of them with work still open), 1775 firmwares, 1 not identified, 74 other files. Not identified: **1**.
-- Device list (`midi_devices_report.mjs --match`): 2005 devices, 238 makers, 1186 in collection, 819 missing; checklist devices not matched: 0. Collection devices not matched to the device list: **0** (0 unmatched).
-- Rules (`gen_rules.mjs`): 496 new devices, 536 folder rules.
+- Last run: 2026-11-27T03:39:54Z to 2026-11-27T04:13:19Z, ended because: stopped (--stop); 33 files, 190.5 MB downloaded (budget 50.00 GB).
+- Jobs: 520: **425 downloaded** (4.06 GB), 17 already in the collection, 0 skipped, 71 notes, **7 failed**, 0 waiting to retry, 0 pending.
+- Checklist (`node tools/firmware_checklist.mjs`): 1188 devices (44 with an editor, 38 of them with work still open), 1788 firmwares, 1 not identified, 76 other files. Not identified: **1**.
+- Device list (`midi_devices_report.mjs --match`): 2005 devices, 238 makers, 1190 in collection, 815 missing; checklist devices not matched: 0. Collection devices not matched to the device list: **0** (0 unmatched).
+- Rules (`gen_rules.mjs`): 500 new devices, 549 folder rules.
 
-## Downloaded (392)
+## Downloaded (425)
 
 | Maker | Model | Version | File | Size |
 |---|---|---|---|---|
@@ -404,6 +404,39 @@ Written 2026-11-27T01:23:38Z by `node tools/firmware/download/queue.mjs` (queue:
 | GEM | S2 | S2R Turbo expansion ROM S2R-18 (dump) | GEM/S2R Turbo/S2R-18.BIN | 512 KB |
 | GEM | S2 | S2R Turbo expansion ROM S2R-19 (dump) | GEM/S2R Turbo/S2R-19.BIN | 512 KB |
 | GEM | S2 | S2R Turbo expansion ROM S2R-20 (dump) | GEM/S2R Turbo/S2R-20.BIN | 512 KB |
+| Yamaha | SY99 | 1.57EX (EPROM image) | Yamaha/SY99/Yamaha SY99 v1.57EX.BIN.zip | 198 KB |
+| Yamaha | TG500 | 1.20 (EPROM image) | Yamaha/TG500/Yamaha TG-500 v1.20.zip | 214 KB |
+| Lexicon | MPX 500 | 2.02 (EPROM image) | Lexicon/MPX 500/Lexicon MPX-500 v2.02.zip | 445 KB |
+| Lexicon | Vortex | 1.20 (EPROM image) | Lexicon/Vortex/Lexicon Vortex v1.20.zip | 14 KB |
+| Klark Teknik | DN716 | DN780 1.5 and 2.2 (EPROM images) | Klark Teknik/DN780/Klark Teknik DN780 v1.5 and v2.2.zip | 9.3 MB |
+| Clavia | Nord Modular | 3.03b (Windows updater) | Clavia/Nord Modular/Nord Modular OS v3.03b Update.zip | 482 KB |
+| Clavia | Nord Modular | 3.03b (Micro Modular, Windows updater) | Clavia/Nord Modular/Nord Micro Modular OS v3.03b Update.zip | 454 KB |
+| TC-Helicon | VoiceLive 3 | 2.3.7 (build 379, SysEx) | TC-Helicon/VoiceLive 3/VoiceLive3 2.3.07 Build379.syx | 13.5 MB |
+| Kurzweil | K2500 | OS 5.01 (KDFX) | Kurzweil/K2500/K25V501.ZIP | 762 KB |
+| Kurzweil | K2500 | OS 3.02 (without KDFX) | Kurzweil/K2500/K25V302.ZIP | 633 KB |
+| Kurzweil | K2500 | boot loader 1.12 | Kurzweil/K2500/BootBlock_112.zip | 74 KB |
+| Kurzweil | K2500 | KDFX base objects 5.00 | Kurzweil/K2500/K25_BASE_OBJECTS_500.ZIP | 348 KB |
+| Behringer | X32 | 4.15 | Behringer/X32/dcp_corefs_release-4.15-20260729.zip | 7.5 MB |
+| Behringer | Wing | 3.1.2 (WING) | Behringer/Wing/wing-fullsize-release-3.1.2-20260729.zip | 32.2 MB |
+| Behringer | Wing | 3.1.2 (WING Compact) | Behringer/Wing/wing-compact-release-3.1.2-20260729.zip | 32.2 MB |
+| Behringer | Wing | 3.1.2 (WING Rack) | Behringer/Wing/wing-rack-release-3.1.2-20260729.zip | 32.2 MB |
+| Behringer | XR18 | 1.26 (X18/XR18 hardware V1) | Behringer/XR18/Behringer_X18_XR18_Hardware-V1_Firmware-release-1.26-20260706.zip | 1.1 MB |
+| Behringer | XR18 | 1.26 (XR18 hardware V2) | Behringer/XR18/Behringer_XR18_Hardware-V2_Firmware-release-1.26-20260729.zip | 601 KB |
+| Behringer | XR18 | 1.26 (XR12/XR16) | Behringer/XR18/Behringer_XR12_XR16_Firmware-release-1.26-20260706.zip | 972 KB |
+| Behringer | DeepMind 12 | 1.1.2 | Behringer/DeepMind 12/DeepMind-Firmware-v.1.1.2.zip | 3.6 MB |
+| Behringer | X-Touch | 1.25 (SysEx update 1-25_1-07) | Behringer/X-Touch/X-TOUCH_sysex_update_1-25_1-07.zip | 56 KB |
+| Behringer | X-Touch | 1.25 (X-Touch Extender, SysEx) | Behringer/X-Touch/X-TOUCH-EXT_sysex_update_1-25_1-07.syx | 79 KB |
+| Behringer | X-Touch | 1.11 (X-Touch One, SysEx) | Behringer/X-Touch/X-TOUCH-ONE_sysex_update_1.11-0-ga7df6fe1.syx | 39 KB |
+| Behringer | Neutron | 2.0.3 (Windows updater) | Behringer/Neutron/Neutron Firmware Updater v2.0.3_WIN.zip | 1.6 MB |
+| Behringer | Neutron | 2.0.3 (Mac updater) | Behringer/Neutron/Neutron Firmware Updater v2.0.3_MAC.zip | 2.1 MB |
+| Behringer | Motor 49 | 1.091 (Windows) | Behringer/Motor 49/MOTOR Firmware 1.091_PC.zip | 1.6 MB |
+| Behringer | Motor 49 | 1.086 (Windows) | Behringer/Motor 49/MOTOR Firmware 1.086_PC.zip | 1.6 MB |
+| Behringer | Pro VS Mini | 1.15 (official zip) | Behringer/Pro VS Mini/PRO_VS_MINI_v115.zip | 546 KB |
+| Behringer | BCF2000 | 1.10 | Behringer/BCF2000/bcf2000_1-10.zip | 135 KB |
+| Behringer | BCR2000 | 1.10 | Behringer/BCR2000/bcr2000_1-10.zip | 65 KB |
+| Behringer | BCF2000 | B-Control update utility | Behringer/BCF2000/Update_Utility.zip | 270 KB |
+| Behringer | RD-8 | 1.3.5 (Windows updater) | Behringer/RD-8/RD808 Firmware Updater 1.3.5.exe | 3.0 MB |
+| Behringer | Crave | SynthTribe 2.9.6 (Windows) | Behringer/SynthTribe/SYNTHTRIBE_V2.9.6.zip | 42.7 MB |
 
 ## Failed (7)
 

@@ -40,11 +40,112 @@ check. `re/virusti/scripts/sections.py` writes each section's data to a file.
 | Port | What it is |
 |---|---|
 | **Virus TI Synth** | the synth engine: every SysEx below is answered here, parameter messages and dumps are taken here |
-| **Virus TI MIDI** | the Virus's MIDI In/Out sockets as a USB MIDI interface ("the external MIDI ports can be used as a MIDI interface", Virus Control tutorial): the synth does not answer requests sent to it |
+| **Virus TI MIDI** | the Virus's MIDI In/Out sockets as a USB MIDI interface ("the external MIDI ports can be used as a MIDI interface", Virus Control tutorial): what is sent to it leaves the MIDI Out socket, never reaching the synth (see "DIN and USB") |
 
-The definition uses "Virus TI Synth" for both input and output. No identity reply (F0 7E 7F 06 01
-gets no answer on either port). Virus Control itself talks over its own USB driver (`virususb.sys`),
-not these ports; its device description still names the same MIDI messages.
+The definition uses "Virus TI Synth" for both input and output (`def.ports` picks it first). No identity
+reply (F0 7E 7F 06 01 gets no answer on either port). Virus Control itself talks over its own USB driver
+(`virususb.sys`), not these ports; its device description still names the same MIDI messages.
+
+## DIN and USB
+
+The host OS has one MIDI parser for every source and one switch, bit 24h ("USB MIDI mode"), that decides
+where the synth listens and where it answers. Nothing the editor sends is refused because of where it came
+from. Listings: `re/virusti/din/` (headless Ghidra on `re/virusti/ghidra/vti2host`,
+`sh re/virusti/p2/gh.sh 01 OUT lin:A:B`; the USB controller's code disassembled with `tools/alesis/i8051.py`:
+section F060 without its 12-byte header).
+
+| Source / path | What the host OS does |
+|---|---|
+| MIDI In socket (UART0, receive at 2CFA) | USB MIDI mode **off**: each byte goes to both DSPs (FF FF xx at their host ports, XRAM 0005-0007 / 0105-0107: they play notes and controllers), into the parser's ring (6400h, 277C) and, with Soft Thru On (bit 32h: set from global 120 at start-up, 5329, and by its handler, bank 2 A8F0), on to the MIDI Out (24FE). USB MIDI mode **on**: only to the computer, packed as USB cable 0 (23B9 -> 22B0 -> UART1), i.e. the input "Virus TI MIDI"; the synth does not see it and Soft Thru does nothing (the manual: "no effect when working with Virus Control") |
+| USB (the USB controller, TI "tusb037" firmware in section F060, on UART1, ISR 3288: 4-byte USB-MIDI packets, the 9th bit marks a packet's first byte, flow control on P1.1) | by cable (28E7 / 2940): 0 ("Virus TI MIDI" out) only to the MIDI Out ring (6000h, 281B); 1 ("Virus TI Synth"; also 2, 6, 7) to the parser and the DSPs (2988); 3 to the parser only (2953), 5 to the DSPs only (2973), 4 the USB controller's own messages (286D: parameter sets as F6 pp ii vv into the parser, code memory reads). In the MIDI REMOTE play mode (bit 13h, the mode Virus Control's initialisation sets) cable 1 is dropped (2878): "Virus TI Synth" reaches nothing then. Internal page G 86 (XRAM 04D6, bit 2Bh at 1746) copies cables 1-7 to the MIDI Out as well |
+| What the Virus sends: dumps 10, 11, 13, 14, 15 (header 3A84, called from 3950, 397D, 3A2A / 3A6B, 39FB, 38B7; data 45B3), parameter messages (6561), remote template strings (DB95) | all through 1FD9. USB MIDI mode on: to USB (22D9) on the cable of global 58 Output Sounddump Cable Number (59 Output MIDI Data Cable Number for the remote strings; 1 = "Virus TI Synth"). Off: to the MIDI Out socket (28E7 -> 281B), not to USB |
+| The parser (3AE4, called from the main loop at 1591) | requests 30-3B, dumps 10 / 11 / 13, parameter messages 6E-74, controllers, poly pressure and program changes come from the one ring: nothing checks the source. Receive Dump (global 99) gates dumps from every source (3F4A singles, 4238 multis). Only USB MIDI mode adds a short form (F0 cc ... without 00 20 33 01 dd: state 3E47 -> 3E8F), which the editor does not use |
+
+**USB MIDI mode** (bit 24h):
+- set by the handler of global 82 "USB MidiPort active" for any value but No (bank 2 A835: internal parameter
+  41Dh, the class 4 handler table at A548), and in the MIDI REMOTE play mode (global 122 = 3, 05F7);
+- cleared when global 82 goes back to No (A849 -> 6387, which also sets the cable numbers 58-60 back to 1),
+  and when the play mode leaves Remote with global 82 No (05C8);
+- the start-up code writes global 82 = No (535B); the USB controller sends 73 52 00 and 73 53 00 to the host
+  when its USB state changes (F060 code 038E; global 83's handler, A85D, also sets play mode Single and 82 No);
+- Virus Control's initialisation sets global 82 = 1 (its "GlobalInit" list, which also sets play mode MIDI
+  REMOTE, Soft Thru Off, Receive Dump Enable and sounddump cable 3).
+- on the user's TI2 it is on while connected to the computer with no Virus Control running (checked, phase 5
+  below); what turns it on then (the driver, the USB controller, a value kept since Virus Control ran) is not traced.
+
+The Snow's host build routes the same way (USB MIDI mode is bit 25h: set by the global 82 handler at bank 2
+A839, cleared at 12E5 / 61F3; MIDI In receive at 2A5D).
+
+**What works where:**
+
+| Connection | What reaches the synth | Where the answers go |
+|---|---|---|
+| "Virus TI Synth" (USB) | everything, except in the play mode Remote (nothing) | "Virus TI Synth" (USB MIDI on) |
+| "Virus TI MIDI" (the Virus's own sockets as a USB interface) | nothing: it leaves the MIDI Out socket | - |
+| a MIDI interface on the MIDI In / Out sockets (DIN), USB MIDI off | everything: requests 30-3B, dumps 10 / 11 / 13, parameter messages 6E-74, controllers, program changes, notes | the MIDI Out socket |
+| the same, USB MIDI on (connected to the computer) | nothing: the MIDI In goes to the computer ("Virus TI MIDI") | USB |
+
+So over DIN every function of the editor works (singles, multis with the arrangement, banks and names, stores,
+the global page, remote templates read and written, the complete dump, live edits) while the Virus's USB MIDI
+is off. No function is USB-only: the requests 39-3B also answer through 1FD9 (Virus Control's code reads by
+cable 4 are the USB controller's own path, not SysEx). Live edits stay SysEx over DIN (11 bytes, 3.5 ms at
+31250 baud; SysEx is taken whatever Low Page / High Page say), so they do not depend on those globals.
+
+**Global settings DIN needs** (the editor cannot read them: no global request; every page shows them as a
+warning while the connection is DIN): USB MidiPort active **No** and play mode **not Remote** (USB MIDI off);
+Receive Dump **Enable** to send or store sounds (Disable refuses dumps; To Bank A-D force the bank, To Edit
+Buffer keeps them in the edit buffer, Verify only compares); Soft Thru **Off** (On sends everything the editor
+sends back to the interface: harmless for reads, the generic code ignores echoes of what it sent, but confusing
+in a recording); Device ID Omni or the editor's (as on USB).
+
+**Timing over DIN:** the Virus sends one dump a second whatever the link (the OS's own pace, measured over USB;
+the same code sends over DIN). A single (524 bytes) takes 168 ms at 31250 baud, well within the second, so a
+bank still takes about 128 s and the complete dump the same 13 min (1 h 9 min with the ROM banks); a remote
+template record adds about 24 ms of wire time to the Virus's 0.11 s. Towards the Virus the MIDI In ring (1 KB
+at 6400h) has no flow control (USB has: the controller waits while it is full, 3288 / 1553), so messages must
+not come faster than the wire carries them: the editor paces SysEx at the DIN default (150 ms apart, 3125
+bytes a second) or at the speed measured on that port (Connect page); a whole bank of singles is about 22 s of
+wire time (about 42 s at the DIN default pace).
+
+**The editor** (`def.link` = `tiLink()` from the open ports' names; `TI_CONNECTION` in the definition, also used
+by the thin TI model files and the Snow):
+
+| Ports (output / input) | Link | What is enabled |
+|---|---|---|
+| "Virus TI Synth" / "Virus TI Synth" | `usb` | everything |
+| "Virus TI Synth" / another or none | `usb-out` | live edits, Send to Virus, Store, Write to the Virus; reads, names, Play, requests and the complete dump disabled (the answers are missing) |
+| "Virus TI MIDI" / any | `thru` | nothing: every button disabled with the reason, nothing sent (the generic `sendOut` drops it) |
+| another port / another port | `din` | everything, with the DIN warning on every page |
+| another port / "Virus TI Synth", "Virus TI MIDI" or none | `din-out` | as `usb-out`, with the warning |
+
+Capabilities: the generic `sysex`, `cc`, `nrpn`, `pc`, `notes`, and `reply` (the Virus's answers reach the
+editor). Objects, slots (`needs`; `recallNeeds`: Play reads the slot first; `storeNeeds`), Send to Virus, Write
+to the Virus and `requestNeeds` (Branch Library requests and complete dump) declare them. `def.ports` picks
+"Virus TI Synth" when no ports are remembered (the generic choice would prefer the name with "MIDI"). The
+editor cannot tell from the port names whether a DIN-connected Virus is in USB MIDI mode: the link allows
+everything, the reads time out, and the warning says why. The complete dump needs no DIN variant: all its
+steps work over DIN. Tests: `tests/access-virus-ti-link.test.js`.
+
+**Checked and unchecked:**
+- Checked on the TI2 over USB (2026-11-27, requests only, `re/virusti/din/t_usbmode.py`; see "Checked on the
+  unit", phase 5): "Virus TI MIDI" does not reach the synth, and the Virus is in USB MIDI mode while connected
+  (the short form F0 30 00 40 F7, taken only with bit 24h set, was answered; no Virus Control running).
+- Not checked: anything over DIN (no interface is cabled to the TI2's sockets), the Snow, and what turns USB MIDI
+  mode on without Virus Control. Steps for a hardware check:
+  1. Loop, USB connected as now (one MIDI cable, no interface): cable the Virus's MIDI Out to its own MIDI In.
+     With Chrome not holding the ports, `python -I tools/virus/vtilive.py raw F0 00 20 33 01 10 30 00 40 F7 --port
+     "Virus TI MIDI"`. Expected (USB MIDI on): the request comes back unchanged on the input "Virus TI MIDI" and no
+     single dump arrives on either input (the synth does not see its MIDI In). Remove the cable.
+  2. DIN, USB MIDI off: unplug the Virus's USB cable and switch it off and on. Cable the interface (e.g.
+     OCTA-CAPTURE MIDI OUT -> Virus MIDI IN, Virus MIDI OUT -> OCTA-CAPTURE MIDI IN). In the editor choose "MIDI
+     (OCTA-CAPTURE)" as input and output (the status shows DIN, each page the warning). Check: Single page Get from
+     device; change a list parameter (e.g. Patch Category), read it back and set it back; RAM A Read names (about
+     2 min); the MIDI channels page (arrangement, about 17 s); Remote templates Get from device; Branch Library,
+     Send request and record "Single edit buffer"; Connect page, Measure speed. No store unless the user allows
+     one (RAM A 001 and RAM multi 001 were allowed before). Afterwards Memory Protect Disabled (Global page), and
+     the USB cable back in.
+  3. DIN, USB MIDI on: the same cabling with the USB cable in and the Virus switched on with the computer: Get
+     from device over the interface must time out, and the request must show on the input "Virus TI MIDI".
 
 ## SysEx
 
@@ -102,7 +203,7 @@ defaults (150 ms plus 3125 bytes/s for a 524-byte single), so storing a bank goe
 about 5 s. The single edit buffer was restored byte for byte after the test.
 
 Pages A and B can also travel as CC and poly pressure (global Low Page / High Page); SysEx is always
-accepted, so the editor sends SysEx only.
+accepted, so the editor sends SysEx only (also over DIN, see "DIN and USB").
 
 ### Status bytes the Virus keeps
 
@@ -390,6 +491,21 @@ Phase 4 (2026-11-26):
   (13 1F kk) and read back: identical to `tpl31_before.syx`, byte for byte. Memory Protect Disabled sent at the
   end. Nothing else was written.
 
+Phase 5, DIN and USB (2026-11-27; requests only, `re/virusti/din/t_usbmode.py`, nothing else open on the ports):
+
+- F0 00 20 33 01 10 30 00 40 F7 on "Virus TI Synth": the single edit buffer (524 bytes) on "Virus TI Synth". The same
+  on "Virus TI MIDI": no answer on either input (it leaves the MIDI Out socket).
+- The short form F0 30 00 40 F7 (no 00 20 33 01 dd; the OS takes it only in USB MIDI mode, 3E47 -> 3E8F) on "Virus TI
+  Synth": answered with the same 524 bytes, so the TI2 is in USB MIDI mode while connected (no Virus Control
+  running): over DIN its MIDI In would go to the computer. On "Virus TI MIDI": no answer.
+- Memory Protect Disabled (73 00 76 00) sent at the end. Nothing else was sent; no global or memory changed.
+
 ## Next steps
 
-See `docs/FUTURE_WORK.md`, "Access Virus TI 2".
+See `intdocs/FUTURE_WORK.md`, "Access Virus TI 2".
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- Multi slot: The slot this multi was loaded from (internal parameter 346h), written by the Virus

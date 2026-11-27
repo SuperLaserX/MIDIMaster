@@ -142,7 +142,7 @@ const programParams = [
   { key: 'chSpeed', group: 'Chorus', label: 'CHORUS SPEED', offset: 3, min: 0, max: 98, sendKey: 'chSpeed', send: sendParam(3), format: (v) => texts(2)[v] ?? String(v),
     help: 'CHORUS button, lower EDIT LED: the sweep (flanging) or detune amount (chorus); LED 01-99' },
   { key: 'dlTime', group: 'Delay', label: 'DELAY TIME', offset: 4, size: 2, min: 1, max: 490, input: 'number', unit: 'ms', sendKey: 'dlTime', send: sendParam(4),
-    dynamic: (d) => ({ max: DELAY_MAX[cfgOf(d)], label: preDelayed(cfgOf(d)) ? 'DELAY TIME (reverb pre-delay)' : 'DELAY TIME', help: `DELAY button, upper EDIT LED: 1-${DELAY_MAX[cfgOf(d)]} ms in this configuration (LED 001-${DELAY_MAX[cfgOf(d)]}); bytes 4 / 5 hold it high byte first` }) },
+    dynamic: (d) => ({ max: DELAY_MAX[cfgOf(d)], label: preDelayed(cfgOf(d)) ? 'DELAY TIME (reverb pre-delay)' : 'DELAY TIME', help: `DELAY button, upper EDIT LED: 1-${DELAY_MAX[cfgOf(d)]} ms in this configuration (the display shows 001-${DELAY_MAX[cfgOf(d)]})` }) },
   levelParam('dlRegen', 'Delay', 'DELAY REGENERATION', 6, 5, 'DELAY button, lower EDIT LED: the part of the delay fed back (number of repeats); LED 00-99'),
   levelParam('dlMix', 'Delay', 'DELAY MIX', 10, 9, 'MIX button, lower EDIT LED: the delay output level; LED 00-99'),
   { key: 'rvAlg', group: 'Reverb', label: 'REVERB ALGORITHM', offset: 7, sendKey: 'rvAlg', send: sendParam(6), options: ledOptions(5, (v) => `${REVERB_NAMES[v]} (${REVERB_KINDS[v].toLowerCase()})`),
@@ -156,7 +156,7 @@ const programParams = [
     help: 'MOD button (second press): how far the controller moves the parameter, -99 to 99 (stored 0-198; the LED shows no plus sign)' },
   ...[14, 15].map((off) => ({
     key: `spare${off}`, group: 'Spare', label: `Spare byte ${off}`, offset: off, min: 0, max: 255, input: 'number', readOnly: true,
-    help: 'Spare in the service manual; no page, display or DSP routine of v1.01 reads it. Kept as stored (factory programs 80 and 96 hold FF / D2 F0 here); opcode 03 parameter 13 / 14 writes it',
+    help: 'Marked "spare" in the service manual: the MIDIVerb III does not use it. Kept as stored (factory programs 80 and 96 hold values here)',
   })),
 ];
 
@@ -352,7 +352,7 @@ function fromCommon(c, base) {
 const FACTORY_NAMES = FACTORY.map((h) => nameOf(hex(h)));
 
 export default {
-  coverage: `Every byte of a program (each parameter with the text its LED display routine shows, from ${FIRMWARE}; names from the Alesis manuals: the firmware holds none), the MIDI settings and the MIDI program map, the 100 factory programs. Live parameter edits, edit buffer and user program writes, the all-data dump. Not checked on hardware.`,
+  coverage: 'Edits the MIDIVerb III\'s programs (each value shown as its display shows it; parameter names from the Alesis manuals, since the unit shows none), its MIDI settings and its MIDI program map, and shows the 100 factory programs. Sends each change as you make it, sends programs to play or to store, and reads and writes all the unit\'s data at once. Not checked on hardware.',
   sysex: { manufacturer: [0x00, 0x00, 0x0e], model: 0x03 },
   // a program message writes 34 EEPROM bytes (each polled at 06D6) while MIDI waits in a 256-byte ring
   minGap: 400,
@@ -378,12 +378,12 @@ export default {
       fromCommon,
       cols: 4,
       layout: [{ group: 'Configuration', wide: true }, { group: 'Reverb' }, { group: 'Delay' }, { group: 'Chorus' }, { group: 'EQ' }, { group: 'Modulation' }, { group: 'Spare' }],
-      note: 'Each change goes to the edit buffer at once (SysEx opcode 03). Reading asks for all data (opcode 02, about 3.5 KB). Programs have no names: the name shown is made from the configuration, reverb, chorus and delay time.',
-      sendAll: { label: 'Send to edit buffer', title: 'Send the whole program to the edit buffer (opcode 01 with number 127: nothing is stored)', build: (data) => msg.program(EDIT_ONLY, fitted(data)) },
+      note: 'Each change is sent at once to the program the MIDIVerb III is playing. Reading asks the unit for all its data (about 3.5 KB). Programs have no names: the name shown is made from the configuration, reverb, chorus and delay time.',
+      sendAll: { label: 'Send to edit buffer', title: 'Send the whole program to the MIDIVerb III to play; nothing is stored', build: (data) => msg.program(EDIT_ONLY, fitted(data)) },
       toSyx: (data) => msg.program(EDIT_ONLY, fitted(data)),
       fromSyx: programFromSyx,
       actions: [
-        { label: 'Store as user program', title: 'Send the program as user program 100-199 (opcode 01); the unit stores it and selects it', run: async (api) => {
+        { label: 'Store as user program', title: 'Send the program as user program 100-199; the unit stores it and selects it', run: async (api) => {
           const f = await api.form('Store into user program', [{ key: 'n', label: 'User program (100-199)', value: '100', type: 'number', min: 100, max: 199 }]);
           if (!f) return;
           const n = Math.max(100, Math.min(199, Math.round(Number(f.n) || 100)));
@@ -393,8 +393,8 @@ export default {
       slots: {
         label: 'Programs', banks: [[0, 'User 100-199'], [1, 'Factory 000-099']], count: 100,
         slotLabel: (bank, i) => pad3(bank ? i : 100 + i),
-        note: (bank) => (bank ? 'Factory programs are in ROM (table 4000); a reset copies them into 100-199. '
-          : 'Reading a user program reads all data (the unit sends nothing smaller). Writing one (opcode 01) also selects it. ')
+        note: (bank) => (bank ? 'Factory programs are built into the unit; a reset copies them into 100-199. '
+          : 'Reading a user program reads all data (the unit sends nothing smaller). Writing one also selects it. ')
           + 'Play sends a program change, which recalls what the MIDI program map holds for it (000-127 to themselves after a reset; 128-199 only through the map).',
         names: (bank) => (bank === 1 ? FACTORY_NAMES : null),
         writable: (bank) => bank === 0,
@@ -419,7 +419,7 @@ export default {
       cols: 3,
       note: 'Everything the unit keeps: the MIDI settings, the program map, the current program and its edit buffer, and user programs 100-199 (edit those on the Program page). MIDI settings and the map travel only in the all-data dump: Send replaces all of it, after which the unit restarts.',
       actions: [
-        { label: 'Send all data', title: 'Send the whole memory (opcode 00, 3.5 KB): user programs 100-199, edit buffer, MIDI settings and map; the unit takes about 10 s and restarts', run: async (api) => {
+        { label: 'Send all data', title: 'Send the whole memory (3.5 KB): user programs 100-199, the current program, MIDI settings and map; the unit takes about 10 s and restarts', run: async (api) => {
           const ok = await api.confirm('Send all data', 'This replaces all user programs 100-199, the MIDI settings and the program map of the MIDIVerb III with what this page holds. The unit stores it (about 10 seconds) and restarts.', 'Send');
           if (ok) api.send(msg.dump(api.data));
         } },

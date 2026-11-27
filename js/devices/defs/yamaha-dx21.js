@@ -71,7 +71,7 @@ export const FN_PARAMS = [
   { offset: 1, pp: 0x65, key: 'ddet', label: 'Dual Detune', max: 99, group: 'FUNCTION CONTROL', help: 'Detune between the two voices of DUAL play (0-99).' },
   { offset: 7, pp: 0x77, key: 'protect', label: 'Mem Protect', max: 1, group: 'FUNCTION CONTROL', options: ONOFF.map((t, i) => [i, t]), help: 'Memory protect. The DX21 turns it ON at every power-on; while on it refuses a 32-voice bulk.' },
   { offset: 2, pp: 0x68, key: 'midi', label: 'Midi Switch', max: 1, group: 'MIDI', options: ONOFF.map((t, i) => [i, t]), help: 'OFF: the DX21 ignores every MIDI message, so it cannot be set back ON over MIDI.' },
-  { offset: 3, pp: 0x6c, key: 'rch', label: 'Midi Recv Ch', max: 16, group: 'MIDI', options: [[0, 'Omni : ON'], ...Array.from({ length: 16 }, (_, c) => [c + 1, String(c + 1)])], help: 'Omni ON (sent as 6Ah = 1) or the receive channel (6Ch). The DX21 then takes SysEx only on that channel: set the editor\'s MIDI channel to it.' },
+  { offset: 3, pp: 0x6c, key: 'rch', label: 'Midi Recv Ch', max: 16, group: 'MIDI', options: [[0, 'Omni : ON'], ...Array.from({ length: 16 }, (_, c) => [c + 1, String(c + 1)])], help: 'Omni ON or the receive channel. The DX21 then takes SysEx only on that channel: set the editor\'s MIDI channel to match.' },
   { offset: 4, pp: 0x6b, key: 'tch', label: 'Midi Trns Ch', max: 15, group: 'MIDI', options: Array.from({ length: 16 }, (_, c) => [c, String(c + 1)]), help: 'Transmit channel, also of the DX21\'s own dumps and parameter changes.' },
   { offset: 5, pp: 0x69, key: 'chinfo', label: 'Midi Ch Info', max: 1, group: 'MIDI', options: ONOFF.map((t, i) => [i, t]), help: 'Channel messages (notes aside: program changes, controllers) received and sent.' },
   { offset: 6, pp: 0x6d, key: 'sysinfo', label: 'Midi Sy Info', max: 1, group: 'MIDI', options: ONOFF.map((t, i) => [i, t]), help: 'System exclusive: OFF = the DX21 ignores every SysEx (it cannot be set back ON over MIDI) and answers no request.' },
@@ -87,8 +87,8 @@ const actionPC = (label, title, pp, v = 1) => ({ label, title, run: (api) => api
 const def = buildDX4({
   id: 'yamaha-dx21', name: 'DX21', T: DX21_TEXTS, init: Array.from(packVoice4(Uint8Array.from(VCED_INIT))), aced: false, peg: true, chorus: true, requests: true,
   deviceIds: ['yamaha-dx100', 'yamaha-tx81z', 'yamaha-dx11'],
-  coverage: 'Every voice parameter of the 4-operator voice (VCED, with the DX21\'s pitch EG and chorus), 32 internal voices (VMEM), the algorithm diagram and EG graphs; the INIT VOICE, frequency ratios, labels and value texts of the v1.5 firmware\'s own screens; the function settings it takes as parameter changes 65h-7Ch (FUNCTION CONTROL pages, MIDI switches, Key Shift, Bend Mode, split point; sent only). Not yet checked on a DX21.',
-  notes: { voice: 'Every change is a parameter change (12h); voices and the 32-voice bank are read by request (formats 3 and 4; the DX21 answers while Sys Info is on). Its performance memories (PMEM) have no MIDI format: they go to tape only.' },
+  coverage: 'Edits the DX21\'s voices, its 32-voice bank and its function settings. Every voice parameter of the 4-operator voice (with the DX21\'s pitch EG and chorus), its 32 internal voices, the algorithm diagram and envelope graphs, with the DX21\'s own INIT VOICE, names and value texts; and its function settings (FUNCTION CONTROL pages, MIDI switches, Key Shift, Bend Mode, split point), which can be sent but not read back. Not yet checked on a DX21.',
+  notes: { voice: 'Each change is sent as you make it. The voice and the 32-voice bank can be read from the DX21 while Sys Info is on. Its performance memories cannot be sent over MIDI: they go to tape only.' },
   prefer: () => 0.95,
   // FUNCTION page 1Ch: "BC Pitch Bias" = the plain number (F8C0), 0-99 (maximum B66F)
   bcpbMax: 99, bcpbFormat: (v) => String(v), bcpbHelp: 'Shown 0-99 as the DX21 shows it (50 = no bias).',
@@ -98,8 +98,8 @@ const def = buildDX4({
       key: 'system', page: 'Function', icon: '⚙', label: 'Function', size: FN_SIZE, cols: 3,
       init: () => Uint8Array.from(FN_INIT), params,
       layout: [{ group: 'FUNCTION CONTROL' }, { group: 'MIDI' }, { group: 'Key Shift and Bend Mode' }, { group: 'Performance' }],
-      warning: 'The DX21 takes these settings and the actions (Midi Transmit, Recall Edit, Init. Voice, Compare) only while its screen shows EDIT or FUNCTION: press EDIT or FUNCTION on the DX21 before changing them here. Anything sent in play mode is ignored without a message. The exceptions: the Key Shift and Bend Mode on/off switches are taken only in play (SINGLE or DUAL; Key Shift also SPLIT), the split point only in SPLIT play.',
-      note: 'The DX21 cannot send these settings (it has no dump for them), so the values shown are the firmware\'s defaults until you change them here; each change is sent at once as a parameter change (F0 43 1n 12 pp vv F7). The DX21 takes the FUNCTION CONTROL, MIDI, Key Shift and Bend Mode values only while it shows EDIT or FUNCTION (press FUNCTION first); the two on/off switches only in play, the split point only in SPLIT play. It reports Master Tune, Dual Detune, Key Shift and Bend Mode itself when they are changed on its panel. Mem Protect is shown OFF, your usual setting (the DX21 sets it ON at power-on).',
+      warning: 'The DX21 takes these only while it shows EDIT or FUNCTION (the Key Shift and Bend Mode switches only in play, the split point only in SPLIT play).',
+      note: 'The DX21 cannot send these settings, so the page shows its defaults until you change them here; each change is sent at once. The DX21 takes the FUNCTION CONTROL, MIDI, Key Shift and Bend Mode values only while it shows EDIT or FUNCTION (press FUNCTION first); the two on/off switches only in play, the split point only in SPLIT play. It reports Master Tune, Dual Detune, Key Shift and Bend Mode itself when they are changed on its panel. Mem Protect is shown OFF, your usual setting (the DX21 sets it ON at power-on).',
       sendParam: (p, _v, d, ctx) => fnMsgs(ch(ctx), p, d),
       receive: (raw, d, ctx) => {
         const pc = parseParamChange(raw);
@@ -113,12 +113,12 @@ const def = buildDX4({
       },
       actions: [
         { label: 'Send all', title: 'Send every value shown (the DX21 must show EDIT or FUNCTION; the on/off switches and split point are skipped, they need play modes)', run: (api) => api.send(params.filter((p) => ![0x79, 0x7a, 0x66].includes(p.pp)).map((p) => fnMsgs(ch(api.ctx), p, api.data))) },
-        { label: 'Defaults', title: 'The firmware\'s defaults (cold start A480 / A5BA, INIT performance A5DB; Mem Protect OFF), not sent until you press Send all', run: (api) => api.setData(Uint8Array.from(FN_INIT)) },
-        actionPC('Midi Transmit', '"Midi Transmit ?": the DX21 sends its 32 voices (6Eh; the DX21 must show EDIT or FUNCTION; needs Midi Switch and Sy Info ON)', 0x6e),
-        actionPC('Recall Edit', '"Recall Edit ?": the DX21 brings back the voice being edited before the last voice change (6Fh; the DX21 must show EDIT or FUNCTION); read the voice again afterwards', 0x6f),
-        actionPC('Init. Voice', '"Init. Voice ?": the DX21 puts its INIT VOICE into the edit buffer (70h; the DX21 must show EDIT or FUNCTION); read the voice again afterwards', 0x70),
-        actionPC('Compare on', 'EDIT COMPARE: the DX21 plays the stored voice instead of the edited one (7Bh = 1, while a voice is edited: the DX21 must show EDIT or FUNCTION)', 0x7b, 1),
-        actionPC('Compare off', 'Back to the edited voice (7Bh = 0; EDIT or FUNCTION)', 0x7b, 0),
+        { label: 'Defaults', title: 'The DX21\'s defaults (with Mem Protect OFF), not sent until you press Send all', run: (api) => api.setData(Uint8Array.from(FN_INIT)) },
+        actionPC('Midi Transmit', '"Midi Transmit ?": the DX21 sends its 32 voices (it must show EDIT or FUNCTION; Midi Switch and Sy Info must be ON)', 0x6e),
+        actionPC('Recall Edit', '"Recall Edit ?": the DX21 brings back the voice being edited before the last voice change (the DX21 must show EDIT or FUNCTION); read the voice again afterwards', 0x6f),
+        actionPC('Init. Voice', '"Init. Voice ?": the DX21 loads its INIT VOICE for editing (it must show EDIT or FUNCTION); read the voice again afterwards', 0x70),
+        actionPC('Compare on', 'EDIT COMPARE: the DX21 plays the stored voice instead of the edited one (while a voice is edited: the DX21 must show EDIT or FUNCTION)', 0x7b, 1),
+        actionPC('Compare off', 'Back to the edited voice (the DX21 must show EDIT or FUNCTION)', 0x7b, 0),
       ],
     });
   },

@@ -34,14 +34,16 @@ export class MidiTransport extends Emitter {
   }
 
   /**
-   * Open ports by name. Falls back to the given defaults, then to ports whose names
-   * match `hint` (a regex for the device), then to the first ports.
+   * Open ports by name. Falls back to ports a definition prefers (`prefer`: {input, output} regexes, e.g.
+   * the SYSTEM-8's "CTRL" port, the one that answers SysEx), then to the given defaults, then to ports
+   * whose names match `hint` (a regex for the device), then to the first ports.
    */
-  autoSelect({ input = '', output = '', defaultInput = '', defaultOutput = '', hint = null } = {}) {
+  autoSelect({ input = '', output = '', defaultInput = '', defaultOutput = '', hint = null, prefer = null } = {}) {
     const { inputs, outputs } = this.ports();
     const pick = (list, ...names) => names.map((n) => n && list.find((p) => p.name === n)).find(Boolean) || null;
-    let inp = pick(inputs, input, defaultInput);
-    let out = pick(outputs, output, defaultOutput);
+    const like = (list, re) => (re ? list.find((p) => re.test(p.name)) || null : null);
+    let inp = pick(inputs, input) || like(inputs, prefer?.input) || pick(inputs, defaultInput);
+    let out = pick(outputs, output) || like(outputs, prefer?.output) || pick(outputs, defaultOutput);
     if (!inp || !out) {
       const score = (n) => (hint && hint.test(n) ? 2 : 0) + (/midi/i.test(n) ? 1 : 0);
       inp = inp || [...inputs].sort((a, b) => score(b.name) - score(a.name))[0] || null;
@@ -57,6 +59,11 @@ export class MidiTransport extends Emitter {
     this.input = (inputId && this.access.inputs.get(inputId)) || null;
     this.output = (outputId && this.access.outputs.get(outputId)) || null;
     if (this.input) this.input.addEventListener('midimessage', this._onMessage);
+    // open the ports now, so a port another program holds is reported (Windows lets one program at a
+    // time use a MIDI port: another MIDIMaster window or a browser tab with MIDIMaster)
+    for (const p of [this.input, this.output].filter(Boolean)) {
+      p.open?.().catch(() => this.emit('port-busy', p.name));
+    }
     this.emit('connection', { input: this.input?.name, output: this.output?.name });
   }
 

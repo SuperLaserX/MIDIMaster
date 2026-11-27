@@ -3,6 +3,7 @@
 // (../patterns.js) loop chord progressions, arpeggios, bass lines, melodies, runs, glides or a
 // drum beat in the chosen key and scale, so parameters can be changed while something plays.
 
+import { icon } from './icons.js';
 import { h, clear } from './dom.js';
 import { noteName } from '../music.js';
 import { buildPattern, PATTERNS, KEYS, SCALES, PROGRESSIONS } from '../patterns.js';
@@ -41,7 +42,7 @@ export function mountKeyboard(container, app, defaults = {}) {
   const playBtn = h('button.icon-btn', {
     title: 'Loop a test pattern on the audition channel: a chord progression, arpeggio, bass line, melody, a band of all three, a scale run or glides (overlapping notes, so a mono sound with portamento or legato slides between them), in the key and scale chosen; or a drum beat on the General MIDI drum notes (drum channel).',
     onclick: () => (player.playing ? stopPattern() : playPattern()),
-  }, '▶ Pattern');
+  }, icon('play'), h('span', 'Pattern'));
   const patSel = h('select', {
     title: 'Which part of the test pattern to loop',
     onchange: () => { prefs.pattern = patSel.value; savePrefs(); showDrumCh(); restart(); },
@@ -131,7 +132,7 @@ export function mountKeyboard(container, app, defaults = {}) {
     if (!app.connected) { app.error(new Error('Connect a MIDI output first'), 'Pattern'); return; }
     const { events, beats } = buildPattern(prefs.pattern, { key: prefs.key, scale: prefs.scale, progression: prefs.progression });
     Object.assign(player, { flat: events, beats, channel: state.channel, drumChannel: prefs.drumChannel, pos: 0, anchorTime: performance.now() + 60, anchorBeat: 0, lastAt: 0, playing: true });
-    playBtn.textContent = '■ Stop';
+    playBtn.replaceChildren(icon('stop'), h('span', 'Stop'));
     playBtn.classList.add('playing');
     tick();
     player.timer = setInterval(tick, TICK_MS);
@@ -155,7 +156,7 @@ export function mountKeyboard(container, app, defaults = {}) {
     }
     player.sounding.clear();
     for (const k of kbd.querySelectorAll('.pat')) k.classList.remove('pat');
-    playBtn.textContent = '▶ Pattern';
+    playBtn.replaceChildren(icon('play'), h('span', 'Pattern'));
     playBtn.classList.remove('playing');
   }
 

@@ -31,10 +31,11 @@ export function knob(opts) {
   let value = opts.value;
   const A0 = Math.PI * 0.75;
   const A1 = Math.PI * 2.25;
-  const track = svg('path', { class: 'k-track', d: arcPath(23, 23, 18, A0, A1), fill: 'none', 'stroke-width': 4, 'stroke-linecap': 'round' });
-  const arc = svg('path', { class: 'k-arc', fill: 'none', 'stroke-width': 4, 'stroke-linecap': 'round' });
-  const pointer = svg('line', { stroke: '#cfd3dc', 'stroke-width': 2, 'stroke-linecap': 'round' });
-  const icon = svg('svg', { viewBox: '0 0 46 46' }, track, arc, pointer);
+  const track = svg('path', { class: 'k-track', d: arcPath(23, 23, 19, A0, A1), fill: 'none', 'stroke-width': 3.5, 'stroke-linecap': 'round' });
+  const arc = svg('path', { class: 'k-arc', fill: 'none', 'stroke-width': 3.5, 'stroke-linecap': 'round' });
+  const disc = svg('circle', { class: 'k-disc', cx: 23, cy: 23, r: 13 });
+  const pointer = svg('line', { class: 'k-ptr', 'stroke-width': 2.2, 'stroke-linecap': 'round' });
+  const icon = svg('svg', { viewBox: '0 0 46 46' }, track, arc, disc, pointer);
   const valueEl = h('div.k-value');
   const el = h('div.knob.' + (opts.conf || 'confirmed'), { title: opts.title || `${opts.label}${opts.conf ? ' - ' + CONF_TITLE[opts.conf] : ''}` },
     opts.conf === 'guess' ? h('span.k-conf', '?') : null,
@@ -46,9 +47,9 @@ export function knob(opts) {
     const tz = (zero - min) / (max - min || 1);
     const a = A0 + (A1 - A0) * t;
     const az = A0 + (A1 - A0) * tz;
-    arc.setAttribute('d', Math.abs(a - az) < 0.01 ? '' : arcPath(23, 23, 18, Math.min(a, az), Math.max(a, az)));
-    pointer.setAttribute('x1', 23 + 7 * Math.cos(a)); pointer.setAttribute('y1', 23 + 7 * Math.sin(a));
-    pointer.setAttribute('x2', 23 + 15 * Math.cos(a)); pointer.setAttribute('y2', 23 + 15 * Math.sin(a));
+    arc.setAttribute('d', Math.abs(a - az) < 0.01 ? '' : arcPath(23, 23, 19, Math.min(a, az), Math.max(a, az)));
+    pointer.setAttribute('x1', 23 + 4 * Math.cos(a)); pointer.setAttribute('y1', 23 + 4 * Math.sin(a));
+    pointer.setAttribute('x2', 23 + 11 * Math.cos(a)); pointer.setAttribute('y2', 23 + 11 * Math.sin(a));
     valueEl.textContent = opts.format ? opts.format(value) : String(value);
   }
   function set(v, notify = true) {

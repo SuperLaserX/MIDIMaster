@@ -265,7 +265,7 @@ export function digitalOutMsg(sub) {
 }
 export const digitalOutAction = {
   label: 'Digital output frequency',
-  title: 'Set the XT\'s Digital Output Frequency (system; it cannot be read back over MIDI)',
+  title: 'Set the XT\'s Digital Output Frequency (the XT cannot report it back)',
   run: async (api) => {
     const r = await api.form('Digital Output Frequency', [{
       key: 'f', label: 'Digital Output Frequency', type: 'select', value: '0',
@@ -382,7 +382,7 @@ export function nameWaves(built) {
 }
 export const waveNamesAction = {
   label: 'Read wave names',
-  title: 'Read the names of the waves loaded on the XT (read only, model 00 24; about 40 s for the 224 factory waves); they are remembered for next time',
+  title: 'Read the names of the waves loaded on the XT (about 40 s for the 224 factory waves); they are remembered for next time',
   run: (api) => readAndRememberWaves(api, WAVE_NAMES),
 };
 
@@ -524,7 +524,7 @@ delete categoryParam.format;
 const ZONE_SECTIONS = Array.from({ length: ZONES }, (_, z) => ({ key: `z${z}`, label: `Zone ${z + 1}` }));
 
 export default {
-  coverage: 'The V-Synth engine of OS 2.02: every system and patch parameter (common, MFX, chorus, reverb, beam/pad/arpeggio, step sequencer, 16 zones with tone, 13 envelopes, 5 LFOs and two COSM blocks, and the arpeggio pattern, 32 steps by 16 lines, as a step grid or tracker) with the names, ranges, defaults and value displays of the firmware, effect parameters named per effect type; read and written by address (DT1/RQ1); the 512 user patches; .p00 patch files from the XT drive (USB storage) open, save and import; Digital Output Frequency can be sent (device-7E message, write only). The VC-1 and VC-2 engines are separate devices (V-Synth XT VC-1, V-Synth XT VC-2).',
+  coverage: 'Edits the V-Synth engine\'s patches and system settings. Every parameter (common, MFX, chorus, reverb, beam / pad / arpeggio, step sequencer, 16 zones with tone, 13 envelopes, 5 LFOs and two COSM blocks, and the arpeggio pattern of 32 steps by 16 lines, as a step grid or tracker) with the XT\'s own names, ranges, defaults and value displays, and effect parameters named for each effect type. The 512 user patches; .p00 patch files from the XT\'s drive (USB storage) open, save and import; Digital Output Frequency can be set but not read. The VC-1 and VC-2 engines are separate devices (V-Synth XT VC-1, V-Synth XT VC-2).',
   sysex: { manufacturer: [0x41], model: MODEL, deviceIdDefault: 0x10 },
   minGap: 20,
   // wave names remembered from the last Read wave names (reading them again takes about 40 s)
@@ -556,7 +556,7 @@ export default {
       params: sysBuilt.params,
       receive: receiver(sysBuilt, SYS),
       sections: [{ key: 'setup', label: 'Setup' }, { key: 'system', label: 'System' }, { key: 'controllers', label: 'Controllers' }, { key: 'usersets', label: 'User sets and knob CCs' }], cols: 3,
-      note: 'Power Up Mode, Transmit Edit Data, Receive Exclusive, Device ID, USB and V-LINK settings and the local switches have no SysEx address in OS 2.02; set them on the XT. Digital Output Frequency can be sent with its button but not read.',
+      note: 'Power Up Mode, Transmit Edit Data, Receive Exclusive, Device ID, the USB and V-LINK settings and the local switches cannot be set over MIDI: set them on the XT. Digital Output Frequency can be set with its button but not read.',
       actions: [digitalOutAction],
       sendAll: { label: 'Send to V-Synth', build: (data, ctx) => writeParts(sysBuilt, data, ctx.deviceId, SYS) },
       toSyx: (data, ctx) => writeParts(sysBuilt, data, ctx.deviceId, SYS).flat(),
@@ -578,8 +578,8 @@ export default {
       toCommon: (d) => TR.patchToCommon(d),
       fromCommon: (c, base) => TR.patchFromCommon(c, base),
       actions: [waveNamesAction, ...p00Actions],
-      note: `Edits the temporary patch (${hex4(PATCH)}); changes are heard at once. Store writes it into a user patch. Reading a whole patch takes ${patchBuilt.parts.length} requests.`,
-      sendAll: { label: 'Send to V-Synth', title: 'Write the whole patch to the temporary patch', build: (data, ctx) => writeParts(patchBuilt, data, ctx.deviceId, PATCH) },
+      note: `Edits the patch being played (the temporary patch); changes are heard at once. Store writes it into a user patch. Reading a whole patch takes ${patchBuilt.parts.length} requests, a few seconds.`,
+      sendAll: { label: 'Send to V-Synth', title: 'Send the whole patch to the XT\'s temporary patch, to hear it', build: (data, ctx) => writeParts(patchBuilt, data, ctx.deviceId, PATCH) },
       toSyx: (data, ctx) => writeParts(patchBuilt, data, ctx.deviceId, PATCH).flat(),
       fromSyx: fromSyxInto(patchBuilt, patchBases),
       slots: {
@@ -594,7 +594,7 @@ export default {
         store: (bank, i, ctx, data) => writeParts(patchBuilt, data, ctx.deviceId, userPatch(bank * 128 + i)),
         writable: () => true,
         autoNames: [0, 1, 2, 3], // all 512 names when the XT connects (12 bytes each)
-        note: (bank, ctx) => `Play sends bank select 87/${bank} and a program change on channel ${patchChannel(ctx) + 1} (Part 1 receive channel). Edit reads the user patch by address; Store writes the editor into it.`,
+        note: (bank, ctx) => `Play selects the patch on channel ${patchChannel(ctx) + 1} (the Part 1 receive channel). Edit reads the user patch; Store writes the editor\'s patch into it.`,
       },
     },
   ],

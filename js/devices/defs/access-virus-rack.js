@@ -6,5 +6,5 @@ import * as T from './access-virus-b-os.js';
 
 export default abcModel({
   model: 'Virus Rack', id: 'access-virus-rack', T, banks: BANKS_AH, panelByte: true,
-  note: 'assumed to answer like the Virus B OS 4.9 (no Rack firmware in the collection; docs/devices/access-virus-b.md).',
+  note: 'assumed to work like the Virus B (OS 4.9): the Rack\'s own system software was not available.',
 });

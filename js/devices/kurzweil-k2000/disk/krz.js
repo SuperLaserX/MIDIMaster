@@ -171,8 +171,8 @@ export function programIssue(data) {
   const prog = new Program(data);
   if (prog.warnings.length) return prog.warnings[0];
   const foreign = prog.segments.filter((s) => !K2000_TAGS.has(s.tag));
-  if (mode !== 2) return `made on a ${mode === 4 ? 'K2600' : mode === 3 ? 'K2500' : `model ${mode}`} (program mode ${mode})`;
-  if (foreign.length) return `uses ${foreign.length} segment(s) the K2000 does not have`;
+  if (mode !== 2) return `made on a ${mode === 4 ? 'K2600' : mode === 3 ? 'K2500' : 'different Kurzweil model'}`;
+  if (foreign.length) return `uses ${foreign.length} setting group(s) the K2000 does not have`;
   if (prog.layers.length > K2000_MAX_LAYERS) return `has ${prog.layers.length} layers (the K2000 plays at most ${K2000_MAX_LAYERS})`;
   return null;
 }
@@ -193,7 +193,7 @@ export function convertProgramForK2000(data) {
     if (!K2000_TAGS.has(s.tag)) { dropped++; continue; }
     kept.push(prog.data.subarray(s.offset, s.offset + segmentLength(s.tag)));
   }
-  if (dropped) notes.push(`dropped ${dropped} segment(s) the K2000 does not have`);
+  if (dropped) notes.push(`dropped ${dropped} setting group(s) the K2000 does not have`);
   if (prog.layers.length > K2000_MAX_LAYERS) notes.push(`kept ${K2000_MAX_LAYERS} of ${prog.layers.length} layers`);
   const total = kept.reduce((a, b) => a + b.length, 0) + 2;
   const out = new Uint8Array(total);

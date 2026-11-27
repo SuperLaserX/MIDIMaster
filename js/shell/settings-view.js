@@ -1,6 +1,7 @@
 // Global settings: appearance, MIDI, audition keyboard, library and data.
 
 import { h, clear, toast, confirmDialog, downloadBlob, pickFiles } from '../core/ui/dom.js';
+import { icon } from '../core/ui/icons.js';
 import { library } from '../core/library.js';
 import { SETTING_DEFAULTS } from '../core/settings.js';
 import { DEVICES } from '../devices/registry.js';
@@ -24,20 +25,25 @@ export function settingsView(root, shell) {
     });
     return h('label.field', opts.label, inp, opts.help ? h('span.small.muted', opts.help) : null);
   };
+  // an on/off setting: a Web Awesome switch
   const toggle = (path, label, help) => {
     const [group, key] = path.split('.');
     const cur = () => (key ? v()[group][key] : v()[group]);
-    const btn = h('button.btn.small.toggle' + (cur() ? '.on' : ''), {
-      onclick: () => { const nv = !cur(); s.update(key ? { [group]: { [key]: nv } } : { [group]: nv }); btn.classList.toggle('on', nv); btn.textContent = nv ? 'On' : 'Off'; },
-    }, cur() ? 'On' : 'Off');
-    return h('div.setting-row', h('div.grow', h('div', label), help ? h('div.small.muted', help) : null), btn);
+    const sw = h('wa-switch', {
+      checked: !!cur(), 'aria-label': label,
+      onchange: () => { const nv = !!sw.checked; if (nv !== !!cur()) s.update(key ? { [group]: { [key]: nv } } : { [group]: nv }); },
+    });
+    return h('label.setting-row', h('div.grow', h('div', label), help ? h('div.small.muted', help) : null), sw);
   };
-  const select = (path, label, options) => {
+  // a choice of a few: a segmented Web Awesome radio group
+  const segment = (path, label, options) => {
     const [group, key] = path.split('.');
-    const sel = h('select', { onchange: () => s.update(key ? { [group]: { [key]: sel.value } } : { [group]: sel.value }) },
-      options.map(([val, l]) => h('option', { value: val, selected: String(key ? v()[group][key] : v()[group]) === String(val) }, l)));
-    return h('label.field', label, sel);
+    const cur = String(key ? v()[group][key] : v()[group]);
+    const rg = h('wa-radio-group', { value: cur, orientation: 'horizontal', 'aria-label': label, onchange: () => { if (rg.value) s.update(key ? { [group]: { [key]: rg.value } } : { [group]: rg.value }); } },
+      options.map(([val, l]) => h('wa-radio', { value: val, appearance: 'button' }, l)));
+    return h('div.field.segment-field', h('span.field-label', label), rg);
   };
+  const cardTitle = (name, text) => h('div.card-title', icon(name), h('h2', text));
 
   // Appearance
   const accentRow = h('div.row', ...ACCENTS.map((c) => h('button.swatch' + (v().accent === c ? '.on' : ''), {
@@ -118,25 +124,25 @@ export function settingsView(root, shell) {
       h('div.sub', 'These settings apply to every device. Each device page has its own MIDI ports, channel and device ID.'),
       h('div.grid.cols-2',
         h('div.card.col',
-          h('h2', 'Appearance'),
-          h('div.row', select('theme', 'Theme', [['system', 'Follow the system'], ['dark', 'Dark'], ['light', 'Light']]),
-            select('density', 'Density', [['comfortable', 'Comfortable'], ['compact', 'Compact']])),
+          cardTitle('palette', 'Appearance'),
+          h('div.row.segments', segment('theme', 'Theme', [['dark', 'Dark'], ['light', 'Light'], ['system', 'Follow the system']]),
+            segment('density', 'Density', [['comfortable', 'Comfortable'], ['compact', 'Compact']])),
           h('label.field', 'Accent colour', accentRow),
           h('label.field', `Text size (${Math.round(v().fontScale * 100)}%)`, scale)),
         h('div.card.col',
-          h('h2', 'MIDI ports'),
+          cardTitle('plug', 'MIDI ports'),
           portsBox,
           toggle('midi.autoConnect', 'Reconnect at startup', 'Use MIDI without asking again once you have allowed it.'),
           toggle('midi.panicOnClose', 'All notes off when leaving a device')),
         h('div.card.col',
-          h('h2', 'MIDI inputs (controllers)'),
+          cardTitle('keyboard', 'MIDI inputs (controllers)'),
           inputsBox),
         h('div.card.col',
-          h('h2', 'Controller mappings (all devices)'),
+          cardTitle('right-left', 'Controller mappings (all devices)'),
           h('div.small.muted', 'Saved and loaded at startup. A device\'s own mappings (its Input mappings page) override these.'),
           mappings.el),
         h('div.card.col',
-          h('h2', 'MIDI timing'),
+          cardTitle('gauge-high', 'MIDI timing'),
           h('div.row',
             num('midi.sysexGap', { label: 'Gap between SysEx messages (ms)', min: 0, max: 5000, help: 'Older instruments need 100-200 ms.' }),
             num('midi.replyTimeout', { label: 'Reply timeout (ms)', min: 200, max: 30000 })),
@@ -145,7 +151,7 @@ export function settingsView(root, shell) {
             num('midi.sdsPacketGap', { label: 'Sample Dump packet gap (ms)', min: 10, max: 500, help: 'Used when a device does not acknowledge packets.' })),
           toggle('midi.filterRealtime', 'Hide clock and active sensing in the monitor')),
         h('div.card.col',
-          h('h2', 'Audition keyboard'),
+          cardTitle('music', 'Audition keyboard'),
           toggle('keyboard.show', 'Show the keyboard at the bottom'),
           toggle('keyboard.computerKeys', 'Play notes from the computer keys (Z-M, Q-U)'),
           h('div.row',
@@ -153,12 +159,12 @@ export function settingsView(root, shell) {
             num('keyboard.octave', { label: 'Start octave', min: 0, max: 7 }),
             num('keyboard.patternBpm', { label: 'Test pattern BPM', min: 30, max: 300 }))),
         h('div.card.col',
-          h('h2', 'Devices'),
+          cardTitle('grip', 'Devices'),
           toggle('showNonMidi', 'List devices without MIDI', 'They can be browsed but there is nothing to edit over MIDI.'),
           h('div.small.muted', `${DEVICES.length} devices in the catalog, ${DEVICES.filter((d) => d.openable).length} with MIDI.`),
           num('monitor.maxEntries', { label: 'Monitor lines kept', min: 50, max: 5000 })),
         h('div.card.col',
-          h('h2', 'Library and data'),
+          cardTitle('database', 'Library and data'),
           h('div.row', libInfo, h('span.grow'),
             h('button.btn.small.danger', {
               onclick: async () => {

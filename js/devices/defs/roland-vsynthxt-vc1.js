@@ -417,7 +417,7 @@ export function splitP10(bytes) {
 }
 const saveP10Action = {
   label: 'Save bank .P10',
-  title: 'Read the current bank (64 patches and reverb data 17-32) from the VC-1 and save it as a bank file for the XT drive',
+  title: 'Read the current bank (64 patches and reverb data 17-32) from the VC-1 and save it as a bank file for the XT\'s drive',
   run: async (api) => {
     const r = await api.form('Save the current bank as a .P10 file', [{
       key: 'n', label: 'File (the XT bank it will replace)', type: 'select', value: '1',
@@ -505,7 +505,7 @@ const currentLabel = () => {
 const followed = (bank) => bank === 0 || (bank === vc1.current && bank > 0);
 
 export default {
-  coverage: 'The VC-1 ("D-50") engine of the V-Synth XT OS 2.02: every byte of the 448-byte D-50 patch (patch, upper and lower tone common, four partials) with the firmware\'s ranges, names and value displays, plus the VC-1\'s six extra patch bytes; the temporary patch, the 64 patches of the current bank and the reverb data 17-32 by address (DT1/RQ1, D-50 model 14h). D-50 SysEx files (one-way DT1 or handshake DAT) and the XT bank files VC1_I1-I8.P10 import as VC-1 patches; the current bank saves as a .P10 file.',
+  coverage: 'Edits the patches of the XT\'s VC-1 ("D-50") engine. Every setting of the D-50 patch (patch, upper and lower tone common, four partials) with the XT\'s own ranges, names and value displays, plus the VC-1\'s six extra patch settings; the patch being played, the 64 patches of the current bank and the reverb data 17-32. D-50 SysEx files and the XT bank files VC1_I1-I8.P10 import as VC-1 patches; the current bank saves as a .P10 file.',
   sysex: { manufacturer: [0x41], model: MODEL, deviceIdDefault: 0x00 },
   minGap: 30,
   describe,
@@ -542,8 +542,8 @@ export default {
         renameAction('Rename lower tone', 0x140, 10, 'Lower tone name'),
         saveP10Action,
       ],
-      note: 'Edits the VC-1 temporary patch (00 00 00); changes are heard at once. The XT must be in VC-1 mode, and its device ID is the MIDI basic channel - 1. Store writes into patch memory of the current bank.',
-      sendAll: { label: 'Send to VC-1', title: 'Write the whole patch to the temporary patch', build: (data, ctx) => dt1s(ctx.deviceId, TEMP, data) },
+      note: 'Edits the patch the VC-1 is playing; changes are heard at once. The XT must be in VC-1 mode; its device ID is its MIDI basic channel minus 1 (set the editor\'s ID to match). Store writes into patch memory of the current bank.',
+      sendAll: { label: 'Send to VC-1', title: 'Send the whole patch to the VC-1\'s temporary patch, to hear it', build: (data, ctx) => dt1s(ctx.deviceId, TEMP, data) },
       toSyx: (data, ctx) => dt1s(ctx.deviceId, TEMP, data).flat(),
       fromSyx: (msgs) => assemble(msgs)?.data ?? null,
       slots: {
@@ -592,8 +592,8 @@ export default {
         autoNames: [0],
         scanNote: null,
         note: (bank, ctx) => (bank
-          ? `Play sends bank select 87/${bank - 1} and a program change on channel ${channelOf(ctx) + 1}; the bank then becomes the one SysEx reaches, and its names are read. Edit of a patch in another bank selects it on the VC-1 first.`
-          : `SysEx reaches the 64 patches (11-88) of the bank selected on the VC-1${vc1.current ? ` (${VC1_BANK_NAMES[vc1.current - 1]})` : ''}. Play sends a program change on channel ${channelOf(ctx) + 1}. Store writes the editor into patch memory by address.${!vc1.current && vc1.candidates.length ? ' Which bank it is cannot be told from its names (the factory Internal 1-6 are copies of Preset 1-6): Play a patch in the list of its bank to select it.' : ''}`),
+          ? `Play selects the patch on channel ${channelOf(ctx) + 1}; its bank then becomes the one the editor reaches, and its names are read. Edit of a patch in another bank selects it on the VC-1 first.`
+          : `The editor reaches the 64 patches (11-88) of the bank selected on the VC-1${vc1.current ? ` (${VC1_BANK_NAMES[vc1.current - 1]})` : ''}. Play selects a patch on channel ${channelOf(ctx) + 1}. Store writes the editor\'s patch into patch memory.${!vc1.current && vc1.candidates.length ? ' Which bank it is cannot be told from its names (the factory Internal 1-6 are copies of Preset 1-6): Play a patch in the list of its bank to select it.' : ''}`),
       },
     },
   ],

@@ -259,7 +259,7 @@ function voice() {
     BIT(237, 0, 'Osc mode', g, s, ['Percussive', 'Ensemble']), // packed NRPN 84: 84/85
     BIT(237, 1, 'Poly mode', g, s, ['1', '2']), // packed NRPN 84: 86/87
     BIT(238, 5, 'Unison', g, s), // packed NRPN 100: 81/82
-    P(238, 'Polyphony', g, s, { bits: 2, options: named(['Mono', 'Poly'], 1), help: 'Program mode (menu "polyphony" 6E2E4, 1-2). The same setter (E590) writes the Part polyphony of a part in performance mode; Off and 3 are refused for a program' }),
+    P(238, 'Polyphony', g, s, { bits: 2, options: named(['Mono', 'Poly'], 1), help: 'Mono or Poly in program mode (menu "polyphony"); in performance mode each part has its own Part polyphony.' }),
     P(238, 'Unison mode', g, s, { shift: 2, bits: 3, options: named(['2 voice', '3 voice', '4 voice', '5 voice', '6 voice', '7 voice', '8 voice']) }), // 83-89
     U(e + 2, 'Unison detune', g, s), // NRPN 120 MSB 6
     U(e + 8, 'VCO drift', g, s), // NRPN 120 MSB 14
@@ -317,11 +317,13 @@ function panelState() {
     P(20, 'Filter mod. source', g, s, { shift: 4, bits: 3, options: named(['LFO 1', 'LFO 2', 'Env 2', 'Env 3', 'Wheel']) }),
     P(21, 'Selected LFO', g, s, { shift: 2, bits: 2, options: named(['LFO 1', 'LFO 2']) }),
     P(21, 'Selected envelope', g, s, { shift: 4, bits: 2, options: named(['Env 2', 'Env 3', 'Env 1']) }),
-    // Panel button states with no display text (docs/devices/novation-supernova2.md, "Not identified yet")
-    P(19, 'Panel state 19 (bits 0-2)', g, s, { bits: 3, input: 'number', readOnly: true, min: 0, max: 7, help: 'Which of five front-panel buttons is lit (0-4): the button table writes it (SuperNova OS 4.1 setter 1C998, buttons 0Eh-12h, beside the oscillator mod. source buttons); the Nova II restores it when a program loads (24B14). No display text names it' }),
-    P(20, 'Panel state 20 (bits 0-3)', g, s, { bits: 4, input: 'number', readOnly: true, min: 0, max: 15, help: 'Which of two front-panel buttons is lit (0/1): the button table writes it (setter 1CB9C, buttons 20h/21h, beside the filter mod. source buttons). No display text names it' }),
-    P(21, 'Panel state 21 (bits 0-1)', g, s, { bits: 2, input: 'number', readOnly: true, min: 0, max: 3, help: 'Which of three front-panel buttons is lit (0-2): the button table writes it (setter 1CA1E, buttons 0Bh-0Dh). No display text names it' }),
-    P(237, 'Panel state 237 (bits 4-6)', g, s, { shift: 4, bits: 3, input: 'number', readOnly: true, min: 0, max: 7, help: 'A remembered page of a panel section (0-5 in the factory programs): the Nova OS 4.1 (1971A) and Nova II (24B14) read it when a program loads and index their page table with it; the SuperNova II OS neither sets nor reads it. No display text names it' }),
+    // Pages of panel sections, kept with the program and restored when it loads. Named from what the
+    // display shows after each button, found by pressing every switch in the OS's own code run in an
+    // emulator (tools/novation/h8; docs/devices/novation-supernova2.md, "Panel selections").
+    L(19, 'Osc page', g, s, ['Pitch', 'Width', 'Sync', 'Mix', 'Harden'], 0, { bits: 3, help: 'The oscillator parameter pair the knobs and display show: "Pitch level / Pitch mod.", "Width level / Width mod.", "Sync level / Sync mod.", "Mix level / Mix mod.", "Harden level / Harden mod." (the five osc buttons; stored with the program)' }),
+    L(20, 'Filter mod. page', g, s, ['Freq', 'Res/width'], 0, { bits: 4, help: 'SuperNova (OS 4.1) only: which mods its single "Filter mod." knob edits, Freq mod. or Res/width mod. The SuperNova II and Nova II show both ("Filter freq mod" / "Filter res mod") and do not use this.' }),
+    L(21, 'Tune page', g, s, ['Fine tune', 'Coarse tune', 'Octave'], 0, { bits: 2, help: 'SuperNova (OS 4.1) only: what its tune knob edits, "Fine tune (cents)", "Coarse tune (semitones)" or "Octave (octaves)". The SuperNova II and Nova II do not use this.' }),
+    L(237, 'Effects page', g, s, ['Distortion', 'Reverb', 'Chorus', 'Delay', 'Pan', 'Fx config', 'Vocoder'], 0, { shift: 4, bits: 3, help: 'Nova and Nova II: which effect the effects knobs edit (the knob shows "Distortion drive", "Reverb send", "Chorus send", "Delay send", "Pan position", "Fx config", "Vocoder balance"). The SuperNova II has a button per effect and does not use this.' }),
   ];
 }
 
@@ -617,41 +619,48 @@ const PROGRAM = [
   ...effects2(PROGRAM_SIZE + 56, 254 + 21, 'fx2', 'OS 2 '),
   // Arpeggiator settings a program keeps for program mode (in performance mode they come from the
   // performance): CC 9 and NRPN 1 72/73 write them only when the SuperNova is in program mode.
-  P(239, 'Arpeggio speed (program mode)', 'Arpeggiator', 'arp', { min: 0, max: 127, format: (v) => `${v + 64} b.p.m.`, help: 'CC 9 in program mode (setter at F196); the performance keeps its own' }),
-  P(250, 'Arpeggiator (program mode)', 'Arpeggiator', 'arp', { options: [[72, 'On'], [73, 'Off']], help: 'Packed NRPN 1 72/73 in program mode (stored as sent, CFF4); a part has its own switch' }),
-  P(247, 'Arp latch', 'Arpeggiator', 'arp', { options: [[0, 'Off'], [1, 'On']], help: 'CC 65 (64-127 on); getter at 1396C' }),
+  P(239, 'Arpeggio speed (program mode)', 'Arpeggiator', 'arp', { min: 0, max: 127, format: (v) => `${v + 64} b.p.m.`, help: 'CC 9 in program mode; the performance keeps its own' }),
+  P(250, 'Arpeggiator (program mode)', 'Arpeggiator', 'arp', { options: [[72, 'On'], [73, 'Off']], help: 'The arpeggiator switch in program mode; a part has its own' }),
+  P(247, 'Arp latch', 'Arpeggiator', 'arp', { options: [[0, 'Off'], [1, 'On']], help: 'CC 65 (64-127 on)' }),
+  // Keyboard settings a program keeps for program mode (the performance has its own: message 20
+  // bytes 448-452). Found in the Keyboard OS 2.0 and Nova II OS run in an emulator: in program mode
+  // NRPN 120 MSB 5 / 4 / 113 / 12 write 1E 10 / 11 / 12 / 3 bit 6 (in performance mode 449 / 450 /
+  // 452 / 451); a program stored with 1E 9 = 61 and selected plays its keys three octaves down.
+  P(PROGRAM_SIZE + 9, 'Keyboard octave', 'Keyboard (program mode)', 'arp', { options: named(['-3', '-2', '-1', '0', '+1', '+2', '+3'], 61), help: 'Keyboard menu "Keyboard octave" (61-67; the Nova II goes to +4): applied when the program is selected in program mode. The Rack keeps it but has no keys', ...KBD_ONLY }),
+  P(PROGRAM_SIZE + 10, 'Kbd t-zone hi', 'Keyboard (program mode)', 'arp', { options: O.notes, help: 'Keyboard menu "Kbd t-zone hi": NRPN 120 MSB 5 in program mode', ...KBD_ONLY }),
+  P(PROGRAM_SIZE + 11, 'Kbd t-zone lo', 'Keyboard (program mode)', 'arp', { options: O.notes, help: 'Keyboard menu "Kbd t-zone lo": NRPN 120 MSB 4 in program mode', ...KBD_ONLY }),
+  S(PROGRAM_SIZE + 12, 'zone detune', 'Keyboard (program mode)', 'arp', { help: 'Keyboard menu "zone detune" (signed): NRPN 120 MSB 113 in program mode', ...KBD_ONLY }),
+  BIT(PROGRAM_SIZE + 3, 6, 'Kbd t-zone', 'Keyboard (program mode)', 'arp', ['Off', 'On'], { help: 'The transpose zone switch: NRPN 120 MSB 12 in program mode (no menu field; the performance keeps its own)', ...KBD_ONLY }),
   BIT(237, 3, 'Constant gate', 'Voice', 'voice'), // packed NRPN 100: 79/80 (handler DB2E)
   BIT(249, 1, 'Vocoder input (program mode)', 'Vocoder', 'voice', ['Input (1)', 'Input (2)']), // packed NRPN 113 18/19 in program mode (E7D0)
   // With the digital I/O option card: the digital inputs as waves, vocoder input and effects input.
-  ...[0, 1, 2].map((n) => P(PROGRAM_SIZE + 33 + n, 'Digital input wave', `Osc ${n + 1}`, 'osc', { options: [[0, 'None (the wave above)'], ...Array.from({ length: 8 }, (_, i) => [i + 1, `Dig in (${i + 1})`])], help: 'Used with the digital I/O option card; choosing a wave above clears it (C97A)' })),
-  P(PROGRAM_SIZE + 36, 'Vocoder input, digital', 'Vocoder', 'voice', { options: [[0, 'None (input above)'], ...Array.from({ length: 8 }, (_, i) => [i + 1, `Digital input (${i + 1})`])], help: 'With the digital I/O option card (getter at 14B9E); the vocoder input above clears it' }),
-  P(PROGRAM_SIZE + 71, 'Pass to effects, digital', 'OS 2 Configuration', 'fx2', { options: DIGITAL_PASS, help: 'With the digital I/O option card (getter at 14C04); Pass to effects clears it' }),
-  BIT(238, 6, 'Format marker', 'Format', 'voice', ['Clear', 'Set'], { readOnly: true, help: 'Set by the SuperNova before it sends a program (1D3E8); the SuperNova and Nova OS 4.1 set it too (SuperNova 15568)' }),
-  BIT(249, 2, 'Format marker (2)', 'Format', 'voice', ['Clear', 'Set'], { readOnly: true, help: 'Set by the SuperNova before it sends a program (1D3F2). Marks programs in the OS 4 value scale: the OS 4.1 converts a program without it (Nova 176D2), and 1DE84 here keeps the distortion drive of one with it' }),
-  ...[...Array.from({ length: 14 }, (_, i) => 42 + i), ...Array.from({ length: 12 }, (_, i) => 76 + i)].map((k) => RES(PROGRAM_SIZE + k, `1E ${k}`, 'fx2', 'The SuperNova clears it before sending (1D410) and nothing reads it')),
+  ...[0, 1, 2].map((n) => P(PROGRAM_SIZE + 33 + n, 'Digital input wave', `Osc ${n + 1}`, 'osc', { options: [[0, 'None (the wave above)'], ...Array.from({ length: 8 }, (_, i) => [i + 1, `Dig in (${i + 1})`])], help: 'Used with the digital I/O option card; choosing a wave above clears it' })),
+  P(PROGRAM_SIZE + 36, 'Vocoder input, digital', 'Vocoder', 'voice', { options: [[0, 'None (input above)'], ...Array.from({ length: 8 }, (_, i) => [i + 1, `Digital input (${i + 1})`])], help: 'With the digital I/O option card; the vocoder input above clears it' }),
+  P(PROGRAM_SIZE + 71, 'Pass to effects, digital', 'OS 2 Configuration', 'fx2', { options: DIGITAL_PASS, help: 'With the digital I/O option card; Pass to effects clears it' }),
+  BIT(238, 6, 'Format marker', 'Format', 'voice', ['Clear', 'Set'], { readOnly: true, help: 'Set by the SuperNova before it sends a program (the SuperNova and Nova set it too); shown for information' }),
+  BIT(249, 2, 'Format marker (2)', 'Format', 'voice', ['Clear', 'Set'], { readOnly: true, help: 'Set by the SuperNova before it sends a program. It marks programs in the newer value scale: a SuperNova or Nova converts a program without it when it arrives' }),
+  ...[...Array.from({ length: 14 }, (_, i) => 42 + i), ...Array.from({ length: 12 }, (_, i) => 76 + i)].map((k) => RES(PROGRAM_SIZE + k, `1E ${k}`, 'fx2', 'Not used: the SuperNova always sends 0 here')),
 ];
 
 // Bytes and bits not identified yet: no NRPN, CC or menu field of OS 2.0 has been found to reach
 // them (docs/devices/novation-supernova2.md); shown as typed values so a backup restores exactly.
-const PROGRAM_SPARE = [9, 10, 11, 12, 75].map((x) => PROGRAM_SIZE + x);
+const PROGRAM_SPARE = [75].map((x) => PROGRAM_SIZE + x);
 /**
  * Bytes no menu field, CC, NRPN or reader of any of the SuperNova II, Nova II and OS 4.1 images was
  * found to use (docs/devices/novation-supernova2.md, "Not identified yet"); shown read-only with what
  * the firmware and the factory sounds show about them, so a backup restores exactly.
  */
 const SPARE_HELP = {
-  [PROGRAM_SIZE + 9]: 'Set to 64 when the SuperNova makes a new program (Rack 1F4CE, Keyboard 23A62, Nova II 235B8); 61-66 in the factory programs; no setter or reader found',
-  [PROGRAM_SIZE + 10]: 'Set to 60 for a new program (Rack 1F4F0); 60 in every factory program; no setter or reader found',
-  [PROGRAM_SIZE + 11]: 'Set to 36 for a new program (Rack 1F4E4); 36 in every factory program; no setter or reader found',
-  [PROGRAM_SIZE + 12]: 'Set to 76 for a new program (Rack 1F4F6); 76 in every factory program; no setter or reader found',
-  [PROGRAM_SIZE + 75]: '0 in every factory program; no setter or reader found',
-  16: '2Fh in every factory performance (SuperNova II and Nova); no setter or reader found',
-  19: '0 in most factory performances, a single bit (1, 2, 4, 8, 16, 64) in a few; no setter or reader found (muting a part on the Rack did not change it)',
-  [PERF_SIZE + 5]: '0 on the SuperNova II; 3 or 4 in the factory performances of the Nova; no setter or reader found',
+  [PROGRAM_SIZE + 75]: '0 in every factory program; the SuperNova only keeps and sends it',
+  [PERF_SIZE + 5]: 'Not used: the SuperNova II sends 0 here; 3 or 4 in the Nova\'s factory performances, whose vocoder settings differ',
+  [PERF_SIZE + 8]: 'Kept and sent as stored; no menu or controller of the SuperNova II reaches it',
+  ...Object.fromEntries(Array.from({ length: 7 }, (_, i) => [PERF_SIZE + 9 + i, 'Not used: the SuperNova always sends 0 here'])),
+  // message 20, part block byte 20: the Keyboard OS keeps External part n's first MIDI stream byte here
+  ...Object.fromEntries(Array.from({ length: 8 }, (_, i) => [PERF_SIZE + PERF_EXT_SIZE + 40 * i + 20, `SuperNova II Keyboard: the first MIDI stream byte of External part ${i + 1} (NRPN 122 MSB ${96 + i} / ${104 + i}, the second also setting its stream flag); the Rack neither sets nor reads it. 0 in the factory performances`])),
 };
 const spare = (o, section, base = 0, tag = '') => P(o, `${tag}${(o - base).toString(16).toUpperCase().padStart(2, '0')}h`, 'Reserved', section, {
   input: 'number', readOnly: true, min: 0, max: 127,
-  help: SPARE_HELP[o] ?? '0 in every factory sound; no menu field, CC, NRPN, setter or reader found in any SuperNova II, Nova II or OS 4.1 image',
+  help: SPARE_HELP[o] ?? '0 in every factory sound; no menu or controller of any SuperNova or Nova reaches it',
 });
 
 // ------------------------------------------------------------------ performance
@@ -690,7 +699,12 @@ function partParams(i) {
     P(b + 10, 'Part polyphony', g, s, { bits: 2, options: named(['Off', 'Mono', 'Poly', 'Prog']) }), // packed NRPN 113: 0-3
     BIT(b + 10, 4, 'Arpeggiator', g, s), // packed NRPN 1: 72/73
     BIT(b + 10, 6, 'Effects used', g, s, ['Part', 'Program']), // packed NRPN 84: 75/76
-    P(b + 10, 'Expression pedal (Nova)', 'Reserved', s, { shift: 5, bits: 1, options: named(['Off', 'On']), readOnly: true, help: 'Only the Nova OS 4.1 sets it (its Expression pedal, values 118/119, setter B492 there); no SuperNova II or Nova II OS sets or reads it. Kept so a backup restores exactly.' }),
+    // Part mutes (packed NRPN 113: 63-70 mute part 1-8, 55-62 un-mute; perf mode only, E8B2/E9C2):
+    // perf byte 19 bit n for parts 1-7; part 8's bit travels in byte 16 bit 6 (the transmitter moves
+    // it there, 1D644; the receiver back, 1CC1C). Read when a performance loads (10812)
+    i < 7 ? BIT(19, i, 'Part mute', g, s, ['Un-muted', 'Muted'], { help: 'Shown as "Part muted" / "Part un-muted"; packed NRPN 113 = ' + (63 + i) + ' / ' + (55 + i) + ' in performance mode. A muted part stays silent when the performance loads' })
+      : BIT(16, 6, 'Part mute', g, s, ['Un-muted', 'Muted'], { help: 'Shown as "Part muted" / "Part un-muted"; packed NRPN 113 = 70 / 62 in performance mode. A muted part stays silent when the performance loads' }),
+    P(b + 10, 'Expression pedal (Nova)', 'Reserved', s, { shift: 5, bits: 1, options: named(['Off', 'On']), readOnly: true, help: 'Only the Nova (OS 4.1) uses it, for its Expression pedal; the SuperNova II and Nova II do not. Kept so a backup restores exactly.' }),
     L(b + 3, 'Part outputs', g, s, ['1 & 2', '3 & 4', '5 & 6', '7 & 8'], 98), // packed NRPN 1: 98-101
     P(b + 7, 'Part velocity curve', g, s, { options: named(VEL_CURVES, 80) }), // packed NRPN 109: 80-95
     BIT(b + 10, 2, 'Prog change filt', 'MIDI', s), BIT(b + 10, 3, 'Controller filt', 'MIDI', s), // packed NRPN 110: 76/77, 116/117
@@ -703,49 +717,65 @@ function partParams(i) {
     U(f + 35, 'Part arp pattern no.', g, s),
     ...effects(b + 12, s, 'FX '),
     ...effects2(f, b + 12 + 21, s, 'FX OS 2 '),
-    P(f + 15, 'Pass to effects, digital', 'FX OS 2 Configuration', s, { options: DIGITAL_PASS, help: 'With the digital I/O option card (getter at 14C04); Pass to effects clears it' }),
-    RES(f + 38, 'Part 20: 38', s, 'The SuperNova clears it before sending (1D714)'),
-    RES(f + 39, 'Part 20: 39', s, 'The SuperNova clears it before sending (1D714)'),
+    P(f + 15, 'Pass to effects, digital', 'FX OS 2 Configuration', s, { options: DIGITAL_PASS, help: 'With the digital I/O option card; Pass to effects clears it' }),
+    RES(f + 38, 'Part 20: 38', s, 'Not used: the SuperNova always sends 0 here'),
+    RES(f + 39, 'Part 20: 39', s, 'Not used: the SuperNova always sends 0 here'),
   ];
 }
 
 /**
- * Message 20 bytes 320-453: performance settings of the SuperNova II Keyboard (its External Parts,
- * which play other instruments, and the arpeggiator transpose zone), placed from the Keyboard OS 2.0
- * NRPN handlers (NRPN 120 MSB 16-111, NRPN 122 MSB 64-87; table at 11FD2 and 12AFE there). The
- * Rack keeps them with the performance but does not use them.
+ * The 16 bytes of an External Part, from the SuperNova II Keyboard OS 2.0 run in an emulator
+ * (tools/novation/h8): each NRPN 120 MSB 16 + 8 x field + part and NRPN 122 MSB 64-111 was sent and
+ * the performance read back (docs/devices/novation-supernova2.md, "External Parts"). Labels and
+ * displays are the Keyboard menus' (records 77816-78340 there).
  */
-const EXT_FIELDS = ['MIDI channel', 'MIDI Tx options', 'Bank MSB', 'Bank LSB', 'Program no.', 'Range lowest note', 'Range highest note', 'Velocity highest', 'Velocity lowest', 'Volume', 'Semitone transpose', 'Wheel assignment', 'Default velocity', 'MIDI stream size', 'MIDI stream (14)', 'MIDI stream (15)'];
-/**
- * Displays from the Keyboard OS 2.0 menus (records 77816-78340 there): 'Ext part MIDI ch' 0-16 (Off,
- * 1-16), 'Ext bank MSB/LSB', 'Ext program no.', 'Ext volume level' 0-127, 'Ext lowest/highest note'
- * (note names), 'Ext velocity min/max' 1-127, 'transpose' 4-124 (shown signed), 'Mod wheel Tx CC',
- * 'Default velocity' 1-127, 'MIDI Stream byte' 1-12; 'Kbd t-zone hi/lo' (notes), 'zone detune' (signed).
- * The Tx option bits (menu 'PBMWAVSN') and the stream bytes stay typed: their bit order is not placed.
- */
-const EXT_DISPLAY = {
-  'MIDI channel': { options: named(['Off', ...Array.from({ length: 16 }, (_, i) => String(i + 1))]) },
-  'Range lowest note': { options: O.notes }, 'Range highest note': { options: O.notes },
-  'Velocity highest': { min: 1, max: 127 }, 'Velocity lowest': { min: 1, max: 127 }, 'Default velocity': { min: 1, max: 127 },
-  'Bank MSB': { min: 0, max: 127 }, 'Bank LSB': { min: 0, max: 127 }, 'Program no.': { min: 0, max: 127 }, Volume: { min: 0, max: 127 },
-  'Semitone transpose': { bias: 64, min: -60, max: 60, format: plus },
-  'Wheel assignment': { min: 0, max: 127, format: (v) => `CC ${v}` },
-  'MIDI stream size': { min: 1, max: 12 },
-};
+const TX_OPTS = ['Prog change', 'Bank change', 'Mod wheel', 'Pitch bend', 'Aftertouch', 'Volume', 'Sustain']; // menu "PBMWAVSN" 0-6
+const YES_NO_INV = ['Yes', 'No']; // a set bit stops the transmission ("Tx ?" No)
+function extPart(at, n) {
+  const g = `External part ${n + 1}`;
+  const o = at + 16 * n;
+  const x = (k, label, extra) => P(o + k, `Ext ${n + 1} ${label}`, g, 'keyboard', { ...extra, ...KBD_ONLY });
+  return [
+    x(0, 'MIDI ch', {
+      options: named(['Off', ...Array.from({ length: 16 }, (_, i) => String(i + 1))]),
+      get: (d) => (d[o] & 0x40 ? (d[o] & 15) + 1 : 0),
+      set: (d, v) => { d[o] = v ? (d[o] & 0x30) | 0x40 | ((v - 1) & 15) : d[o] & ~0x40; },
+      help: 'Menu "Ext part MIDI ch" (Off, 1-16): NRPN 120 MSB 40 + part. Bit 6 is set while the part is on, bits 0-3 hold the channel',
+    }),
+    ...TX_OPTS.map((t, i) => x(1, `Tx ${t}`, { shift: 6 - i, bits: 1, options: named(YES_NO_INV), help: `Menu "PBMWAVSN" ${t} with "Tx ?": NRPN 120 MSB 64 + part = ${i} sets the bit (No), ${i + 7} clears it (Yes)` })),
+    x(0, 'Tx Kbd notes', { shift: 5, bits: 1, options: named(YES_NO_INV), help: 'Menu "PBMWAVSN" Kbd notes with "Tx ?": NRPN 120 MSB 64 + part = 14 sets it (No), 15 clears it (Yes). With No the keys no longer play on the part\'s channel' }),
+    x(0, 'Tx ext velocity', { shift: 4, bits: 1, options: named(YES_NO_INV), help: 'Menu "Tx ext  velocity" (No / Yes): NRPN 122 MSB 64 + part = 0 sets the bit, 1 clears it. With No the part plays at Default velocity' }),
+    x(2, 'bank MSB', { min: 0, max: 127, help: 'Menu "Ext bank MSB": NRPN 120 MSB 88 + part' }),
+    x(3, 'bank LSB', { min: 0, max: 127, help: 'Menu "Ext bank LSB": NRPN 120 MSB 80 + part' }),
+    x(4, 'program no.', { min: 0, max: 127, help: 'Menu "Ext program no.": NRPN 120 MSB 72 + part' }),
+    x(5, 'lowest note', { options: O.notes, help: 'Menu "Ext lowest  note": NRPN 120 MSB 56 + part' }),
+    x(6, 'highest note', { options: O.notes, help: 'Menu "Ext highest note": NRPN 120 MSB 48 + part' }),
+    x(7, 'velocity min', { min: 1, max: 127, help: 'Menu "Ext velocity min": NRPN 120 MSB 24 + part' }),
+    x(8, 'velocity max', { min: 1, max: 127, help: 'Menu "Ext velocity max": NRPN 120 MSB 32 + part (not below the minimum)' }),
+    x(9, 'volume level', { min: 0, max: 127, help: 'Menu "Ext volume level": NRPN 120 MSB 96 + part' }),
+    x(10, 'transpose', { bias: 64, min: -60, max: 60, format: plus, help: 'Menu "transpose" (4-124 shown signed): NRPN 120 MSB 16 + part' }),
+    x(11, 'Mod wheel Tx CC', { min: 0, max: 127, format: (v) => `CC ${v}`, help: 'Menu "Mod wheel Tx   CC": NRPN 120 MSB 104 + part' }),
+    x(12, 'Default velocity', { min: 1, max: 127, help: 'Menu "Default velocity" (1-127): NRPN 122 MSB 72 + part' }),
+    x(13, 'MIDI Stream byte', { min: 1, max: 12, help: 'Menu "MIDI Stream byte" (1-12): NRPN 122 MSB 80 + part' }),
+    x(14, 'stream byte 14', { input: 'number', min: 0, max: 127, help: 'MIDI stream data (menus "Send MIDI stream", "No of bytes", "Message byte"); 0 in the factory performances' }),
+    x(15, 'stream flags', { input: 'number', min: 0, max: 127, help: 'MIDI stream: NRPN 122 MSB 104 + part sets bit 0 and NRPN 122 MSB 96 + part clears it, each writing the part\'s first stream byte; what the other bits do is not known' }),
+  ];
+}
 function keyboardParams() {
   const at = PFX(8);
-  const typed = (o, l, g, help) => P(o, l, g, 'keyboard', { input: 'number', min: 0, max: 127, help, ...KBD_ONLY });
-  const shown = (o, l, g, help, display) => P(o, l, g, 'keyboard', { help, ...display, ...KBD_ONLY });
-  const ext = (n, l, k) => (EXT_DISPLAY[l] ? shown : typed)(at + 16 * n + k, `Ext ${n + 1} ${l}`, `External part ${n + 1}`, 'SuperNova II Keyboard only', EXT_DISPLAY[l]);
+  const g = 'Keyboard performance';
+  const x = (k, label, extra) => P(at + k, label, g, 'keyboard', { ...extra, ...KBD_ONLY });
   return [
-    ...Array.from({ length: 8 }, (_, n) => EXT_FIELDS.map((l, k) => ext(n, l, k))).flat(),
-    typed(at + 128, 'Byte 448', 'Keyboard performance', 'Read by the Keyboard OS 2.0 (150EE); not used by the Rack'),
-    shown(at + 129, 'Arp trans zone note (high)', 'Keyboard performance', 'Keyboard menu "Kbd t-zone hi": NRPN 120 MSB 4/5 (handler 12222 there)', { options: O.notes }),
-    shown(at + 130, 'Arp trans zone note (low)', 'Keyboard performance', 'Keyboard menu "Kbd t-zone lo": NRPN 120 MSB 4/5 (handler 12222 there)', { options: O.notes }),
-    typed(at + 131, 'Arp trans zone active', 'Keyboard performance', 'Keyboard: NRPN 120 MSB 12'),
-    shown(at + 132, 'Arp trans zone semitone detune', 'Keyboard performance', 'Keyboard menu "zone detune" (signed): NRPN 120 MSB 113; the Rack reads it back (1516C)', { bias: 64, min: -64, max: 63, format: plus }),
-    typed(at + 133, 'Ext song select song', 'Keyboard performance', 'Keyboard: NRPN 122 MSB 38'),
-    ...Array.from({ length: 10 }, (_, i) => RES(at + 134 + i, `20: ${454 + i}`, 'keyboard', 'The SuperNova clears it before sending (1D714)')),
+    ...Array.from({ length: 8 }, (_, n) => extPart(at, n)).flat(),
+    x(128, 'Keyboard octave', { options: named(['-3', '-2', '-1', '0', '+1', '+2', '+3'], 61), help: 'Keyboard menu "Keyboard octave" (61-67): applied when the performance loads (61 plays three octaves down)' }),
+    x(129, 'Kbd t-zone hi', { options: O.notes, help: 'Keyboard menu "Kbd t-zone hi": NRPN 120 MSB 5 in performance mode' }),
+    x(130, 'Kbd t-zone lo', { options: O.notes, help: 'Keyboard menu "Kbd t-zone lo": NRPN 120 MSB 4 in performance mode' }),
+    x(131, 'Kbd t-zone', { shift: 6, bits: 1, options: named(['Off', 'On']), help: 'The transpose zone switch: NRPN 120 MSB 12 in performance mode (no menu field)' }),
+    x(131, 'Tx song select ?', { shift: 4, bits: 1, options: named(['No', 'Yes']), help: 'Keyboard menu "Tx song select ?": with Yes the Keyboard OS sends Song Select (F3) with Song no. when the performance is selected' }),
+    P(at + 131, '20: 451 bits 0-3, 5', 'Reserved', 'keyboard', { input: 'number', readOnly: true, min: 0, max: 47, get: (d) => d[at + 131] & 0x2f, set: (d, v) => { d[at + 131] = (d[at + 131] & 0x50) | (v & 0x2f); }, help: 'Only bits 4 and 6 are used (Tx song select, transpose zone); 0 in the factory performances' }),
+    x(132, 'zone detune', { bias: 64, min: -64, max: 63, format: plus, help: 'Keyboard menu "zone detune" (signed): NRPN 120 MSB 113; the Rack keeps it' }),
+    x(133, 'Song no.', { min: 0, max: 127, help: 'Keyboard menu "Song no." (with "Tx song select ?"): NRPN 122 MSB 38' }),
+    ...Array.from({ length: 10 }, (_, i) => RES(at + 134 + i, `20: ${454 + i}`, 'keyboard', 'Not used: the SuperNova always sends 0 here')),
   ];
 }
 
@@ -755,7 +785,8 @@ const PERFORMANCE = [
   P(17, 'Arpeggio speed', 'Performance', 'common', { min: 0, max: 127, format: (v) => `${v + 64} b.p.m.` }), // CC 9; descriptor 6AFEC shows value + 64
   P(18, 'Current part', 'Performance', 'common', { options: named(['Part 1', 'Part 2', 'Part 3', 'Part 4', 'Part 5', 'Part 6', 'Part 7', 'Part 8']) }),
   U(X + 4, 'Vocoder balance', 'Vocoder', 'common'), // NRPN 102 in performance mode
-  P(X, 'Format', 'Performance', 'common', { input: 'number', readOnly: true, help: 'Always 28h: the transmitter at 1D612 writes it (OS 2 format marker)' }),
+  P(X, 'Format', 'Performance', 'common', { input: 'number', readOnly: true, help: 'Always 28h: marks a performance of the current system (OS 2)' }),
+  P(16, 'Format (05)', 'Performance', 'common', { input: 'number', readOnly: true, min: 0, max: 63, get: (d) => d[16] & 0x3f, set: (d, v) => { d[16] = (d[16] & 0x40) | (v & 0x3f); }, help: 'Always 2Fh: marks the format; a performance without bit 5 (an older format) has its part effects converted when it arrives. Bit 6 is the mute of part 8' }),
   P(X + 1, 'Voc input', 'Vocoder', 'common', { options: named(FW.VOC_INPUT, 18) }), // packed NRPN 113: 18-27
   P(X + 2, 'Voc insert', 'Vocoder', 'common', { options: named(FW.VOC_INSERT, 28) }), // 28-35
   P(X + 3, 'Vocoder width', 'Vocoder', 'common', { bias: 112, min: 0, max: 15 }), // 112-127
@@ -765,7 +796,7 @@ const PERFORMANCE = [
   ...keyboardParams(),
 ];
 const PART_FX_SPARE = Array.from({ length: 14 }, (_, i) => 19 + i);
-const PERF_SPARE = [16, 19, X + 5, X + 8, ...Array.from({ length: 7 }, (_, i) => X + 9 + i),
+const PERF_SPARE = [X + 5, X + 8, ...Array.from({ length: 7 }, (_, i) => X + 9 + i),
   ...Array.from({ length: 8 }, (_, i) => PART_FX_SPARE.map((o) => PFX(i) + o)).flat()];
 
 // ------------------------------------------------------------------ global
@@ -794,9 +825,9 @@ const RESERVED = (o, mask, label, group, section, help) => P(o, label, group, se
 const ON_OFF_INV = ['On', 'Off']; // a set bit switches the function off
 const G = 'global';
 const GLOBAL = [
-  P(G2, 'Format', 'MIDI', G, { input: 'number', readOnly: true, help: 'Always 28h: the transmitter at 1DA5A writes it (OS 2 format marker)' }),
+  P(G2, 'Format', 'MIDI', G, { input: 'number', readOnly: true, help: 'Always 28h: marks global settings of the current system (OS 2)' }),
   P(0, 'Global MIDI chan', 'MIDI', G, { options: named(Array.from({ length: 16 }, (_, i) => String(i + 1))) }), // packed NRPN 109: 32-47
-  BIT(G2 + 1, 2, 'Local control', 'MIDI', G, ON_OFF_INV, { help: 'CC 122 (0 Off, 127 On); RAM 34660 bit 2' }),
+  BIT(G2 + 1, 2, 'Local control', 'MIDI', G, ON_OFF_INV, { help: 'CC 122 (0 Off, 127 On)' }),
   P(G2 + 14, 'Incoming program change', 'MIDI', G, { bits: 2, options: named(['Enabled', 'Program map', 'Disabled']) }), // packed NRPN 110: 34-36
   BIT(G2 + 14, 2, 'Incoming control change', 'MIDI', G, ['Enabled', 'Disabled'], { help: 'Packed NRPN 110: 75 Enabled, 115 Disabled (Disabled also stops NRPNs, so this editor\'s live edits)' }),
   BIT(G2 + 16, 1, 'Prog change Tx', 'MIDI', G, ON_OFF_INV), // packed NRPN 100: 96/97
@@ -851,19 +882,19 @@ const GLOBAL = [
     U(G2 + 33 + 2 * i, `Map ${slotNumber(i)} program`, 'Program change map', 'map'), // NRPN 121
   ]).flat(),
   // What OS 2.0 never sets or reads (docs/devices/novation-supernova2.md, "Global"): kept for exact backups.
-  RESERVED(10, 0x7c, '0F 10: bits 2-6', 'Reserved', G, 'Always 0: message 0F carries bits 0-1 of RAM 34660 (the rest travels in message 15 byte 1)'),
-  RESERVED(11, 0x70, '0F 11: bits 4-6', 'Reserved', G, 'Always 0: message 0F carries bits 0-3 of RAM 34661'),
-  RESERVED(13, 0x70, '0F 13: bits 4-6', 'Reserved', G, 'Always 0: message 0F carries bits 0-3 of RAM 34663'),
-  RESERVED(G2 + 1, 0x03, '15 1: bits 0-1', 'Reserved', G, 'Masked off by the transmitter (they travel in message 0F byte 10)'),
-  RESERVED(G2 + 2, 0x4f, '15 2: bits 0-3, 6', 'Reserved', G, 'Bits 0-3 are masked off by the transmitter; nothing sets or reads bit 6'),
-  RESERVED(G2 + 3, 0x0f, '15 3: bits 0-3', 'Reserved', G, 'Masked off by the transmitter (they travel in message 0F)'),
-  ...[4, 5, 6, 7, 8, 9, 10, 11].map((k) => RESERVED(G2 + k, 0x7f, `15 ${k}`, 'Reserved', G, 'The transmitter clears it (buffer zeroed at 1DA46) and the receiver ignores it')),
-  RESERVED(G2 + 13, 0x7f, '15 13 (5Fh)', 'Reserved', G, 'Set to 5Fh with the defaults (1F334) and never read, by the Rack or the Keyboard OS 2.0. It is the Nova\'s Headphones out (OS 4.1: 92-95, 5Fh = Mix)'),
-  RESERVED(G2 + 14, 0x20, '15 14: bit 5', 'Reserved', G, 'Cleared when the global settings are written (12716); nothing sets or reads it'),
+  RESERVED(10, 0x7c, '0F 10: bits 2-6', 'Reserved', G, 'Always 0; the rest of this setting travels in message 15 byte 1'),
+  RESERVED(11, 0x70, '0F 11: bits 4-6', 'Reserved', G, 'Always 0: only bits 0-3 are used'),
+  RESERVED(13, 0x70, '0F 13: bits 4-6', 'Reserved', G, 'Always 0: only bits 0-3 are used'),
+  RESERVED(G2 + 1, 0x03, '15 1: bits 0-1', 'Reserved', G, 'Always 0 (these bits travel in message 0F byte 10)'),
+  RESERVED(G2 + 2, 0x4f, '15 2: bits 0-3, 6', 'Reserved', G, 'Always 0: bits 0-3 travel in message 0F; bit 6 is not used'),
+  RESERVED(G2 + 3, 0x0f, '15 3: bits 0-3', 'Reserved', G, 'Always 0 (these bits travel in message 0F)'),
+  ...[4, 5, 6, 7, 8, 9, 10, 11].map((k) => RESERVED(G2 + k, 0x7f, `15 ${k}`, 'Reserved', G, 'Not used: always 0, and ignored when received')),
+  RESERVED(G2 + 13, 0x7f, '15 13 (5Fh)', 'Reserved', G, 'Not used on the SuperNova II (5Fh by default). On the Nova it is Headphones out (5Fh = Mix)'),
+  RESERVED(G2 + 14, 0x20, '15 14: bit 5', 'Reserved', G, 'Not used: cleared when the global settings are written'),
   RESERVED(G2 + 15, 0x7f, '15 15 (Keyboard: favourites slot)', 'Reserved', G, 'The Rack only defaults it to 0; the Keyboard OS 2.0 keeps the favourites slot being assigned here'),
   RESERVED(G2 + 23, 0x60, '15 23: bits 5-6', 'Reserved', G, 'Not used by the digital I/O settings'),
-  ...[24, 25].map((k) => RESERVED(G2 + k, 0x7f, `15 ${k} (40h)`, 'Reserved', G, `The transmitter writes 40h; the receiver stores it in RAM 346AE-346AF, which nothing reads. It is the Nova's Trim${k - 23} (OS 4.1: 54-74 = -10..+10)`)),
-  ...[28, 29, 30, 31].map((k) => RESERVED(G2 + k, 0x7f, `15 ${k}`, 'Reserved', G, 'The transmitter writes 0; the receiver stores it in RAM 346B2-346B5, which nothing reads')),
+  ...[24, 25].map((k) => RESERVED(G2 + k, 0x7f, `15 ${k} (40h)`, 'Reserved', G, `Not used on the SuperNova II (always 40h). On the Nova it is Trim${k - 23} (54-74 = -10..+10)`)),
+  ...[28, 29, 30, 31].map((k) => RESERVED(G2 + k, 0x7f, `15 ${k}`, 'Reserved', G, 'Not used: always 0')),
 ];
 /** Global NRPN numbers the editor uses (sent on the global channel). */
 const nrpn = (c, msb, lsb, v) => [[0xb0 | c, 99, msb], [0xb0 | c, 98, lsb], [0xb0 | c, 6, v & 127]];
@@ -993,7 +1024,7 @@ function patternParams_() {
   return [
     P(0, 'Pattern number', g, 'pattern', { options: Array.from({ length: 128 }, (_, n) => [n, `${slotNumber(n)} (${n < 64 ? 'mono' : 'poly'})`]), relayout: true, help: '000-063 mono, 064-127 poly. Sending the pattern makes this the User pattern edit number' }),
     P(2, 'No of steps', g, 'pattern', { min: 1, max: 64, relayout: true }), // NRPN 126
-    P(1, 'Highest note (mono, derived)', g, 'pattern', { input: 'number', readOnly: true, min: 0, max: 127, help: 'Kept by the SuperNova from the steps (18FD2); the editor recomputes it when it sends' }),
+    P(1, 'Highest note (mono, derived)', g, 'pattern', { input: 'number', readOnly: true, min: 0, max: 127, help: 'Worked out by the SuperNova from the steps; the editor recomputes it when it sends' }),
     ...steps,
   ];
 }
@@ -1007,7 +1038,7 @@ const PTR = TR.perfTranslator({ PART, PFX });
 const isDrumBank = (b) => b >= 18 && b <= 25;
 
 export default {
-  coverage: 'Programs (3 oscillators, mixer, 2 LFOs, 3 envelopes, filter, voice, arpeggiator with its program-mode settings, effects and the OS 2 settings), performances (8 parts with program, MIDI channel, level, key range, polyphony, MIDI filters, arpeggio pattern and effects, vocoder, and the SuperNova II Keyboard External Parts), every global setting (power-up sound, inputs, MIDI, SysEx, digital I/O card) and the program change map, read from and sent to a SuperNova II Rack or Keyboard by SysEx as found in the Rack OS 2.0 firmware and checked on a SuperNova II Rack. Program and performance memories with names from one bank request each, store, Branch Library splitting bank dumps, translator for the Head Library.',
+  coverage: 'Edits the SuperNova II\'s programs, performances, arpeggio patterns and global settings. Programs (3 oscillators, mixer, 2 LFOs, 3 envelopes, filter, voice, arpeggiator with its program-mode settings, effects and the OS 2 settings), performances (8 parts with program, MIDI channel, level, key range, polyphony, MIDI filters, arpeggio pattern and effects, vocoder, and the SuperNova II Keyboard External Parts), every global setting (power-up sound, inputs, MIDI, SysEx, digital I/O card) and the program change map, read from and sent to a SuperNova II Rack or Keyboard; checked on a SuperNova II Rack. Program and performance memories with their names, Store, the Branch Library and Head Library.',
   sysex: { manufacturer: [0x00, 0x20, 0x29], model: 0x24, deviceIdDefault: 0x7f },
   minGap: 40,
   describe,
@@ -1022,11 +1053,11 @@ export default {
         { key: 'filter', label: 'Filter' }, { key: 'voice', label: 'Voice' }, { key: 'arp', label: 'Arpeggiator' }, { key: 'fx', label: 'Effects' }, { key: 'fx2', label: 'Effects (OS 2)' },
       ],
       groupInfo: {
-        'Spare bytes': { note: 'Program bytes not identified yet: no NRPN, CC or menu field of OS 2.0 found so far reaches them (docs/devices/novation-supernova2.md). Kept so a backup restores exactly.', table: true, wide: true },
-        Reserved: { note: 'Bytes the SuperNova clears before it sends a program and never reads. Kept so a backup restores exactly.', table: true, wide: true },
+        'Spare bytes': { note: 'Program values whose purpose is not known: no menu or controller of the SuperNova II reaches them. Kept so a backup restores exactly.', table: true, wide: true },
+        Reserved: { note: 'Values the SuperNova always sends as 0 and does not use. Kept so a backup restores exactly.', table: true, wide: true },
       },
       sendParam: (_p, _v, data, ctx) => msg.program(ctx, data),
-      note: 'Every change sends the program to the current part\'s edit buffer (messages 00 and 1E), so it is heard at once. Store writes it into a memory (Memory protect must be Off, the usual setting). The effects here are used when the part\'s Effects used is Program (always in program mode).',
+      note: 'Every change sends the program to the current part\'s edit buffer, so it is heard at once. Store writes it into a memory (Memory protect must be Off, the usual setting). The effects here are used when the part\'s Effects used is Program (always in program mode).',
       sendAll: { label: 'Send to SuperNova', title: 'Send the whole program to the current part', build: (data, ctx) => msg.program(ctx, data) },
       toSyx: (data, ctx) => msg.program(ctx, data),
       fromSyx: programFromSyx,
@@ -1043,7 +1074,7 @@ export default {
         scanBank: scanBank('prog'),
         store: (bank, i, ctx, data) => msg.storeProgram(ctx, bank, i, data),
         writable: () => true,
-        note: (bank, ctx) => `Play sends bank select ${bank} and a program change on the global channel (${ch(ctx) + 1}), which selects program mode. Read names asks for the whole bank (about ${bank >= 18 ? 7 : 17} s).${isDrumBank(bank) ? ' A drum map holds 50 sounds; in a performance, a part plays a drum map when its bank is a drum map.' : ''}`,
+        note: (bank, ctx) => `Play selects the program on the global channel (${ch(ctx) + 1}), which puts the SuperNova in program mode. Read names reads the whole bank (about ${bank >= 18 ? 7 : 17} s).${isDrumBank(bank) ? ' A drum map holds 50 sounds; in a performance, a part plays a drum map when its bank is a drum map.' : ''}`,
       },
     },
     {
@@ -1053,11 +1084,11 @@ export default {
       emptySection: (section) => (section === 'keyboard' ? 'The SuperNova II Rack has no External Parts or transpose zone: these bytes are kept for a Keyboard (choose Model: Keyboard to see them).' : ''),
       target: MODEL_TARGET,
       groupInfo: {
-        'Spare bytes': { note: 'Performance bytes not identified yet (docs/devices/novation-supernova2.md); kept for exact backups.', table: true, wide: true },
-        Reserved: { note: 'Bytes the SuperNova clears before it sends a performance; kept for exact backups.', table: true, wide: true },
+        'Spare bytes': { note: 'Performance values whose purpose is not known; kept so a backup restores exactly.', table: true, wide: true },
+        Reserved: { note: 'Values the SuperNova always sends as 0; kept so a backup restores exactly.', table: true, wide: true },
       },
       sendParam: (_p, _v, data, ctx) => msg.performance(ctx, data),
-      note: 'Every change sends the performance to the edit buffer (messages 05, 1B and 20). A part\'s Bank and Program are stored with the performance; the SuperNova loads that program into the part when the performance is selected (store it, then Play it).',
+      note: 'Every change sends the performance to the edit buffer. A part\'s Bank and Program are stored with the performance; the SuperNova loads that program into the part when the performance is selected (store it, then Play it).',
       sendAll: { label: 'Send to SuperNova', build: (data, ctx) => msg.performance(ctx, data) },
       toSyx: (data, ctx) => msg.performance(ctx, data),
       fromSyx: performanceFromSyx,
@@ -1088,7 +1119,7 @@ export default {
         scanBank: scanBank('perf'),
         store: (bank, i, ctx, data) => msg.storePerformance(ctx, bank, i, data),
         writable: () => true,
-        note: (_bank, ctx) => `Play sends bank select and a program change on the global channel (${ch(ctx) + 1}), which selects performance mode. Read names asks for the whole bank (about 40 s).`,
+        note: (_bank, ctx) => `Play selects the performance on the global channel (${ch(ctx) + 1}), which puts the SuperNova in performance mode. Read names reads the whole bank (about 40 s).`,
       },
     },
     {
@@ -1120,8 +1151,8 @@ export default {
         },
       },
       sendParam: (_p, _v, data, ctx) => msg.pattern(ctx, data),
-      note: 'Changes go to the pattern edit buffer (message 0A), which the arpeggiator plays when a program or part uses this pattern of the global User pattern bank. Sending also makes this pattern the User pattern edit number. Store writes it into a user bank (Memory protect off).',
-      sendAll: { label: 'Send to SuperNova', title: 'Into the pattern edit buffer (message 0A)', build: (data, ctx) => msg.pattern(ctx, data) },
+      note: 'Changes go to the pattern edit buffer, which the arpeggiator plays when a program or part uses this pattern of the global User pattern bank. Sending also makes this pattern the User pattern edit number. Store writes it into a user bank (Memory protect off).',
+      sendAll: { label: 'Send to SuperNova', title: 'Send the pattern into the pattern edit buffer', build: (data, ctx) => msg.pattern(ctx, data) },
       toSyx: (data, ctx) => [msg.pattern(ctx, data)],
       fromSyx: (msgs) => { const m = msgs.find((x) => [0x0a, 0x0c, 0x22].includes(typeOf(x))); return m ? patternFrom(m) : null; },
       toCommon: (d) => TR.patternToCommon(d),
@@ -1136,7 +1167,7 @@ export default {
         },
         store: (bank, i, ctx, data) => { const d = Uint8Array.from(data); d[0] = i; return msg.storePattern(ctx, bank, i, d); },
         writable: () => true,
-        note: () => 'Read asks for one pattern (single request 13). Store sends it into the bank (message 22: a memory write, Memory protect off). Patterns 000-063 are mono, 064-127 poly: a pattern stored into the other half is read the other way. The Mono and Poly preset banks are in ROM and cannot be read over MIDI.',
+        note: () => 'Read reads one pattern. Store writes it into the bank (Memory protect off). Patterns 000-063 are mono, 064-127 poly: a pattern stored into the other half is read the other way. The Mono and Poly preset banks are in ROM and cannot be read over MIDI.',
       },
     },
     {
@@ -1151,19 +1182,19 @@ export default {
       params: globalParams, cols: 3, target: MODEL_TARGET,
       sections: [{ key: 'global', label: 'Settings' }, { key: 'map', label: 'Program change map' }],
       groupInfo: {
-        Reserved: { note: 'Bits and bytes of the global messages that OS 2.0 neither sets nor reads (how this was shown: docs/devices/novation-supernova2.md, "Global"). They are kept so a backup restores exactly.', table: true, wide: true },
+        Reserved: { note: 'Values in the global settings that the SuperNova II does not use. They are kept so a backup restores exactly.', table: true, wide: true },
         'Power-up sound': { note: 'The sound selected when the global settings were last written: the SuperNova starts with it.' },
-        'Digital I/O option': { note: 'Settings of the optional digital I/O card. Without the card the SuperNova ignores their NRPNs but keeps the values.' },
+        'Digital I/O option': { note: 'Settings of the optional digital I/O card. Without the card the SuperNova ignores changes to them but keeps the values.' },
         'Program change map': { note: 'Which bank and program each incoming program change selects when Incoming program change is Program map.', table: true, wide: true },
       },
-      note: 'Changes here are not sent as you make them: the global data messages (0F, 15) are memory writes. Use Write global settings to send them (Memory protect must be off). Memory protect is not in the global data; keep it Off (the usual setting; the factory setting is On): the buttons set it.',
+      note: 'Changes here are not sent as you make them, because sending global settings writes them into the SuperNova\'s memory. Use Write global settings to send them (Memory protect must be Off). Memory protect is not among the global settings; keep it Off (the usual setting; the factory setting is On): the buttons set it.',
       actions: [
-        { label: 'Write global settings', title: 'Send the global data (0F and 15): replaces the SuperNova\'s global settings', run: async (api) => {
+        { label: 'Write global settings', title: 'Send the global settings: replaces the SuperNova\'s global settings', run: async (api) => {
           if (!(await api.confirm('Write global settings', 'Send these global settings to the SuperNova II? They replace its global settings (Memory protect must be off).', 'Write', true))) return;
           api.send([...msg.global(api.ctx, mirrorMap(api.data)), ...globalRepair(api.ctx, api.data)]);
         } },
-        { label: 'Memory protect off', title: 'Packed NRPN 1 = 121 on the global channel: allows stores and global writes', run: async (api) => api.send(nrpn(ch(api.ctx), 0, 1, 121)) },
-        { label: 'Memory protect on', title: 'Packed NRPN 1 = 120 on the global channel', run: async (api) => api.send(nrpn(ch(api.ctx), 0, 1, 120)) },
+        { label: 'Memory protect off', title: 'Turn memory protect off: allows Store and Write global settings', run: async (api) => api.send(nrpn(ch(api.ctx), 0, 1, 121)) },
+        { label: 'Memory protect on', title: 'Turn memory protect on', run: async (api) => api.send(nrpn(ch(api.ctx), 0, 1, 120)) },
       ],
       toSyx: (data, ctx) => msg.global(ctx, mirrorMap(data)),
       fromSyx: globalFromSyx,

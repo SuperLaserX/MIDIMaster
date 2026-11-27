@@ -111,3 +111,12 @@ same connections. Other families build on algorithm 5 (two FM pairs).
 - The DX11 keeps PMEM / system / tables / effects / micro tuning as data (its firmware has the same
   headers but its layouts are not compared yet).
 - Not checked on a TX81Z.
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- Master Tune: shown as -64..+63 (A37E).
+- Delay Time: shown as (value + 1) / 100 seconds (A6D4).
+- The firmware's initial setup (96C4, 954A; Mem Protect off), not sent until you press Send
+- PGM n = voice n (the firmware's cold start, 99AB; UTILITY "Init P.Cng Tbl?"), not sent until you press Send

@@ -100,7 +100,7 @@ export function masterView(root, app) {
       if (cards.length) body.append(h('div.section-title', sec.title), h('div.grid.cols-2', cards));
     }
     body.append(h('div.section-title', 'MIDI channels'), channelsCard());
-    body.append(h('p.small.muted', `Master table: ${st.data.length} bytes (object type ${MASTER.type}, ID ${MASTER.id}).`));
+    body.append(h('p.small.muted', `Read from the K2000: ${st.data.length} bytes of master settings.`));
   }
 
   if (app.online) load();

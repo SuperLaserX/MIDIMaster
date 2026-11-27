@@ -1,10 +1,10 @@
-// Writes docs/FIRMWARE_CHECKLIST.md: every firmware in the firmware folder (all subfolders), one
+// Writes intdocs/FIRMWARE_CHECKLIST.md: every firmware in the firmware folder (all subfolders), one
 // checklist line per device, grouped by device type, with the devices MIDIMaster has a finished
 // editor for ticked.
 //
 // usage: node tools/firmware_checklist.mjs [firmware-folder] [--out <file>] [--stdout]
 //   firmware-folder  default z:/firmwares
-//   --out <file>     default docs/FIRMWARE_CHECKLIST.md
+//   --out <file>     default intdocs/FIRMWARE_CHECKLIST.md
 //   --stdout         print the document instead of writing it
 //
 // Read-only on the firmware folder: nothing is extracted or run. Member names of .zip files are read
@@ -17,7 +17,7 @@
 // A folder that none of these names is walked into when it holds archives or folders, otherwise it
 // is one item. Anything left is listed under "Not identified".
 // Editor state: the registry (js/devices/registry.js), js/devices/levels.js, EDITORS below (wording
-// from docs/devices/*.md and docs/FUTURE_WORK.md) and the translator backlog in tests/mainlib.test.js.
+// from docs/devices/*.md and intdocs/FUTURE_WORK.md) and the translator backlog in tests/mainlib.test.js.
 
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, openSync, readSync, closeSync, fstatSync } from 'node:fs';
 import { join, basename, resolve } from 'node:path';
@@ -92,8 +92,11 @@ const NEW_DEVICES = {
   'atari-tt030': { maker: 'Atari', model: 'TT030', type: 'cpu', midi: 'Y' },
   'behringer-crave': { maker: 'Behringer', model: 'Crave', type: 'syn', midi: 'Y' },
   'behringer-deepmind-12': { maker: 'Behringer', model: 'DeepMind 12', type: 'syn', midi: 'Y' },
+  'behringer-jt-4000': { maker: 'Behringer', model: 'JT-4000', type: 'syn', midi: 'Y' },
   'behringer-model-d': { maker: 'Behringer', model: 'Model D', type: 'syn', midi: 'Y' },
+  'behringer-motor-49': { maker: 'Behringer', model: 'Motor 49', type: 'oth', midi: 'Y' },
   'behringer-neutron': { maker: 'Behringer', model: 'Neutron', type: 'syn', midi: 'Y' },
+  'behringer-pro-vs-mini': { maker: 'Behringer', model: 'Pro VS Mini', type: 'syn', midi: 'Y' },
   'behringer-rd-8': { maker: 'Behringer', model: 'RD-8', type: 'drm', midi: 'Y' },
   'behringer-wing': { maker: 'Behringer', model: 'Wing', type: 'mix', midi: 'Y' },
   'behringer-x-touch': { maker: 'Behringer', model: 'X-Touch', type: 'oth', midi: 'Y' },
@@ -478,6 +481,7 @@ const NEW_DEVICES = {
   'tc-electronic-nova-system': { maker: 'TC Electronic', model: 'Nova System', type: 'gtr', midi: 'Y' },
   'tc-electronic-reverb-4000': { maker: 'TC Electronic', model: 'Reverb 4000', type: 'fx', midi: 'Y' },
   'tc-electronic-system-6000': { maker: 'TC Electronic', model: 'System 6000', type: 'fx', midi: 'Y' },
+  'tc-helicon-voicelive-3': { maker: 'TC-Helicon', model: 'VoiceLive 3', type: 'voc', midi: 'Y' },
   'teenage-engineering-op-1': { maker: 'Teenage Engineering', model: 'OP-1', type: 'syn', midi: 'Y' },
   'tubbutec-retrofit-midi-kits': { maker: 'Tubbutec', model: 'Retrofit MIDI kits', type: 'oth', midi: 'Y' },
   'turtle-beach-maui': { maker: 'Turtle Beach', model: 'Maui', type: 'cpu', midi: 'Y' },
@@ -650,15 +654,20 @@ const RULES = [
   [/^Atari\/520 ST$/, { id: 'atari-520-st', version: 'TOS 1.00 (on disk)' }],
   [/^Atari\/Falcon030$/, { id: 'atari-falcon030', version: 'ROM dump (MAME set falcon30)' }],
   [/^Atari\/TT030$/, { id: 'atari-tt030', version: 'TOS 3.06 (UK), TOS 3.06 (US), TOS 3.06 (DE)' }],
-  [/^Behringer\/DeepMind 12$/, { id: 'behringer-deepmind-12', version: 'v1.0.7 (Windows package)' }],
+  [/^Behringer\/BCF2000$/, { id: 'behringer-bcf2000', version: 'v1.10, B-Control update utility' }],
+  [/^Behringer\/BCR2000$/, { id: 'behringer-bcr2000', version: 'v1.10' }],
+  [/^Behringer\/DeepMind 12$/, { id: 'behringer-deepmind-12', version: 'v1.0.7 (Windows package), v1.1.2' }],
+  [/^Behringer\/JT-4000$/, { id: 'behringer-jt-4000', version: 'v1.15 (JT-4000 Micro, internal flash, encrypted), v1.16 (JT-4000M Micro, internal flash, encrypted)' }],
   [/^Behringer\/Model D$/, { id: 'behringer-model-d', version: 'v1.0.5 (updater)' }],
-  [/^Behringer\/Neutron$/, { id: 'behringer-neutron', version: 'v2.0.2 (Mac firmware updater), Neutron Setup 1.0.1 (Windows)' }],
-  [/^Behringer\/RD-8$/, { id: 'behringer-rd-8', version: 'v1.3.5 (Mac updater)' }],
-  [/^Behringer\/SynthTribe$/, { id: 'behringer-crave', version: 'SynthTribe 2.8.5 (Windows)' }],
-  [/^Behringer\/Wing$/, { id: 'behringer-wing', version: 'v3.0.4, v3.0 (WING Compact)' }],
-  [/^Behringer\/X-Touch$/, { id: 'behringer-x-touch', version: 'v1.22, v1.22 (X-Touch Extender), v1.10 (X-Touch One)' }],
-  [/^Behringer\/X32$/, { id: 'behringer-x32', version: 'v4.09, v3.12' }],
-  [/^Behringer\/XR18$/, { id: 'behringer-xr18', version: 'v1.20' }],
+  [/^Behringer\/Motor 49$/, { id: 'behringer-motor-49', version: 'v1.091 (Windows), v1.086 (Windows)' }],
+  [/^Behringer\/Neutron$/, { id: 'behringer-neutron', version: 'v2.0.2 (Mac firmware updater), Neutron Setup 1.0.1 (Windows), v2.0.3 (Windows updater), v2.0.3 (Mac updater)' }],
+  [/^Behringer\/Pro VS Mini$/, { id: 'behringer-pro-vs-mini', version: 'v1.15 (internal flash, encrypted), v1.15 (QSPI flash, encrypted), v2.02 (internal flash, encrypted), v2.02 (QSPI flash, encrypted), v1.15 (official zip)' }],
+  [/^Behringer\/RD-8$/, { id: 'behringer-rd-8', version: 'v1.3.5 (Mac updater), v2.0.6 (SynthTribe 2.8.5 built-in image), v1.3.5 (Windows updater)' }],
+  [/^Behringer\/SynthTribe$/, { id: 'behringer-crave', version: 'SynthTribe 2.8.5 (Windows), SynthTribe 3.3.3 (Windows), SynthTribe 2.9.6 (Windows)' }],
+  [/^Behringer\/Wing$/, { id: 'behringer-wing', version: 'v3.0.4, v3.0 (WING Compact), v3.1.2 (WING), v3.1.2 (WING Compact), v3.1.2 (WING Rack)' }],
+  [/^Behringer\/X-Touch$/, { id: 'behringer-x-touch', version: 'v1.22, v1.22 (X-Touch Extender), v1.10 (X-Touch One), v1.25 (SysEx update 1-25_1-07), v1.25 (X-Touch Extender, SysEx), v1.11 (X-Touch One, SysEx)' }],
+  [/^Behringer\/X32$/, { id: 'behringer-x32', version: 'v4.09, v3.12, v4.15' }],
+  [/^Behringer\/XR18$/, { id: 'behringer-xr18', version: 'v1.20, v1.26 (X18/XR18 hardware V1), v1.26 (XR18 hardware V2), v1.26 (XR12/XR16)' }],
   [/^Black Corporation\/Deckard's Dream$/, { id: 'black-corporation-deckard-s-dream', version: 'v2.3.0, v1.5.0' }],
   [/^Black Corporation\/Kijimi$/, { id: 'black-corporation-kijimi', version: 'v2.0.0, v1.4.6' }],
   [/^Black Corporation\/Xerxes$/, { id: 'black-corporation-xerxes', version: 'v1.1.1' }],
@@ -703,6 +712,7 @@ const RULES = [
   [/^Clavia\/Nord Electro 6$/, { id: 'clavia-nord-electro-6', version: 'v2.66' }],
   [/^Clavia\/Nord Lead 4$/, { id: 'clavia-nord-lead-4', version: 'v1.32' }],
   [/^Clavia\/Nord Lead A1$/, { id: 'clavia-nord-lead-a1', version: 'v1.36' }],
+  [/^Clavia\/Nord Modular$/, { id: 'clavia-nordmodular', version: 'v3.03b (Windows updater), v3.03b (Micro Modular, Windows updater)' }],
   [/^Clavia\/Nord Modular G2$/, { id: 'clavia-nord-modular-g2', version: 'v1.62' }],
   [/^Clavia\/Nord Stage$/, { id: 'clavia-nord-stage', version: 'v5.08, v6.08 (EX)' }],
   [/^Clavia\/Nord Stage 2$/, { id: 'clavia-nord-stage-2', version: 'v3.00' }],
@@ -776,6 +786,7 @@ const RULES = [
   [/^Kawai\/K5000S$/, { id: 'kawai-k5000', version: 'v4.04 (K5000S), v4.03 (K5000S), v4.01 (K5000S), v3.00 (K5000S), v4.0 supplement (K5000S)' }],
   [/^Kawai\/K5000W$/, { id: 'kawai-k5000', version: 'v4.03 (K5000W), v4.00 (K5000W), v3.10 (K5000W), v3.00 (K5000W), v4.0 supplement (K5000W)' }],
   [/^Ketron\/Event$/, { id: 'ketron-sd90', version: 'v1.1.0 (Event)' }],
+  [/^Klark Teknik\/DN780$/, { id: 'klarkteknik-dn716', version: 'DN780 1.5 and 2.2 (EPROM images)' }],
   [/^korg\/CX-3$/, { id: 'korg-cx-3-2008', version: 'v2.00' }],
   [/^korg\/D1200$/, { id: 'korg-d1200', version: 'v1.03 (mkII, CD-R update, Windows), v1.03 (mkII, USB update, Windows)' }],
   [/^korg\/D1600$/, { id: 'korg-d1600', version: 'v2.14' }],
@@ -839,6 +850,7 @@ const RULES = [
   [/^korg\/volca nubass$/, { id: 'korg-volca-nubass', version: 'v1.07' }],
   [/^korg\/volca sample$/, { id: 'korg-volca-sample', version: 'v1.42' }],
   [/^Kurzweil\/K2088$/, { id: 'kurzweil-k2088', version: 'v1.07' }],
+  [/^Kurzweil\/K2500$/, { id: 'kurzweil-k2500', version: 'OS 5.01 (KDFX), OS 3.02 (without KDFX), boot loader 1.12, KDFX base objects 5.00' }],
   [/^Kurzweil\/K2600$/, { id: 'kurzweil-k2600', version: 'v4.11, v3.x compatibility files, base objects 4.04' }],
   [/^Kurzweil\/K2661$/, { id: 'kurzweil-k2661', version: 'v1.00' }],
   [/^Kurzweil\/K2700$/, { id: 'kurzweil-k2700', version: 'v2.01' }],
@@ -847,8 +859,10 @@ const RULES = [
   [/^Kurzweil\/PC2$/, { id: 'kurzweil-pc2', version: 'boot loader 2.00, v4.00 (PC2 Orchestral OS), v4.00 (PC2X OS), v4.00 (Polyphony Expansion PCX-1 OS)' }],
   [/^Kurzweil\/PC3$/, { ids: [{ id: 'kurzweil-pc3' }, { id: 'kurzweil-pc361' }], version: 'v2.21' }],
   [/^Kurzweil\/PC4$/, { id: 'kurzweil-pc4', version: 'v2.00' }],
+  [/^Lexicon\/MPX 500$/, { id: 'lexicon-mpx500', version: 'v2.02 (EPROM image)' }],
   [/^Lexicon\/MX200$/, { id: 'lexicon-mx200', version: 'MX NetUpdater 1.0 (Windows)' }],
   [/^Lexicon\/PCM96$/, { id: 'lexicon-pcm96', version: 'PCM Control and Plug-in 3.5.3.6 (Mac)' }],
+  [/^Lexicon\/Vortex$/, { id: 'lexicon-vortex', version: 'v1.20 (EPROM image)' }],
   [/^Linn\/AdrenaLinn$/, { id: 'linn-adrenalinn', version: 'v3.0.3 (AdrenaLinn III)' }],
   [/^Linn\/LinnStrument$/, { id: 'linn-linnstrument', version: 'v2.3.4' }],
   [/^M-Audio\/Hammer 88$/, { id: 'm-audio-hammer-88', version: 'firmware updater (Windows)' }],
@@ -1062,6 +1076,7 @@ const RULES = [
   [/^TC Electronic\/Nova System$/, { id: 'tc-electronic-nova-system', version: 'v1.2.02 (Windows updater)' }],
   [/^TC Electronic\/Reverb 4000$/, { id: 'tc-electronic-reverb-4000', version: 'reverb4000.zip (2007)' }],
   [/^TC Electronic\/System 6000$/, { id: 'tc-electronic-system-6000', version: 'DSP 4.02' }],
+  [/^TC-Helicon\/VoiceLive 3$/, { id: 'tc-helicon-voicelive-3', version: 'v2.3.7 (build 379, SysEx)' }],
   [/^Teenage Engineering\/OP-1$/, { id: 'teenage-engineering-op-1', version: 'v246' }],
   [/^Tubbutec\/Juno-66$/, { ids: [{ id: 'roland-juno6' }, { id: 'tubbutec-retrofit-midi-kits' }], version: 'v1.1, v1.22, v1.23, v1.24, v1.25, v1.26, v1.28, v1.29, v1.30, v1.31' }],
   [/^Tubbutec\/MC-2oh2$/, { ids: [{ id: 'roland-mc-202' }, { id: 'tubbutec-retrofit-midi-kits' }], version: 'v1.00, v1.02, v1.03, v1.04, v1.10_beta, v1.11, v1.12, v1.20, v1.21, v1.22, v1.23' }],
@@ -1132,7 +1147,9 @@ const RULES = [
   [/^Yamaha\/SEQTRAK$/, { id: 'yamaha-seqtrak', version: 'v2.00' }],
   [/^Yamaha\/SFG-05$/, { id: 'yamaha-sfg-05', version: 'ROM dump (MAME device msx_cart_sfg05)' }],
   [/^Yamaha\/SW1000XG$/, { id: 'yamaha-sw1000xg', version: 'ROM dump (MAME set sw1000xg)' }],
+  [/^Yamaha\/SY99$/, { id: 'yamaha-sy99', version: 'v1.57EX (EPROM image)' }],
   [/^Yamaha\/TG100$/, { id: 'yamaha-tg100', version: 'ROM dump (MAME set tg100)' }],
+  [/^Yamaha\/TG500$/, { id: 'yamaha-tg500', version: 'v1.20 (EPROM image)' }],
   [/^Yamaha\/VL1$/, { id: 'yamaha-vl1', version: 'ROM dump (MAME set vl1)' }],
   [/^Yamaha\/VL70-m$/, { id: 'yamaha-vl70-m', version: 'v1.11' }],
   [/^Yamaha\/YC61$/, { id: 'yamaha-yc61', version: 'v2.00' }],
@@ -1200,7 +1217,7 @@ const RULES = [
  * Editor notes per device that has an editor in the registry. Every device with an editor is ticked
  * (the user: "mark any editor we have as complete"); whether it is finished (a Full editor) comes from
  * js/devices/levels.js, and one that is not counts as work still open in the summary. The note comes
- * from the device's doc, docs/FUTURE_WORK.md and levels.js.
+ * from the device's doc, intdocs/FUTURE_WORK.md and levels.js.
  */
 const EDITORS = {
   'kurzweil-k2000': { note: 'its own module (`js/devices/kurzweil-k2000`): programs, keymaps, samples, effects, Branch Library, disk import and front panel; still open: the program translator and program settings by parameter in the Head Library', doc: 'PROTOCOL.md' },
@@ -1246,7 +1263,7 @@ const repoPath = (p) => new URL(p, REPO);
 const args = process.argv.slice(2);
 const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
 const FW = (args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--out') || 'z:/firmwares').replace(/\\/g, '/').replace(/\/$/, '');
-const OUT = opt('--out') ? resolve(opt('--out')) : fileURLToPath(repoPath('docs/FIRMWARE_CHECKLIST.md'));
+const OUT = opt('--out') ? resolve(opt('--out')) : fileURLToPath(repoPath('intdocs/FIRMWARE_CHECKLIST.md'));
 const warn = [];
 
 const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });

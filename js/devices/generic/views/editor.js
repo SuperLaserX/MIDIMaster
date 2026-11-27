@@ -16,6 +16,10 @@
 //   emptySection(section, data) -> text  shown when every parameter of a section is hidden
 //   warning: text | (ctx) -> text        shown as a warning at the top of the page (e.g. a screen the
 //                                        device must show for the page's messages to be taken)
+//   needs: 'sysex' | [...]               what reading, sending and storing the object need from the
+//                                        connection (def.link, see module.js); also on sendAll, actions[],
+//                                        slots (needs, recallNeeds, storeNeeds): disabled, with the reason,
+//                                        when the current connection cannot carry it
 //   galleries: [{..., after: section}]   a gallery with `after` is a tab of this page after that
 //                                        section (views/gallery.js); the others are pages of their own
 //   params: [...]                        see core/model/memmap.js; plus send(v, ctx, data) -> message(s)
@@ -51,7 +55,8 @@
 //           store(bank, slot, ctx, data), writable(bank), name(data),
 //           play(api, bank, slot) (async Play, instead of sending recall())}  (more in ../objects.js)
 
-import { h, clear, toast, confirmDialog, downloadBlob, pickFiles, safeFileName } from '../../../core/ui/dom.js';
+import { h, clear, toast, confirmDialog, downloadBlob, pickFiles, safeFileName, shortNote } from '../../../core/ui/dom.js';
+import { icon } from '../../../core/ui/icons.js';
 import { knob, selectField, numberField } from '../../../core/ui/controls.js';
 import { patternEditor } from '../../../core/ui/stepgrid.js';
 import { readParam, writeParam, paramRange, formatParam } from '../../../core/model/memmap.js';
@@ -65,13 +70,17 @@ export function editorView(root, g, params = {}, obj) {
   g.activeObject = obj.key; // mapped controllers (MIDI inputs) change the page shown last first
   const data = () => g.objectData[obj.key] || (g.objectData[obj.key] = obj.init());
   const loaded = () => !!g.loadedKeys?.has(obj.key);
-  const head = h('div');
+  const head = h('div.obj-top');
+  const barEl = h('div'); // the section tabs: kept across renders, so keyboard focus stays on them
   const body = h('div');
   const slotsEl = h('div');
-  root.append(head, obj.slots ? h('div.row.editor-split', h('div.grow', body), slotsEl) : body);
+  root.append(head, obj.slots ? h('div.row.editor-split', h('div.grow', barEl, body), slotsEl) : h('div', barEl, body));
 
   const send = (out, key) => sendOut(g, out, key);
   const api = objectApi(g, obj, { refresh: () => render() });
+  // a button that needs something the connection may not carry (def.link): disabled, saying why
+  const gate = (needs, attrs = {}) => (!needs || !g.cannot || g.can(needs) ? attrs : { ...attrs, disabled: true, title: g.cannot(needs) });
+  const slotNeeds = () => obj.slots?.needs ?? obj.needs;
 
   // ------------------------------------------------------------ device I/O
   async function fetchObject() {
@@ -197,7 +206,7 @@ export function editorView(root, g, params = {}, obj) {
         h('div.params', r.keys.map((k) => byKey.get(k)).filter(Boolean).map((p) => control(p, name))))));
     } else content = h('div.params', ps.map((p) => control(p, name)));
     return h('div.card' + (wide || info?.wide ? '.wide' : ''), h('div.card-head', h('h2', name)),
-      info?.note ? h('p.small.muted', info.note) : null,
+      info?.note ? shortNote(info.note) : null,
       info?.draw ? (() => { const holder = h('div.card-draw'); drawn.set(name, { el: null, info, holder }); paint(name); return holder; })() : null,
       content);
   }
@@ -215,20 +224,22 @@ export function editorView(root, g, params = {}, obj) {
   function renderHead() {
     const name = obj.name?.(data());
     clear(head).append(h('div.row.obj-head',
-      h('h1.grow', obj.label, name ? h('span.muted', `  ${name}`) : null),
+      h('h1', obj.label, name ? h('span.obj-name', `  ${name}`) : null),
+      h('div.obj-actions',
       targetSelect(),
-      canFetch(obj) ? h('button.btn.primary', { onclick: fetchObject, title: `Read the ${obj.label.toLowerCase()} from the ${g.entry.model}` }, 'Get from device') : null,
-      obj.sendAll ? h('button.btn', { onclick: () => send(obj.sendAll.build(data(), g.ctx)), title: obj.sendAll.title || '' }, obj.sendAll.label) : null,
-      ...(obj.actions || []).map((a) => h('button.btn', { title: a.title || '', onclick: () => Promise.resolve(a.run(api)).catch((err) => g.error(err, a.label)) }, a.label)),
+      canFetch(obj) ? h('button.btn.primary', gate(obj.needs, { onclick: fetchObject, title: `Read the ${obj.label.toLowerCase()} from the ${g.entry.model}` }), icon('download'), 'Get from device') : null,
+      obj.sendAll ? h('button.btn', gate(obj.sendAll.needs ?? obj.needs, { onclick: () => send(obj.sendAll.build(data(), g.ctx)), title: obj.sendAll.title || '' }), obj.sendAll.label) : null,
+      ...(obj.actions || []).map((a) => h('button.btn', gate(a.needs, { title: a.title || '', onclick: () => Promise.resolve(a.run(api)).catch((err) => g.error(err, a.label)) }), a.label)),
       obj.toSyx ? h('button.btn', { onclick: exportSyx }, 'Export .syx') : null,
       obj.fromSyx ? h('button.btn', { onclick: importSyx }, 'Import .syx') : null,
-      obj.init && obj.params?.length && g.host?.shell?.mainLibrary ? h('button.btn', { title: `Load a Head Library patch into this page (another model's through its translator), send it to the edit buffer or store it`, onclick: () => importFromMainLibrary(g, obj).catch((err) => g.error(err, 'Import from Head Library')) }, 'Import from Head Library...') : null),
+      obj.init && obj.params?.length && g.host?.shell?.mainLibrary ? h('button.btn', { title: `Load a Head Library patch into this page (another model's through its translator), send it to the edit buffer or store it`, onclick: () => importFromMainLibrary(g, obj).catch((err) => g.error(err, 'Import from Head Library')) }, 'Import from Head Library...') : null)),
     !loaded() && canFetch(obj)
       ? h('div.notice', g.loading.has(obj.key) ? `Reading the ${obj.label.toLowerCase()} from the ${g.entry.model}...`
-        : `Showing default values. Press Get from device to load the ${obj.label.toLowerCase()} from the ${g.entry.model}${obj.notLive ? '.' : '; every change is sent as you make it.'}`)
+        : `Default values shown. Get from device reads the ${obj.label.toLowerCase()}${obj.notLive ? '' : '; changes are sent as you make them'}.`)
       : null,
-    obj.warning ? h('div.notice.warn', h('b', 'Note: '), typeof obj.warning === 'function' ? obj.warning(g.ctx) : obj.warning) : null,
-    obj.note ? h('p.small.muted', typeof obj.note === 'function' ? obj.note(g.ctx) : obj.note) : null);
+    (() => { const w = typeof obj.warning === 'function' ? obj.warning(g.ctx) : obj.warning; return w ? h('div.notice.warn', h('b', 'Note: '), w) : null; })(),
+    obj.needs && g.cannot?.(obj.needs) ? h('div.notice.warn', `${g.cannot(obj.needs)} Changes made here are kept in the editor; what the connection carries is still sent.`) : null,
+    obj.note ? shortNote(typeof obj.note === 'function' ? obj.note(g.ctx) : obj.note) : null);
   }
 
   // Sections (tones, parts, keys...): params carry `section`; one section is shown at a time. A gallery
@@ -236,14 +247,21 @@ export function editorView(root, g, params = {}, obj) {
   const tabGalleries = (obj.galleries || []).filter((x) => x.after !== undefined);
   const sections = obj.sections ? obj.sections.flatMap((x) => [x, ...tabGalleries.filter((gal) => gal.after === x.key).map((gal) => ({ key: `gallery:${gal.key}`, label: gal.page, gallery: gal }))]) : null;
   const galleryTab = () => sections?.find((x) => x.key === st.section)?.gallery || null;
+  // up to 12 sections: Web Awesome tabs (made once, then only the active tab changes); more: a list
+  let tabs = null;
   function sectionBar() {
     if (!sections) return null;
-    const pick = (key) => { st.section = key; render(); };
+    const pick = (key) => { if (key === st.section) return; st.section = key; render(); };
     if (sections.length > 12) {
       const sel = h('select', { onchange: () => pick(sel.value) }, sections.map((x) => h('option', { value: x.key, selected: x.key === st.section }, x.label)));
       return h('div.row.section-bar', h('span.muted', obj.sectionLabel || 'Section'), sel);
     }
-    return h('div.row.section-bar', sections.map((x) => h('button.btn.small' + (x.key === st.section ? '.primary' : ''), { onclick: () => pick(x.key) }, x.label)));
+    if (!tabs) {
+      tabs = h('wa-tab-group.section-tabs', { active: st.section, 'aria-label': obj.sectionLabel || 'Sections' },
+        sections.map((x) => h('wa-tab', { panel: x.key }, x.label)));
+      tabs.addEventListener('wa-tab-show', (ev) => { if (ev.target === tabs && ev.detail?.name) pick(ev.detail.name); });
+    } else if (tabs.getAttribute('active') !== st.section) tabs.setAttribute('active', st.section);
+    return tabs;
   }
 
   function render() {
@@ -251,7 +269,7 @@ export function editorView(root, g, params = {}, obj) {
     drawn.clear();
     clear(body);
     const bar = sectionBar();
-    if (bar) body.append(bar);
+    if (bar && bar.parentNode !== barEl) clear(barEl).append(bar);
     const gal = galleryTab();
     if (gal) {
       body.append(h('div.sub', galleryNote(g, obj, gal)), galleryGrid(g, obj, gal) || h('div.notice.bad', `No parameter ${gal.param} in ${obj.label}.`));
@@ -306,9 +324,9 @@ export function editorView(root, g, params = {}, obj) {
         h('td.mono.muted', s.slotLabel ? s.slotLabel(st.bank, i) : String(i + 1)),
         h('td.small' + (old ? '.muted' : ''), old ? { title: 'Remembered from the last time; not read from the device again yet' } : {}, names.get(i) ?? ''),
         h('td.row.slot-btns',
-          s.recall || s.play ? h('button.btn.small', { title: 'Select this slot on the device', onclick: () => playSlot(i) }, 'Play') : null,
-          s.fetch ? h('button.btn.small', { title: 'Read this slot into the editor', onclick: () => loadSlot(i) }, 'Edit') : null,
-          writable ? h('button.btn.small', { title: 'Save the editor contents into this slot', onclick: () => storeSlot(i) }, 'Store') : null)));
+          s.recall || s.play ? h('button.btn.small', gate(s.recallNeeds, { title: 'Select this slot on the device', onclick: () => playSlot(i) }), 'Play') : null,
+          s.fetch ? h('button.btn.small', gate(slotNeeds(), { title: 'Read this slot into the editor', onclick: () => loadSlot(i) }), 'Edit') : null,
+          writable ? h('button.btn.small', gate(s.storeNeeds ?? slotNeeds(), { title: 'Save the editor contents into this slot', onclick: () => storeSlot(i) }), 'Store') : null)));
     }
     const note = typeof s.note === 'function' ? s.note(st.bank, g.ctx) : s.note;
     // names still on their way (read in the background when the device connected)
@@ -316,10 +334,10 @@ export function editorView(root, g, params = {}, obj) {
     const reading = pending && g.loadingStandard ? h('div.small.c-info', 'Reading names from the device...') : null;
     clear(slotsEl).append(h('div.card.slots',
       h('div.card-head', h('h2', s.label || 'Memory'), bankSel),
-      note ? h('div.small.muted', note) : null,
+      note ? shortNote(note) : null,
       reading,
       canScan(obj, st.bank, g.ctx)
-        ? h('button.btn.small', { onclick: scanNames, disabled: st.scanning, title: 'Read every name in this bank' }, st.scanning ? 'Reading...' : 'Read names')
+        ? h('button.btn.small', gate(slotNeeds(), { onclick: scanNames, disabled: st.scanning, title: 'Read every name in this bank' }), st.scanning ? 'Reading...' : 'Read names')
         : null,
       h('div.table-wrap.slot-table', h('table.list', h('tbody', rows)))));
   }
@@ -363,7 +381,7 @@ export function editorView(root, g, params = {}, obj) {
   // (when none were read or remembered names wait to be confirmed); one bank at a time, in the background
   function autoNames() {
     const s = obj.slots;
-    if (!s?.namesOnOpen || st.scanning || !g.connected || g.loadingStandard || g.job || !canScan(obj, st.bank, g.ctx)) return;
+    if (!s?.namesOnOpen || st.scanning || !g.connected || g.loadingStandard || g.job || (g.can && !g.can(slotNeeds())) || !canScan(obj, st.bank, g.ctx)) return;
     const names = bankNames(g, obj, st.bank);
     if (names.fixed) return;
     const count = typeof s.count === 'function' ? s.count(st.bank, g.ctx) : s.count;
@@ -379,6 +397,7 @@ export function editorView(root, g, params = {}, obj) {
   let alive = true;
   const openReads = () => {
     if (!alive || g.job) return; // a dump in the background: no reads until it is done
+    if (g.can && !g.can(obj.needs)) return; // the connection cannot read it (def.link)
     if (!loaded() && canFetch(obj) && g.connected && !g.loading.has(obj.key) && params.autoFetch !== false) fetchObject().then(() => alive && autoNames());
     else autoNames();
   };

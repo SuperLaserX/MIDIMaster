@@ -121,3 +121,9 @@ delay time, regeneration, chorus kind / depth / speed; the report lists each.
 
 Everything on hardware; whether the unit takes a dump shorter than 1750 bytes as harmlessly as the code
 suggests; the manual figure 5 row order (kinds of reverb) as read from the PDF text.
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- Spare bytes 14 / 15: factory programs 80 and 96 hold FF / D2 F0 there; SysEx opcode 03 parameters 13 / 14 write them (the v1.01 firmware never reads them).

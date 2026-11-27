@@ -7,5 +7,5 @@ export const BANKS_AD = [[1, 'RAM A', true], [2, 'RAM B', true], [3, 'ROM C', fa
 
 export default abcModel({
   model: 'Virus A', id: 'access-virus-a', T, banks: BANKS_AD, panelByte: true,
-  note: 'mapped from its OS 2.8 (docs/devices/access-virus-a.md; banks C-D read only and the sound format 6 assumed).',
+  note: 'built from its own system software (OS 2.8). Banks C-D are read only, and the layout of its sounds is assumed.',
 });

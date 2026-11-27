@@ -6,4 +6,4 @@
 // this model (docs/devices/access-virus-ti-keyboard.md).
 import { tiModel } from './access-virus-ti2.js';
 
-export default tiModel({ model: "Virus TI Keyboard", note: "its OS image (vti.bin, Software Suite 5.1.7) has the TI2 host code except one byte (000A: 07, in the TI2 image 05), the same DSP code and its own ROM banks (the first TI factory sounds, format 8, shown converted as the OS plays them). Not checked on this model: only a TI2 Desktop was connected." });
+export default tiModel({ model: "Virus TI Keyboard", note: "the first Virus TI runs the same system software as the TI2, with its own ROM banks (the first TI factory sounds, shown as the Virus plays them). Not checked on this model: the editor was checked on a TI2 Desktop." });

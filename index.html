@@ -1,32 +1,39 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" class="wa-dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MIDIMaster</title>
   <meta name="description" content="Editors and Branch Libraries for MIDI instruments and effects, entirely over MIDI.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2314161c'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%23f2b544' stroke-width='5'/%3E%3Ccircle cx='32' cy='19' r='3.5' fill='%23f2b544'/%3E%3Ccircle cx='21' cy='26' r='3.5' fill='%23f2b544'/%3E%3Ccircle cx='43' cy='26' r='3.5' fill='%23f2b544'/%3E%3Ccircle cx='24' cy='39' r='3.5' fill='%23f2b544'/%3E%3Ccircle cx='40' cy='39' r='3.5' fill='%23f2b544'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f2b544'/%3E%3Ccircle cx='32' cy='32' r='19' fill='none' stroke='%231b1406' stroke-width='4.5'/%3E%3Ccircle cx='32' cy='20' r='3.4' fill='%231b1406'/%3E%3Ccircle cx='21.5' cy='26.5' r='3.4' fill='%231b1406'/%3E%3Ccircle cx='42.5' cy='26.5' r='3.4' fill='%231b1406'/%3E%3Ccircle cx='24.5' cy='39' r='3.4' fill='%231b1406'/%3E%3Ccircle cx='39.5' cy='39' r='3.4' fill='%231b1406'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="vendor/fonts/inter/inter.css">
+  <link rel="stylesheet" href="vendor/webawesome/styles/webawesome.css">
+  <link rel="stylesheet" href="css/theme.css">
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
   <div id="app">
     <header class="topbar">
-      <button class="brand" id="brand" title="All devices"><span class="logo">♪</span>MIDIMaster</button>
+      <button class="brand" id="brand" title="All devices">
+        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15"/><circle class="ring" cx="32" cy="32" r="19"/><circle cx="32" cy="20" r="3.4"/><circle cx="21.5" cy="26.5" r="3.4"/><circle cx="42.5" cy="26.5" r="3.4"/><circle cx="24.5" cy="39" r="3.4"/><circle cx="39.5" cy="39" r="3.4"/></svg>
+        <span class="brand-name">MIDIMaster</span>
+      </button>
       <div class="crumb" id="crumb"></div>
       <div class="conn" id="conn-status" title="MIDI connection"></div>
       <div id="module-status"></div>
       <div class="spacer"></div>
       <div class="busy" id="busy" hidden><span class="spinner"></span><span id="busy-text"></span></div>
       <div class="row" id="dock-buttons"></div>
-      <button class="icon-btn" id="btn-panic" title="All notes off (panic)">Panic</button>
-      <button class="icon-btn" id="btn-settings" title="Settings">⚙</button>
+      <button class="icon-btn panic" id="btn-panic" title="All notes off (panic)"><wa-icon name="volume-xmark" aria-hidden="true"></wa-icon><span>Panic</span></button>
+      <button class="icon-btn square" id="btn-settings" title="Settings"><wa-icon name="gear" label="Settings"></wa-icon></button>
     </header>
     <nav class="sidebar" id="nav"></nav>
     <main id="view"></main>
     <aside class="dock" id="dock" hidden></aside>
     <footer class="keyboard-dock" id="keyboard-dock"></footer>
-    <div class="toasts" id="toasts"></div>
   </div>
+  <wa-toast id="toasts" placement="bottom-end"></wa-toast>
+  <script type="module" src="js/core/ui/wa.js"></script>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

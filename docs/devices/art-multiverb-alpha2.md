@@ -211,3 +211,9 @@ are not covered yet.
 
 - A hardware check: the messages, the pacing of 05 for live edits (`minGap` 120 ms) and the 0B load.
 - The descriptors' order byte (record byte 9) is not used by the MIDI code; what it orders was not traced.
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- Addresses the help texts named (v2.02) that this doc does not list elsewhere: a new PERFORMANCE MIDI assignment is set up at 1158 (MC 4, the first parameter in use, its full range); the parameter choice at 1DD9 offers only parameters in use; a pending controller value (assignment byte 5, written at 5B56) is applied by the main loop at 5B92.

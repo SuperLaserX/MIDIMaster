@@ -332,7 +332,8 @@ export function jvTranslator(B) {
       on: !!g(s, 'Receive switch'), channel: g(s, 'Receive channel'),
       program: { type: g(s, 'Patch group type'), group: g(s, 'Patch group ID'), number: g(s, 'Patch number') },
       level: g(s, 'Part level') / 127, pan: (g(s, 'Part pan') - 64) / 63,
-      transpose: g(s, 'Coarse tune') - 48 + 12 * (g(s, 'Octave shift') - 3), fine: g(s, 'Fine tune') - 50,
+      // part Octave shift (13h) is a JV-1080 / XP-80 byte the JV-2080 does not store
+      transpose: g(s, 'Coarse tune') - 48, fine: g(s, 'Fine tune') - 50,
       low: g(s, 'Key range lower'), high: g(s, 'Key range upper'), rhythm: s === 'p9',
     }));
     const sends = { efx: true, chorus: 1, reverb: 1 };
@@ -369,10 +370,8 @@ export function jvTranslator(B) {
       if (p.level !== undefined) set(s, 'Part level', p.level * 127, `Part ${k} level`);
       if (typeof p.pan === 'number') set(s, 'Part pan', 64 + p.pan * 63);
       if (typeof p.transpose === 'number') {
-        const oct = clamp(p.transpose / 12, -3, 3);
-        const rest = p.transpose - 12 * oct;
-        set(s, 'Octave shift', Math.abs(rest) > 48 ? 3 : 3 + oct);
-        set(s, 'Coarse tune', 48 + (Math.abs(rest) > 48 ? clamp(p.transpose, -48, 48) : rest), `Part ${k} transpose`);
+        set(s, 'Coarse tune', 48 + clamp(p.transpose, -48, 48), `Part ${k} transpose`);
+        if (Math.abs(p.transpose) > 48) r.approximated.push(`Part ${k} transpose ${p.transpose} → ${p.transpose > 0 ? '+' : '-'}48 (coarse tune range)`);
       }
       if (typeof p.fine === 'number') set(s, 'Fine tune', 50 + p.fine);
       if (typeof p.low === 'number') set(s, 'Key range lower', p.low, `Part ${k} key range`);

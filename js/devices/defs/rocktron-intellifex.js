@@ -202,7 +202,7 @@ function pageParam(cfg, block, page) {
   const twice = CONFIGS[cfg].blocks.filter((b) => b.pages.includes(page)).length > 1;
   const base = {
     key: `c${cfg}-${block.block.toString(16)}-${page.toString(16)}`, group: block.title, label: P.label, offset: at, min: 0, max: P.count - 1,
-    help: `${P.screen.trim()}: page ${page.toString(16).toUpperCase()}h, preset byte ${at}`, relayout: twice || page === DTYPE,
+    help: `${P.screen.trim()} (as the display shows it)`, relayout: twice || page === DTYPE,
   };
   const hidden = (d) => configOf(d) !== cfg;
   if (TIME_PAGES.includes(page)) return { ...base, dynamic: (d) => ({ hidden: hidden(d), format: (v) => formatValue(page, v, d) }) };
@@ -216,14 +216,14 @@ const paraName = (cfg, i) => { const p = CONFIGS[cfg].params[i]; return `${PAGES
 function ctrlParams(n) {
   const limit = (k) => ({
     key: `ctrl${n}${k === 2 ? 'u' : 'l'}`, group: CTRL_GROUP, label: ctrlLabel(k, n), offset: ctrlAt(n, k), min: 0, max: 255,
-    help: `${k === 2 ? 'Upper' : 'Lower'} end of the range controller ${n + 1} sweeps, in the values of its PARA (0C06)`,
+    help: `${k === 2 ? 'Upper' : 'Lower'} end of the range controller ${n + 1} sweeps, in the values of its PARA`,
     dynamic: (d) => { const p = paraPage(d, n); return { options: (pageOptions(p, d) || Array.from({ length: PAGES[p].count }, (_, v) => [v, String(v)])) }; },
   });
   return [
     { key: `ctrl${n}n`, group: CTRL_GROUP, label: ctrlLabel(0, n), offset: ctrlAt(n, 0), options: UTIL.numb.map((t, v) => [v, t]),
-      help: `MIDI controller number that drives assignment ${n + 1} (0-120; 121 = OFF, 1B27 takes controllers below 121)` },
+      help: `MIDI controller number that drives assignment ${n + 1} (0-120; 121 = OFF)` },
     { key: `ctrl${n}p`, group: CTRL_GROUP, label: ctrlLabel(1, n), offset: ctrlAt(n, 1), min: 0, max: 63, relayout: true,
-      help: 'The parameter it changes: one of the configuration\'s parameters (preset byte = PARA + 1)',
+      help: 'The parameter it changes: one of the configuration\'s parameters',
       dynamic: (d) => ({ options: CONFIGS[configOf(d)].params.map((_, i) => [i, paraName(configOf(d), i)]) }),
       // 0438: choosing PARA sets ULIM to the parameter's top value and LLIM to its lowest
       after: (d) => { d[ctrlAt(n, 2)] = PAGES[paraPage(d, n)].count - 1; d[ctrlAt(n, 3)] = 0; return `${ctrlLabel(2, n)} and ${ctrlLabel(3, n)} set to the parameter's full range, as the unit does.`; } },
@@ -232,7 +232,7 @@ function ctrlParams(n) {
 }
 export const presetParams = [
   { key: 'config', group: 'Preset', label: 'Configuration', offset: 0, options: CONFIGS.map((c, i) => [i, c.name]), relayout: true,
-    help: 'Preset byte 0: the effect chain (names from 45A0, in the display\'s arrow letters). The bytes after it change meaning with it.',
+    help: 'The effect chain (names as the display shows them, with its arrow letters). The settings after it change meaning with it.',
     after: (d) => (fitPreset(d) ? 'Values outside the new configuration\'s ranges set to their lowest (as the unit loads them).' : null) },
   ...CONFIGS.flatMap((c, cfg) => c.blocks.flatMap((b) => b.pages.map((p) => pageParam(cfg, b, p)))),
   ...Array.from({ length: 8 }, (_, n) => ctrlParams(n)).flat(),
@@ -244,21 +244,21 @@ const PRESET_LABELS = Array.from({ length: 160 }, (_, i) => `${i + 1}${i >= 80 ?
 const presetChoice = (s) => PRESET_LABELS.map((l, i) => [i, i < 80 && s ? `${i + 1} ${nameOf(userPreset(s, i))}` : l]);
 export const systemParams = [
   { key: 'marker', group: 'Memory', label: 'Memory check byte', offset: G.marker, options: [[0x17, '17h: FACTORY RESTORE code 249'], [0x0a, '0Ah: FACTORY RESTORE code 10']],
-    help: 'XRAM 1BE9: the power-on test (009C) wants 17h or 0Ah, else it shows EXT MEMORY ERRORS. Code 2 on the FACTORY RESTORE page repeats the restore this byte names (04E7).' },
+    help: 'The power-on memory test expects 17h or 0Ah here, else the unit shows EXT MEMORY ERRORS. Code 2 on the FACTORY RESTORE page repeats the restore this value names.' },
   { key: 'powerOn', group: 'Memory', label: 'PWR ON PR', offset: G.powerOn, min: 0, max: 159,
-    help: 'XRAM 1BED: the preset recalled at power-on (009C; values from 160 up start at 160). Stored from the unit\'s preset select page ("PWR ON PR STORED", 03C3).',
+    help: 'The preset recalled at power-on (values from 160 up start at 160). Stored from the unit\'s preset select page ("PWR ON PR STORED").',
     dynamic: (s) => ({ options: presetChoice(s) }) },
   { key: 'channel', group: UTIL.blocks.channel, label: UTIL.labels.midiChannel, offset: G.channel, options: UTIL.midiChannel.map((t, v) => [v, t]),
-    help: 'XRAM 1BEE: channel for program changes and controllers (1ACF); OMNI takes every channel, OFF none. SysEx ignores it.' },
+    help: 'Channel for program changes and controllers; OMNI takes every channel, OFF none. SysEx ignores it.' },
   { key: 'bypass', group: UTIL.blocks.footswitch, label: UTIL.labels.bypass, offset: G.bypass, options: UTIL.footswitch.map((t, v) => [v, t]),
-    help: 'XRAM 1BEB: how the bypass footswitch is read (1599). The LTD v1.0 menu tables (3944) never reach the FOOTSWITCH TYPES block, so only MIDI or a restore sets it.' },
+    help: 'How the bypass footswitch is read. The Intellifex LTD\'s menus never reach this setting (the FOOTSWITCH TYPES block), so only MIDI or a factory restore sets it.' },
   { key: 'incDec', group: UTIL.blocks.footswitch, label: UTIL.labels.incDec, offset: G.incDec, options: UTIL.footswitch.map((t, v) => [v, t]),
-    help: 'XRAM 1BEC: how the INC/DEC footswitches are read (15A2); not on the LTD\'s menus either.' },
+    help: 'How the INC/DEC footswitches are read; not on the LTD\'s menus either.' },
   { key: 'mapping', group: UTIL.blocks.mapping, label: UTIL.labels.progMapping, offset: G.mapping, options: UTIL.offOn.map((t, v) => [v, t]),
-    help: 'XRAM 1BEA: ON looks program changes up in the map below (1B06), OFF recalls preset = program + 1.' },
+    help: 'ON looks program changes up in the map below, OFF recalls preset = program + 1.' },
   ...Array.from({ length: 128 }, (_, n) => ({
     key: `map${n}`, group: UTIL.blocks.mapping, label: `${n + 1} ${UTIL.labels.mapTo}`, offset: MAP_AT + n, min: 0, max: 160,
-    help: `Program change ${n + 1} (number ${n}) recalls this preset while PROG MAPPING is ON; OFF ignores it (XRAM ${(n + 1).toString(16).toUpperCase().padStart(4, '0')})`,
+    help: `Program change ${n + 1} (number ${n}) recalls this preset while PROG MAPPING is ON; OFF ignores it`,
     options: [...PRESET_LABELS.map((l, i) => [i, l]), [160, UTIL.mapTo[160]]],
   })),
 ];
@@ -454,7 +454,7 @@ function fromCommon(c, base) {
 const pad3 = (n) => String(n).padStart(3, ' ');
 let rxIndex = -1;
 export default {
-  coverage: `Presets (all six configurations: every page with its display label and the text the display routine shows for each value; title; the eight controller assignments), the 80 factory presets, the globals and the program map, from ${FIRMWARE}. Dumps are started on the unit (MIDI DUMP/LOAD): the editor listens for PRESET DUMP and DUMP USER DATA and sends what PRESET LOAD and LOAD USER DATA take. Not checked on hardware.`,
+  coverage: 'Edits the Intellifex\'s presets (all six configurations, each page with its display label and value texts; the title; the eight controller assignments), shows the 80 factory presets, and edits the globals and the program map. The unit cannot be asked for its data: start each dump on the unit (MIDI DUMP/LOAD); the editor listens for PRESET DUMP and DUMP USER DATA and sends what PRESET LOAD and LOAD USER DATA take. Not checked on hardware.',
   sysex: { manufacturer: [0x00, 0x00, 0x29], model: 0x02 },
   minGap: 2000, // the unit's own pace between dump messages (0633) while it writes the EEPROM
   describe,
@@ -480,7 +480,7 @@ export default {
       fromCommon,
       cols: 4,
       note: 'The Intellifex takes no edits over MIDI: change the preset here, then put the unit on MIDI DUMP/LOAD > PRESET LOAD with the preset number to write and press Send. A preset the unit sends with PRESET DUMP shows up here by itself.',
-      sendAll: { label: 'Send to PRESET LOAD', title: 'Send the preset (28h); the unit stores it into the preset chosen on its PRESET LOAD page', build: (data) => presetMessage(data) },
+      sendAll: { label: 'Send to PRESET LOAD', title: 'Send the preset; the unit stores it into the preset chosen on its PRESET LOAD page', build: (data) => presetMessage(data) },
       toSyx: (data) => presetMessage(data),
       fromSyx: (msgs) => { const m = msgs.find((r) => isIntellifex(r) && unpack(r).data.length === P_SIZE); return m ? unpack(m).data : null; },
       actions: [
@@ -495,7 +495,7 @@ export default {
       slots: {
         label: 'Presets', banks: [[0, 'User 1-80'], [1, 'Factory 81-160']], count: USER_COUNT,
         slotLabel: (bank, i) => pad3(bank ? 81 + i : 1 + i),
-        note: (bank) => (bank ? 'Factory presets are in ROM; Edit loads one as FACTORY RESTORE copies it into a user preset. '
+        note: (bank) => (bank ? 'Factory presets are built into the unit; Edit loads one the way FACTORY RESTORE copies it into a user preset. '
           : 'Read waits for PRESET DUMP of that preset; Read names waits for DUMP USER DATA. Write sends the preset to PRESET LOAD: choose its number on the unit first. ')
           + 'Play sends a program change (program = preset - 1, as with PROG MAPPING OFF; 129-160 need the map).',
         names: (bank) => (bank === 1 ? ROM_NAMES.map((s) => s.trim()) : null),
@@ -535,7 +535,7 @@ export default {
       layout: [{ group: UTIL.blocks.channel }, { group: 'Memory' }, { group: UTIL.blocks.footswitch }, { group: UTIL.blocks.mapping, wide: true }],
       note: 'Everything DUMP USER DATA sends: the globals, the program map and the 80 user presets (edit those on the Preset page). The unit only takes all of it at once, on LOAD USER DATA: send what was read from it, changed, or the factory contents.',
       actions: [
-        { label: 'Send to LOAD USER DATA', title: 'Send all 82 messages (2Ah, 81 x 2Bh), about 2 1/2 minutes; this replaces all 80 user presets', run: async (api) => {
+        { label: 'Send to LOAD USER DATA', title: 'Send all 82 messages (about 2 1/2 minutes); this replaces all 80 user presets', run: async (api) => {
           const ok = await api.confirm('Send user data', 'Put the Intellifex on MIDI DUMP/LOAD > LOAD USER DATA first. This replaces its globals, program map and all 80 user presets with what this page holds.', 'Send');
           if (ok) api.send(userDataMessages(api.data));
         } },

@@ -110,3 +110,10 @@ Open: a hardware check.
 
 No DX1 firmware or document is in the collection. The DX1 uses this performance format; its own
 bytes are 17-25 of each channel, which none of the DX5, TX7 and TF1 firmwares reads.
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- Single, dual or split (the status line's SNGL / DUAL / SPLT, F1F7).
+- The play-mode bits the panel switches toggle (08h, 10h and 20h are reported as group 1 numbers 1Dh, 1Eh and 1Fh when they change).

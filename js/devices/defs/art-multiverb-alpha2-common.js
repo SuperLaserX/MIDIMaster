@@ -563,9 +563,9 @@ export function makeAlpha(FW, M) {
   function effectParams(t) {
     return TYPES[t].params.map((P, i) => {
       const lab = labelOf(t, i);
-      const help = `${TYPES[t].abbr.trim()}:${lab}${lab !== P.name ? ` (record name ${P.name})` : ''}; ${valueText(t, i, P.min)} to ${valueText(t, i, P.max)}, default ${valueText(t, i, P.def)}`
+      const help = `${TYPES[t].abbr.trim()}:${lab}${lab !== P.name ? ` (also called ${P.name})` : ''}; ${valueText(t, i, P.min)} to ${valueText(t, i, P.max)}, default ${valueText(t, i, P.def)}`
         + (P.off !== 0x80 ? `; ${valueText(t, i, P.off) || P.off} while X-15 switch ${X15[P.x15]} is off` : '')
-        + (P.name === 'STATE' ? `. The byte is always 0: the LCD shows the sampler's running state (${AT.samplerState}: REC-RDY, RECRDNG, IDLE, PLAY)` : '')
+        + (P.name === 'STATE' ? '. The stored value is always 0: the display shows the sampler\'s running state (REC-RDY, RECRDNG, IDLE, PLAY)' : '')
         + (varies(t, i) && TEXTS[t][i][0].when ? `. The notes follow ${labelOf(t, TEXTS[t][i][0].when[0])} (${textsOf(t, TEXTS[t][i][0].when[0]).join(', ')}); AUTO shows the note it picks` : '');
       const dynamic = varies(t, i)
         ? (d) => (inUse(d, t) ? { options: optionsOf(t, i, d) } : { hidden: true })
@@ -592,7 +592,7 @@ export function makeAlpha(FW, M) {
     const rangeOpts = (d) => { const p = target(d); return p ? { options: optionsOf(p.t, p.i, d) } : { options: [[0, '0']] }; };
     return [
       { key: `pm${k}`, group: g, label: 'In use', offset: E.pmUsed, bits: 1, shift: k, options: [[0, 'No'], [1, 'Yes']], send: sendEdit, sendKey: 'edit', relayout: true,
-        help: `ADD EFFECT in the PM pages adds an assignment (${AT.pmNew}: MC 4, the first parameter in use, its full range); DELETE removes it`,
+        help: 'ADD EFFECT in the PM pages adds an assignment (MC 4, the first parameter in use, its full range); DELETE removes it',
         set: (d, v) => {
           if (!!v === !!used(d)) return;
           setBit(d, E.pmUsed, k, v);
@@ -602,7 +602,7 @@ export function makeAlpha(FW, M) {
           d.set([4, P.min, P.max, p.n, d[p.offset], 0xff], o);
         } },
       { key: `pm${k}p`, group: g, label: PM_TITLES.param.replace(/^#\d /, ''), offset: o + 3, min: 0, max: 29, relayout: true, send: sendEdit, sendKey: 'edit',
-        help: `Screen 1: the parameter the controller moves (only parameters in use can be chosen, ${AT.pmPick}); choosing one sets LOW / HIGH to its range (${AT.pmRange})`,
+        help: 'Screen 1: the parameter the controller moves (only parameters in use can be chosen); choosing one sets LOW / HIGH to its range',
         dynamic: (d) => (used(d) ? { options: [[0, PM_PARAM_NONE], ...paramList(cfgOf(d)).filter((p) => inUse(d, p.t) || p.n === d[o + 3]).map((p) => [p.n, `${p.n}: ${paramName(p.t, p.i)}`])] } : { hidden: true }),
         set: (d, v) => {
           d[o + 3] = v;
@@ -620,28 +620,28 @@ export function makeAlpha(FW, M) {
   }
   const runtimeParams = Array.from({ length: 8 }, (_, k) => [
     { key: `pm${k}v`, group: 'PERFORMANCE MIDI runtime', label: `#${k + 1} recalled value`, offset: E.pm + 6 * k + 4, min: 0, max: 255, input: 'number', readOnly: true,
-      help: `Byte 4 of the assignment: the controlled parameter's value when the preset was recalled (${AT.recallValue}); STORE writes it back (${AT.store}). The editor sets it to the parameter's value whenever it sends` },
+      help: 'The controlled parameter\'s value when the preset was recalled; STORE writes it back. The editor sets it to the parameter\'s value whenever it sends' },
     { key: `pm${k}x`, group: 'PERFORMANCE MIDI runtime', label: `#${k + 1} pending controller value`, offset: E.pm + 6 * k + 5, min: 0, max: 255, input: 'number', readOnly: true,
-      help: `Byte 5: a controller value received and not yet applied (${AT.pending}; the main loop applies it at ${AT.pendingApply}); FFh = none` },
+      help: 'A controller value received and not yet applied; 255 (FFh) = none' },
   ]).flat();
 
   const presetParams = [
     { key: 'config', group: 'Chain', label: 'Configuration', offset: E.config, options: CONFIG_NAMES.map((s, c) => [c, `${c}: ${s}`]).filter(([c]) => CONFIG_OK[c]), relayout: true, send: sendEdit, sendKey: 'edit',
-      help: `Byte 2 (0-53, table ${AT.configs}): the chain the effects can be in. The unit chooses it when ADD EFFECT asks for a combination (${AT.cfgPick}); effects keep their values when it changes here, new ones are added`,
+      help: 'The chain the effects can be in (0-53). The unit chooses it when ADD EFFECT asks for a combination; effects keep their values when it changes here, and new ones are added',
       set: (d, v) => setConfig(d, v) },
     { key: 'useEq', group: 'Chain', label: 'EQUALIZER in the preset', offset: E.blocks, bits: 1, shift: 0, options: [[0, 'No'], [1, 'Yes']], relayout: true, send: sendEdit, sendKey: 'edit',
-      help: 'Byte 1 bit 0 (ADD / DELETE EFFECT EQUALIZER): the 7-band EQ before the digital effects', set: (d, v) => setInUse(d, T.eq, v) },
+      help: 'ADD / DELETE EFFECT EQUALIZER: the 7-band EQ before the digital effects', set: (d, v) => setInUse(d, T.eq, v) },
     { key: 'useAes', group: 'Chain', label: 'ACU ENV SIM in the preset', offset: E.blocks, bits: 1, shift: 1, options: [[0, 'No'], [1, 'Yes']], relayout: true, send: sendEdit, sendKey: 'edit',
-      help: 'Byte 1 bit 1: the Acoustic Environment Simulator (A.E.S.)', set: (d, v) => setInUse(d, T.aes, v) },
+      help: 'The Acoustic Environment Simulator (A.E.S.)', set: (d, v) => setInUse(d, T.aes, v) },
     ...[0, 1, 2, 3, 4].map((k) => ({
       key: `use${k}`, group: 'Chain', label: `Effect ${k + 1} in the preset`, offset: E.present, bits: 1, shift: k, options: [[0, 'No'], [1, 'Yes']], relayout: true, send: sendEdit, sendKey: 'edit',
-      help: `Byte 3 bit ${k}: whether the configuration's effect ${k + 1} is in use (DELETE EFFECT clears it and removes the assignments on its parameters)`,
+      help: `Whether the configuration's effect ${k + 1} is in use (DELETE EFFECT clears it and removes the assignments on its parameters)`,
       dynamic: (d) => { const t = CONFIGS[cfgOf(d)][k]; return t === undefined ? { hidden: true } : { label: `${TYPES[t].name} in the preset` }; },
       set: (d, v) => { const t = CONFIGS[cfgOf(d)][k]; if (t !== undefined) setInUse(d, t, v); },
     })),
     ...SWITCH_OF_BIT.map((sw, k) => ({
       key: `x15_${sw}`, group: 'X-15 FX ON/OFF', label: X15[sw], offset: E.status, bits: 1, shift: k, options: [[0, FX_STATUS[0]], [1, FX_STATUS[1]]], send: sendEdit, sendKey: 'edit',
-      help: `Byte 0 bit ${k}: switch ${X15[sw]} as the preset recalls it ('ENTER' to EDIT ON/OFF CONTROLRS, then STORE); while off, the effects on it take their "off" values. Controller ${sw} of the MIDI page (MC >= 64 on, below off) changes it live`,
+      help: `Switch ${X15[sw]} as the preset recalls it ('ENTER' to EDIT ON/OFF CONTROLRS, then STORE); while off, the effects on it take their "off" values. The FX ON/OFF controller set for it on the Settings page changes it live (64 and up: on, below: off)`,
     })),
     ...[T.mix, T.eq, T.aes, ...TYPES.map((_, t) => t).filter((t) => t < T.mix)].flatMap(effectParams),
     ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap(pmParams),
@@ -653,33 +653,32 @@ export function makeAlpha(FW, M) {
 
   // ---------------------------------------------------------------- parameters: settings
   const ctrlOptions = opt(CTRL).slice(0, 121);
-  const hexByte = (n) => n.toString(16).padStart(2, '0').toUpperCase();
   const systemParams = [
-    { key: 'bypass', section: 'settings', group: 'BYPASS', label: 'BYPASS', offset: S.bypass, options: [[0, 'ACTIVE'], [1, 'BYPASS']], help: '03 00: the BYPASS button (Set Bypass OFF / ON in the manual); the LED flashes while bypassed' },
+    { key: 'bypass', section: 'settings', group: 'BYPASS', label: 'BYPASS', offset: S.bypass, options: [[0, 'ACTIVE'], [1, 'BYPASS']], help: 'The BYPASS button (Set Bypass OFF / ON in the manual); the LED flashes while bypassed' },
     ...(SE ? [{ key: 'bank', section: 'settings', group: 'UTILITY', label: FW.BANK_UTIL.title, offset: S.bank, options: opt(FW.BANK_UTIL.values),
-      help: `03 09 (C0DA): the ROM bank whose presets the OPEN preset slots and HIT RECALL FOR A.R.T. PRESET use (factory value ${FW.BANK_UTIL.values[DEFAULT_BANK]}; v1.04 resets to B "STUDIO")` }] : []),
-    { key: 'bypassLevel', section: 'settings', group: 'UTILITY', label: UTIL.bypassLevel.title, offset: S.bypassLevel, options: opt(UTIL.bypassLevel.values), help: '03 06: the dry level while bypassed; MIX DRY LEVEL uses the preset\'s DRY' },
-    { key: 'remote1', section: 'settings', group: 'UTILITY', label: UTIL.remote1.title, offset: S.remote1, options: opt(UTIL.remote1.values), help: '03 01: the REMOTE 1 jack; INCR PROGS n steps through n presets (REMOTE 2 = DECR PROGS steps back)' },
-    { key: 'remote2', section: 'settings', group: 'UTILITY', label: UTIL.remote2.title, offset: S.remote2, options: opt(UTIL.remote2.values), help: '03 05: the REMOTE 2 jack (DECR PROGS needs REMOTE 1 on INCR PROGS)' },
-    { key: 'autoPm', section: 'settings', group: 'UTILITY', label: UTIL.autoPm.title, offset: S.autoPm, options: opt(UTIL.autoPm.values), help: '03 07: when the LCD shows Performance MIDI and FX ON/OFF changes' },
-    { key: 'lcdAngle', section: 'settings', group: 'UTILITY', label: UTIL.lcdAngle.title, offset: S.lcdAngle, options: opt(UTIL.lcdAngle.values), help: '03 02: the LCD contrast (port 06)' },
-    { key: 'lock', section: 'settings', group: 'UTILITY', label: UTIL.lock.title, offset: S.lock, options: opt(UTIL.lock.values), help: `03 03: whether STORE on the panel may write presets 1-${N_FACTORY} (MIDI 0A writes them anyway)` },
-    { key: 'channel', section: 'settings', group: 'MIDI', label: UTIL.channel.title, offset: S.channel, options: opt(UTIL.channel.values), help: '03 20: send and receive channel; SysEx is received only on it (set the editor\'s channel to match after changing it); OFF ignores all MIDI but MIDI THRU' },
-    { key: 'omni', section: 'settings', group: 'MIDI', label: UTIL.omni.title, offset: S.omni, options: opt(UTIL.omni.values), help: '03 21: program changes on any channel (CC 124 / 125 on the channel set it too); not for SysEx' },
-    { key: 'pm', section: 'settings', group: 'MIDI', label: 'MIDI ENABLE PM', offset: S.pm, options: opt(UTIL.pm.values), help: `03 24: Performance MIDI, the presets' controller assignments (C0BE, checked at ${AT.pmEnable})` },
-    { key: 'prog', section: 'settings', group: 'MIDI', label: 'MIDI ENABLE PROG', offset: S.prog, options: opt(UTIL.prog.values), help: `03 25: program changes recall the preset the MIDI program table gives (C0BD, checked at ${AT.progEnable})${SE ? '; CC 32 (bank select LSB) bit 0 = 1 reaches table entries 128-199' : ''}` },
-    { key: 'fxEnable', section: 'settings', group: 'MIDI', label: 'FX ON/OFF ENABLE (USING X-15)', offset: S.fxEnable, options: opt(UTIL.fxEnable.values), help: '03 26: the FX ON/OFF controllers below turn the X-15 switches on (64-127) and off (0-63)' },
-    { key: 'mptPage', section: 'settings', group: 'MIDI', label: 'MIDI PROG (program table page)', offset: S.mptPage, min: 0, max: N_MAP - 1, input: 'number', help: '03 22: the program number the MIDI PROG= / PRESET= page shows' },
+      help: `The built-in bank whose presets the OPEN preset slots and HIT RECALL FOR A.R.T. PRESET use (factory value ${FW.BANK_UTIL.values[DEFAULT_BANK]}; a reset on software 1.04 sets B "STUDIO")` }] : []),
+    { key: 'bypassLevel', section: 'settings', group: 'UTILITY', label: UTIL.bypassLevel.title, offset: S.bypassLevel, options: opt(UTIL.bypassLevel.values), help: 'The dry level while bypassed; MIX DRY LEVEL uses the preset\'s DRY' },
+    { key: 'remote1', section: 'settings', group: 'UTILITY', label: UTIL.remote1.title, offset: S.remote1, options: opt(UTIL.remote1.values), help: 'The REMOTE 1 jack; INCR PROGS n steps through n presets (REMOTE 2 = DECR PROGS steps back)' },
+    { key: 'remote2', section: 'settings', group: 'UTILITY', label: UTIL.remote2.title, offset: S.remote2, options: opt(UTIL.remote2.values), help: 'The REMOTE 2 jack (DECR PROGS needs REMOTE 1 on INCR PROGS)' },
+    { key: 'autoPm', section: 'settings', group: 'UTILITY', label: UTIL.autoPm.title, offset: S.autoPm, options: opt(UTIL.autoPm.values), help: 'When the display shows Performance MIDI and FX ON/OFF changes' },
+    { key: 'lcdAngle', section: 'settings', group: 'UTILITY', label: UTIL.lcdAngle.title, offset: S.lcdAngle, options: opt(UTIL.lcdAngle.values), help: 'The display contrast' },
+    { key: 'lock', section: 'settings', group: 'UTILITY', label: UTIL.lock.title, offset: S.lock, options: opt(UTIL.lock.values), help: `Whether STORE on the panel may write presets 1-${N_FACTORY} (storing over MIDI writes them anyway)` },
+    { key: 'channel', section: 'settings', group: 'MIDI', label: UTIL.channel.title, offset: S.channel, options: opt(UTIL.channel.values), help: 'Send and receive channel; SysEx is received only on it (set the editor\'s channel to match after changing it); OFF ignores all MIDI but MIDI THRU' },
+    { key: 'omni', section: 'settings', group: 'MIDI', label: UTIL.omni.title, offset: S.omni, options: opt(UTIL.omni.values), help: 'Program changes on any channel (CC 124 / 125 on the channel set it too); not for SysEx' },
+    { key: 'pm', section: 'settings', group: 'MIDI', label: 'MIDI ENABLE PM', offset: S.pm, options: opt(UTIL.pm.values), help: 'Performance MIDI: the presets\' controller assignments' },
+    { key: 'prog', section: 'settings', group: 'MIDI', label: 'MIDI ENABLE PROG', offset: S.prog, options: opt(UTIL.prog.values), help: `Program changes recall the preset the MIDI program table gives${SE ? '; after an odd CC 32 (bank select LSB) value they reach table entries 128-199' : ''}` },
+    { key: 'fxEnable', section: 'settings', group: 'MIDI', label: 'FX ON/OFF ENABLE (USING X-15)', offset: S.fxEnable, options: opt(UTIL.fxEnable.values), help: 'The FX ON/OFF controllers below turn the X-15 switches on (64-127) and off (0-63)' },
+    { key: 'mptPage', section: 'settings', group: 'MIDI', label: 'MIDI PROG (program table page)', offset: S.mptPage, min: 0, max: N_MAP - 1, input: 'number', help: 'The program number the MIDI PROG= / PRESET= page shows' },
     ...X15.map((name, k) => ({ key: `ctrl${k}`, section: 'settings', group: 'FX ON/OFF CONTROLLERS', label: name, offset: S.ctrl + k, options: ctrlOptions,
-      help: `03 ${hexByte(S.ctrl + k)}: the controller that turns switch ${name} on / off (MIDI page 'ENTER' to EDIT ON/OFF CONTROLRS; 0-120)` })),
-    { key: 'same', section: 'settings', group: 'Status', label: 'Edit buffer as stored', offset: S.same, options: [[0, 'No (edited)'], [1, 'Yes']], readOnly: true, help: `43 04 reads ${AT.sameRam}: 1 when the edit buffer is as the current preset holds it (${AT.same}); the LCD shows a "not equal" sign when 0` },
-    { key: 'current', section: 'settings', group: 'Status', label: 'Preset shown', offset: SYS.current, min: 0, max: 199, readOnly: true, format: (v) => String(v + 1), help: '43 40 / 03 40: the preset number the unit shows (C0B1; 09 recalls one)' },
-    { key: 'stored', section: 'settings', group: 'Status', label: 'Last store fitted', offset: SYS.status, bits: 1, options: [[0, 'No (memory full)'], [1, 'Yes']], readOnly: true, help: '4D reads C0C0 bit 0: cleared when a preset did not fit in the preset memory' },
+      help: `The controller that turns switch ${name} on / off (MIDI page 'ENTER' to EDIT ON/OFF CONTROLRS; 0-120)` })),
+    { key: 'same', section: 'settings', group: 'Status', label: 'Edit buffer as stored', offset: S.same, options: [[0, 'No (edited)'], [1, 'Yes']], readOnly: true, help: 'Yes while the edit buffer matches the current preset as stored; the display shows a "not equal" sign when it does not' },
+    { key: 'current', section: 'settings', group: 'Status', label: 'Preset shown', offset: SYS.current, min: 0, max: 199, readOnly: true, format: (v) => String(v + 1), help: 'The preset number the unit shows' },
+    { key: 'stored', section: 'settings', group: 'Status', label: 'Last store fitted', offset: SYS.status, bits: 1, options: [[0, 'No (memory full)'], [1, 'Yes']], readOnly: true, help: 'Cleared when a preset did not fit in the preset memory' },
     { key: 'version', section: 'settings', group: 'Status', label: 'Software version', offset: SYS.version, size: 2, readOnly: true, get: (d) => (d[SYS.version + 1] << 8) | d[SYS.version], format: (v) => `v${v >> 8}.${String(v & 0xff).padStart(2, '0')}`,
-      help: `43 41 reads the version word at 001F (low byte first); ${UTIL.version}${SE ? ' (the SE 1.03 / 1.04 report 2.03 / 2.04)' : ''}` },
+      help: `The software version the unit reports (its UTILITY page shows "${UTIL.version.trim()}")${SE ? '; the SE 1.03 / 1.04 report 2.03 / 2.04' : ''}` },
     ...Array.from({ length: N_MAP }, (_, c) => ({
       key: `map${c}`, section: 'map', group: 'MIDI PROGRAM TABLE', label: `MIDI PROG=${pad3(c)}`, offset: SYS.map + c, min: 0, max: 199, options: Array.from({ length: 200 }, (_, n) => [n, `PRESET=${pad3(n + 1)}`]),
-      help: SE ? `11 (entry ${c}): the preset program change ${c & 0x7f}${c >= 128 ? ' after CC 32 = 1' : ''} recalls` : `08 ${hexByte(c)}: the preset program change ${c} recalls`,
+      help: SE ? `The preset program change ${c & 0x7f}${c >= 128 ? ' recalls after an odd CC 32 value' : ' recalls'}` : `The preset program change ${c} recalls`,
       send: (v, ctx) => msg.mapEntry(c, v, ctx), sendKey: `map${c}`,
     })),
   ].map((p) => (p.send || p.readOnly || p.section === 'map' ? p : { ...p, send: (v, ctx) => msg.setting(p.offset, v, ctx), sendKey: `set${p.offset}` }));
@@ -995,9 +994,9 @@ export function makeAlpha(FW, M) {
     slotLabel: (_bank, i) => pad3(i + 1),
     note: SE
       ? (bank) => (bank
-        ? `The ${bankLabel(bank - 1)} presets in the firmware: Edit shows one here, Play sends it to the edit buffer (05). Store it into a preset slot from the Presets 1-200 list.`
-        : 'Each slot holds a preset in user RAM or a ROM preset (SLOT page: OPEN = the selected BANK\'s preset of the same number, or BANK A-D #n). Edit and Read names read all 200 at once (52). Store sends the edit buffer and STOREs it (05 + 0A: the unit has no single-preset message; a preset equal to a ROM preset becomes a reference to it, an empty one leaves the slot empty). Play recalls (09).')
-      : () => `Edit reads one preset (46); Read names reads all 200 at once (4B). Store writes the preset packed (06) without changing the edit buffer; an empty preset from ${N_FACTORY + 1} on is written as "empty" (02). Presets 1-${N_FACTORY} are the factory presets until overwritten (MIDI ignores the 1..${N_FACTORY} lock). Play recalls the preset (09).`,
+        ? `The ${bankLabel(bank - 1)} presets built into the unit: Edit shows one here, Play sends it to the unit to play. Store it into a preset slot from the Presets 1-200 list.`
+        : 'Each slot holds a preset of your own or points to a built-in one (SLOT page: OPEN = the selected BANK\'s preset of the same number, or BANK A-D #n). Edit and Read names read all 200 at once. Store sends the preset to the unit and has it STORE it, since the unit cannot take a single preset over MIDI; a preset equal to a built-in one is stored as a reference to it, an empty one leaves the slot empty. Play recalls the preset.')
+      : () => `Edit reads one preset; Read names reads all 200 at once. Store writes the preset without changing what the unit is playing; an empty preset from ${N_FACTORY + 1} on is stored as empty. Presets 1-${N_FACTORY} are the factory presets until overwritten (storing over MIDI ignores the 1..${N_FACTORY} lock). Play recalls the preset.`,
     writable: (bank) => !bank,
     name: nameOf,
     names: SE ? (bank) => (bank ? BANKS[bank - 1].titles.map((_, i) => romName(bank - 1, i)) : null) : undefined,
@@ -1014,7 +1013,7 @@ export function makeAlpha(FW, M) {
   if (!SE) delete slots.names;
 
   const def = {
-    coverage: `Presets (all ${CONFIGS.length - BROKEN.length} configurations; every parameter with the label and value texts the edit display shows, run in a Z80 emulator; MIX, EQUALIZER, A.E.S., X-15 FX ON/OFF status, title, the eight PERFORMANCE MIDI assignments), the packed preset format, ${SE ? `the four ROM preset banks (${BANKS.map((b) => `${b.name} ${b.presets.length}`).join(', ')}) and the slots' ROM references` : `the ${N_FACTORY} factory presets`}, the UTILITY and MIDI settings, the FX ON/OFF controllers and the MIDI program table, from ${FIRMWARE}. Live edits (whole edit buffer), ${SE ? 'all presets read / write, store, recall' : 'preset read / write / recall / store, all presets'}, settings. Not checked on hardware.`,
+    coverage: `Edits the ${WHO}'s presets (all ${CONFIGS.length - BROKEN.length} configurations, each value shown as the edit display shows it; MIX, EQUALIZER, A.E.S., the X-15 FX ON/OFF states, the title and the eight PERFORMANCE MIDI assignments), ${SE ? `shows the four built-in preset banks (${BANKS.map((b) => `${b.name} ${b.presets.length}`).join(', ')}) and the slots that point to them` : `shows the ${N_FACTORY} factory presets`}, and edits the UTILITY and MIDI settings, the FX ON/OFF controllers and the MIDI program table. Every change is sent as you make it; ${SE ? 'all presets can be read and written at once, stored and recalled' : 'presets can be read, written, recalled and stored one by one or all at once'}. Not checked on hardware.`,
     sysex: { manufacturer: [0x1a], model: 0x11 },
     minGap: 120, // the edit buffer is 202 bytes; the unit applies it from its main loop
     describe,
@@ -1049,13 +1048,13 @@ export function makeAlpha(FW, M) {
         cols: 4,
         layout: [{ group: 'Chain' }, { group: 'MIX' }, { group: 'EQUALIZER' }, { group: 'A.E.S.' }, ...ORDER.map((t) => ({ group: TYPES[t].name })), { group: 'X-15 FX ON/OFF' },
           ...[0, 1, 2, 3, 4, 5, 6, 7].map((k) => ({ group: `PERFORMANCE MIDI #${k + 1}` })), { group: 'PERFORMANCE MIDI runtime', wide: true }],
-        groupInfo: { 'PERFORMANCE MIDI runtime': { note: `Bytes 4 and 5 of each assignment: what recalling a preset fills in (${AT.recallValue}). Shown, not edited: the editor sets them as the unit expects whenever it sends.` } },
-        note: (ctx) => `Every change sends the whole edit buffer (05, 202 bytes): the ${WHO} has no single-parameter message. SysEx goes on MIDI channel ${(ctx?.channel ?? 0) + 1}, which must be the unit's MIDI CHANNEL. Parameters of effects not in the preset are hidden (the unit does not keep them).`,
-        sendAll: { label: 'Send to edit buffer', title: 'Send the whole edit buffer (05)', build: (data, ctx) => msg.edit(prepare(data), ctx) },
+        groupInfo: { 'PERFORMANCE MIDI runtime': { note: 'What the unit fills in for each assignment when a preset is recalled. Shown, not edited: the editor sets them as the unit expects whenever it sends.' } },
+        note: (ctx) => `Every change sends the whole preset to the ${WHO}, which cannot take single values over MIDI. The editor sends on MIDI channel ${(ctx?.channel ?? 0) + 1}, which must be the unit's MIDI CHANNEL. Parameters of effects not in the preset are hidden (the unit does not keep them).`,
+        sendAll: { label: 'Send to edit buffer', title: 'Send the whole preset to the unit to play; nothing is stored', build: (data, ctx) => msg.edit(prepare(data), ctx) },
         toSyx: (data, ctx) => msg.edit(prepare(data), ctx),
         fromSyx: editFromSyx,
         actions: [
-          { label: 'Store as preset', title: `Send the edit buffer and STORE it as preset 1-200 (05 + 0A; MIDI ignores the 1..${N_FACTORY} lock)`, run: async (api) => {
+          { label: 'Store as preset', title: `Send the preset and STORE it as preset 1-200 (storing over MIDI ignores the 1..${N_FACTORY} lock)`, run: async (api) => {
             const f = await api.form('Store into preset', [{ key: 'n', label: `Preset (1-200; 1-${N_FACTORY} are the factory presets)`, value: String(N_FACTORY + 1), type: 'number', min: 1, max: 200 }]);
             if (!f) return;
             const n = Math.max(1, Math.min(200, Math.round(Number(f.n) || N_FACTORY + 1))) - 1;
@@ -1069,7 +1068,7 @@ export function makeAlpha(FW, M) {
             api.setData(d);
             api.send(msg.edit(prepare(d), api.ctx));
           } },
-          { label: 'Recall factory preset', title: `HIT RECALL FOR A.R.T. PRESET: the unit loads a factory preset${SE ? ' of the selected BANK' : ''} into its edit buffer (09 with 40h) without changing any stored preset`, run: async (api) => {
+          { label: 'Recall factory preset', title: `HIT RECALL FOR A.R.T. PRESET: the unit loads a factory preset${SE ? ' of the selected BANK' : ''} to play, without changing any stored preset`, run: async (api) => {
             const f = await api.form('Recall factory preset', [{ key: 'n', label: `Factory preset (1-${N_FACTORY})`, value: '1', type: 'number', min: 1, max: N_FACTORY }]);
             if (!f) return;
             const n = Math.max(1, Math.min(N_FACTORY, Math.round(Number(f.n) || 1))) - 1;
@@ -1090,10 +1089,10 @@ export function makeAlpha(FW, M) {
         params: systemParams,
         cols: 3,
         layout: [{ group: 'BYPASS' }, { group: 'UTILITY' }, { group: 'MIDI' }, { group: 'FX ON/OFF CONTROLLERS' }, { group: 'Status' }, { group: 'MIDI PROGRAM TABLE', wide: true }],
-        note: `Each setting goes to the unit as you change it (03); the unit keeps it in battery-backed RAM with no STORE. Reading asks for each setting (43), the store status (4D) and the program table (${SE ? '53' : '4C'}).`,
+        note: 'Each setting is sent to the unit as you change it; the unit keeps it without STORE (its memory is battery-backed). Reading asks for each setting, the store status and the program table.',
         actions: [
-          { label: 'Send all settings', title: `Send every setting (03) and the whole program table (${SE ? '13' : '0C'})`, run: (api) => api.send(systemMessages(api.data, api.ctx)) },
-          { label: 'Factory values', title: `What a factory reset leaves (${AT.reset}: the block at ${AT.defaults}; program c recalls preset c + 1)`, run: (api) => api.setData(initSystem()) },
+          { label: 'Send all settings', title: 'Send every setting and the whole program table', run: (api) => api.send(systemMessages(api.data, api.ctx)) },
+          { label: 'Factory values', title: 'What a factory reset leaves (program change c recalls preset c + 1); not sent until you press Send all settings', run: (api) => api.setData(initSystem()) },
         ],
         toSyx: (data, ctx) => systemMessages(data, ctx).flat(),
         fromSyx: (msgs) => { const s = initSystem(); let any = false; for (const m of msgs) any = applySystem(s, m) || any; return any ? s : null; },

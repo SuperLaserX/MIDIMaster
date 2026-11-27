@@ -61,3 +61,40 @@ test('JP-8000: presets, simulator and requests', () => {
   assert.equal(got.reduce((n, p) => n + p.data.length, 0), 0xf0);
   assert.ok(def.pages.some((p) => p.key === 'motion'));
 });
+
+test('JP-8000: system 12h-16h, Input Quantize and the Tx/Rx CC list from its own manual and OS', () => {
+  const opt = (p) => p.options.map(([, l]) => l);
+  const sys = (off) => obj('system').params.find((p) => p.offset === off);
+  // Roland's JP-8000 address map names them; the lists are the Initialize / Bulk Dump pages' (option lists 16, 17)
+  assert.equal(sys(0x12).label, 'Factory Preset Menu');
+  assert.deepEqual([opt(sys(0x12)).length, opt(sys(0x12))[0], opt(sys(0x12))[13]], [14, 'PATCH: TEMP', 'FACTORY PRESET']);
+  assert.equal(sys(0x13).label, 'Bulk Dump Menu');
+  assert.deepEqual([opt(sys(0x13)).length, opt(sys(0x13))[0], opt(sys(0x13))[6], opt(sys(0x13))[17]], [18, 'ALL', 'PATCH:TEMP UP&LO', 'MOTION: SET B-2']);
+  assert.deepEqual(opt(sys(0x14)), ['-2 oct', '-1 oct', '0', '+1 oct', '+2 oct'], 'Keyboard Shift (system 14h 2 = 0 after FACTORY PRESET)');
+  assert.deepEqual([sys(0x15).label, sys(0x16).label], ['Ribbon Relative', 'Ribbon Hold']);
+  assert.ok(obj('system').params.every((p) => !p.input || p.options), 'no typed-only system values');
+  // format 0Fh is the input quantize display (handler 31A18: OFF, then note glyphs)
+  assert.deepEqual(opt(P('system', 'Input Quantize')), ['OFF', '1/16 triplet', '1/16', '1/8 triplet', '1/8', '1/4 triplet', '1/4']);
+  // Tx/Rx CCs: option list 10 of the JP-8000 OS (OFF, CC1-31, AFTERTOUCH, CC33-95, EXCLUSIVE)
+  const cut = obj('system').params.find((p) => p.offset === 0x4b + 0x10);
+  assert.equal(cut.label, 'FLT CUTOFF FREQ');
+  assert.deepEqual([cut.options.length, cut.options[1][1], cut.options[32][1], cut.options[96][1]], [97, 'MODULATION:CC01', 'AFTERTOUCH', 'EXCLUSIVE']);
+  assert.deepEqual([P('system', 'Ribbon Up').max, P('system', 'Ribbon Down').options[95][1]], [95, 'PHASER:CC95']);
+});
+
+test('JP-8000: RPS patterns are read and written by address (08 nn 00 00) and in the complete dump', () => {
+  assert.equal(addr(T.patternAddr(1)), '08 01 00 00');
+  const req = def.requests.find((r) => /RPS patterns/.test(r.label));
+  assert.ok(req, 'request');
+  assert.equal(Array.from(req.bytes({ deviceId: 0x10 })).map((b) => b.toString(16).padStart(2, '0')).join(' '), 'f0 41 10 00 06 11 08 00 00 00 00 30 00 00 48 f7');
+  assert.ok(def.fullDump.some((s) => s.request === req.label), 'complete dump step');
+  const msgs = T.patternMessages(0x10, 2, new Uint8Array(500));
+  assert.deepEqual(msgs.map((m) => parseDt1(Uint8Array.from(m), T.MODEL).data.length), [0xe7, 0xe7, 500 - 2 * 0xe7]);
+  assert.deepEqual(def.libraryItems(msgs).map((i) => i.label), ['RPS pattern Eb2']);
+  // factory pattern C#2 (OS 1.05, read from the emulated unit): 7-in-8 packed notes, then the end event
+  const raw = Uint8Array.from([0x00, 0x00, 0x00, 0x21, 0x5c, 0x00, 0x0a, 0x00, 0x06, 0x00, 0x34, 0x32, 0x00, 0x04, 0x05, 0x40, 0x00, 0x00, 0x16, 0x00, 0x00]);
+  const tl = T.patternTimeline(raw);
+  assert.deepEqual(tl.notes, [{ tick: 0, note: 0x21, velocity: 0x5c, gate: 10 }, { tick: 0, note: 0x34, velocity: 0x32, gate: 4 }]);
+  assert.equal(tl.total, 6 + 0xc0);
+  assert.deepEqual(tl.end, [0xc0, 0, 0x80, 0x16, 0, 0]);
+});

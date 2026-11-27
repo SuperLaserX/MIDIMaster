@@ -3,7 +3,7 @@
 // and the device picker read it. An editor that is not listed in FULL is "Mapped from firmware" while
 // it has a module or definition; MISSING says what each of those still lacks.
 //
-// Reviewed 2026-11-25 against the code, the tests and the docs (docs/devices/*.md, docs/FUTURE_WORK.md).
+// Reviewed 2026-11-25 against the code, the tests and the docs (docs/devices/*.md, intdocs/FUTURE_WORK.md).
 
 /** What a full editor has (checked in this order). */
 export const CRITERIA = [
@@ -12,7 +12,7 @@ export const CRITERIA = [
   'Checked on the hardware, or a documented reason it cannot be that the firmware analysis covers.',
   'Every sound object (patch, program, performance, combination, rhythm set...) has a Head Library translator (obj.toCommon / obj.fromCommon) with tests.',
   'A multitimbral device has its MIDI channels page.',
-  'What is left open in the device doc and docs/FUTURE_WORK.md is a convenience, not missing data, an unchecked mapping or a missing object.',
+  'What is left open in the device doc and intdocs/FUTURE_WORK.md is a convenience, not missing data, an unchecked mapping or a missing object.',
 ];
 
 /** Full editors, each with the evidence. */
@@ -22,12 +22,21 @@ export const FULL = {
   'roland-jp8080': 'every byte named from OS 1.04 and checked on a JP-8080 (presets, motions, complete dump); RPS patterns have no SysEx (tested); patch and performance translators; MIDI channels page',
   'roland-vsynth-xt': 'V-Synth engine: every system and patch parameter from OS 2.02, checked on a V-Synth XT (dumps, .p00 files, waves); translator; MIDI channels page',
   'roland-vsynth-xt-vc1': 'VC-1 (D-50) engine: every byte of the 448-byte patch from OS 2.02, checked on the XT (bank select, .P10 files); translator',
+  'roland-vsynth-xt-vc2': 'VC-2 (Vocal Designer) engine: every byte of patch, system and sampling templates from OS 2.02 (the VC-2 application run in an emulator, 16 factory .p02 files matched against the unit), the modulator waves by name in the order the VC-2 lists them (value = wave number + 82, mod 128); checked on the XT (whole patches, single parameters, algorithms and their INIT PATCH, bank select, a Store); translator',
+  'novation-supernova': 'every byte named from its OS 4.1 image (menus, handlers); panel pages and part mutes found by running the OS in an H8/300H emulator (tools/novation/h8); the read, send, store and recall of programs and performances checked byte for byte against its own receiver and transmitter, validated in an emulator of its OS, not on hardware; translator; MIDI channels page',
+  'roland-jp8000': 'every byte of system, performance and patch named from OS 1.05 and the JP-8000 owner manual address map (system 12h-16h: Factory Preset Menu and Bulk Dump Menu with the two utility page lists, Keyboard Shift, Ribbon Relative, Ribbon Hold); OS 1.05 run in an H8/300H emulator: 42 checks of the editor messages against its own receiver and transmitter (live edits, whole objects, user memory store and recall, presets, motions, RPS patterns, complete dump restored byte for byte), validated in an emulator of its OS, not on hardware; shared code checked live on a JP-8080; patch and performance translators; MIDI channels page',
+  'roland-system8': 'every byte of patch, patch2, patch3, performance and the setup block named from the OS 1.32 parameter catalog (OS dumped from the unit; coverage test) and the engine lists of its region 0; checked on the unit over SYSTEM-8 CTRL: temporary patch and performance live edits, store, read back and recall in SYSTEM-8 and PLUG-OUT 1-3 and the performances, complete dump and slot backup equal byte for byte to a raw backup, a PLUG-OUT install from the editor (JUNO-106 into PLUG-OUT 3); the unit keeps no SysEx write into user memory over a power cycle (checked twice, also a bank between the patch-bank brackets as the Roland plugin sends it; a device limit, the editor says to save with WRITE on the unit); the SYSTEM menu has no SysEx address (OS catalog); DIN parameter SysEx unchecked (no DIN cable); patch and performance translators; parts page',
+  'roland-system8-jupiter8': 'JUPITER-8 patch struct named from its region 0 image (pages, labels, lists) and its plugin script, effects, chord memory and step sequencer from the OS catalog; checked on the unit in PLUG-OUT 1 (read, live edit, store, recall, store back, each read back identical; stores last until power-off as on the SYSTEM-8 itself, the editor says so); the 64 patches of the unit decode in range; translator',
+  'roland-system8-sh101': 'SH-101 patch struct named from its region 0 image (pages, labels, lists) and its plugin script, effects, chord memory and step sequencer from the OS catalog; checked on the unit in PLUG-OUT 2 (read, live edit, store, recall, store back, each read back identical; stores last until power-off as on the SYSTEM-8 itself, the editor says so); the 64 patches of the unit decode in range; translator',
+  'roland-system8-juno106': 'JUNO-106 patch struct named from its region 0 image (pages, labels, lists) and its plugin script, effects, chord memory and step sequencer from the OS catalog; checked on the unit in PLUG-OUT 3 (read, live edit, store, recall, store back, each read back identical; stores last until power-off as on the SYSTEM-8 itself, the editor says so); the 64 patches of the unit decode in range; translator',
+  'roland-jv2080': 'every byte of system, performance, part, patch, tone and rhythm named from the v1.02 firmware screens and option lists and, for the JV-1080 / XP-80 bytes, from the address map in the owner manual (what the firmware stores and uses is in the doc); preset rhythm sets decoded from the flash and equal to the Roland dumps, board rhythm sets from the board ROMs (named JV rhythm by the firmware); part 10 chooses rhythm sets; checked on a JV-2080 (blocks, presets, store, part patches, boards, all ten preset and both user rhythm sets on part 10, the JV-1080 bytes stored or not as found in the firmware, restored byte for byte); data cards untested (none available); patch, performance and rhythm set translators; MIDI channels page',
+  'oberheim-matrix1000': 'every byte of the patch and all 172 master bytes named from the OS 1.11, 1.13 and 1.14 images: the master bytes the 1000 only keeps carry the Matrix-6R and Matrix-6 master menu names (VEL SCALE = LIN, EXP1, EXP2; VEL SENS, SYSTEMX, LOCAL CTL, PED2 INV, LEVS INV, SET DISP, SQUICK, PMAP ECHO, STEREO, BASIC CHAN, STANDOFF, SPILLOVER, PATCH MAP), their non-use shown from every ROM reference and from read watches in the emulated OS (the 1000 never calls its velocity curve code); bytes 0, 30, 161, 162 and the channel copy 163 typed with their use; group mode bits as per-patch bytes; the OS and factory patch ROM run in a 6809 emulator: 30 checks of the editor messages against its own receiver and transmitter on 1.11, 1.13 and 1.14 (live edits, whole patches, stores, writes, recall, memory protect, group mode store, ROM banks, every master parameter, complete dump with all 1000 patches in range and a bank restored), validated in an emulator of its OS, not on hardware; the two remote edits broken in 1.11 (29, 53) sent as the whole edit buffer; patch translator; not multitimbral',
+  'yamaha-dx7': 'every voice and function byte named from the v1.8 firmware (parameter and label tables, value texts) and Yamaha voice format, checked against the 128 factory ROM voices; the v1.8 OS run in an HD6303 emulator (tools/yamaha/check_editor.mjs): 17 checks of the editor messages against its own receiver and transmitter (every voice parameter as live edits and whole voices at both range ends, rename, store into the internal memory, all 32 voices unpacked by the DX7 equal to the editor, the voice it sends on program change, MIDI TRANSMIT of the 32 voices, a panel edit, every function parameter, SYS INFO AVAIL and memory protect refusals), validated in an emulator of its OS, not on hardware; cartridge voices not emulated; voice translator; not multitimbral',
   'access-virus-ti2': 'every byte of singles, multis and remote templates named from the TI2 host OS 5.1.7 and Virus Control 5.1.7 (value lists in the screen\'s texts, order and ranges; reserved bytes with the OS evidence; template records tied to the panel knobs from the OS knob table); checked on a TI2 Desktop (edit buffers, RAM/ROM banks, stores to RAM A 001 and multi 001, a template write, each restored byte for byte); globals sent only (the OS has no global request); single and multi translators; MIDI channels page',
 };
 
 /** What each editor that is not full still lacks. */
 export const MISSING = {
-  'yamaha-dx7': ['a hardware check (no DX7 was connected; everything is from the v1.8 firmware and Yamaha\'s voice format, checked against the 128 factory ROM voices)'],
   'yamaha-tx7': [
     'a hardware check (no TX7 was connected)',
   ],
@@ -127,43 +136,28 @@ export const MISSING = {
   'art-multiverb-alpha-se': ['a hardware check (the catalog\'s v1.04 entry of the Alpha 2 SE, same editor: see art-multiverb-alpha2-se)'],
   'art-multiverb-alpha2': ['a hardware check (no Alpha 2 is connected; mapped from the v2.02 image, its display, recall and packing routines run in a Z80 emulator, and checked against its simulator)'],
   'rocktron-intellifex': ['a hardware check (no Intellifex is connected; mapped from the LTD v1.0 image and checked against its simulator; dumps start on the unit, no requests exist)'],
+  'roland-system8-jx3p': ['a hardware check: this PLUG-OUT is not installed on the unit (same code as the three engines checked live; it can be checked by installing it from the Branch Library)', 'stores over SysEx last only until power-off, as on the SYSTEM-8 itself'],
+  'roland-system8-juno60': ['a hardware check: this PLUG-OUT is not installed on the unit (same code as the three engines checked live; it can be checked by installing it from the Branch Library)', 'stores over SysEx last only until power-off, as on the SYSTEM-8 itself'],
+  'roland-system8-jupiter4': ['a hardware check: this PLUG-OUT is not installed on the unit (same code as the three engines checked live; it can be checked by installing it from the Branch Library)', 'stores over SysEx last only until power-off, as on the SYSTEM-8 itself'],
+  'roland-system8-promars': ['a hardware check: this PLUG-OUT is not installed on the unit (same code as the three engines checked live; it can be checked by installing it from the Branch Library)', 'stores over SysEx last only until power-off, as on the SYSTEM-8 itself'],
+  'roland-system8-sh2': ['a hardware check: this PLUG-OUT is not installed on the unit (same code as the three engines checked live; it can be checked by installing it from the Branch Library)', 'stores over SysEx last only until power-off, as on the SYSTEM-8 itself'],
+  'roland-system8-system100': ['a hardware check: this PLUG-OUT is not installed on the unit (same code as the three engines checked live; it can be checked by installing it from the Branch Library)', 'stores over SysEx last only until power-off, as on the SYSTEM-8 itself'],
+  'alesis-quadraverb2': ['a hardware check (no Quadraverb 2 is connected; mapped from the v2.01e image and checked against its simulator)'],
+  'digitech-dsp256': ['a hardware check (no DSP-256 is connected; mapped from the v1.05 image: every edit page of the 27 configurations and every utility page run in an HD6303 emulator for every value, requests and dumps fed through its MIDI receiver and checked against its simulator)', 'the 01h program request jumps to RAM 0042h in v1.04 and v1.05, so the editor reads programs from the whole-memory dump instead'],
+  'digitech-meq': ['a hardware check (no MEQ is connected; mapped from the v1.06 image, one firmware for the MEQ 28, MEQ 14 and MEQ 7: booted for each model in an HD6303 emulator, the display texts of every value read back through its own 7-segment font, the LED column of every band value, requests, program and memory dumps, program and control changes fed through its MIDI receiver and checked against its simulator)', 'the band names (frequencies) come from the DigiTech MIDI implementation manual, as the unit shows bands only as LED columns; the model is chosen in the editor or taken from a message of the unit', 'the MEQ 28 keeps programs 1-7 in a serial EEPROM that no MIDI message carries, and the 01h request one program of the manual restarts a v1.06 unit (never sent)'],
+  'digitech-dsp128plus': ['a hardware check (no DSP-128 Plus is connected; mapped from the v2.00 image: every page of the 15 configurations run in an HD6303 emulator for every value with the display font replaced so the 4-character texts read back exactly, the MIDI pages likewise, requests, whole and cut memory dumps, program and control changes fed through its MIDI receiver and checked against its simulator)', 'the unit has no single-program or edit-buffer message: edits write programs 1 to n through a memory dump cut after program n, so programs after 1 need the memory read first', 'which of the two key panels in the firmware the unit has, and the expansion ROM socket at 6000h'],
+  'digitech-dsp256xl': ['a hardware check (no DSP-256XL is connected; mapped from the image archived as 1.08, whose version page says 1.04: the DSP-256 software rebuilt, every edit page of its 28 configurations and every utility page run in an HD6303 emulator for every value, the Room Simulator decay texts for every room size, requests and dumps fed through its MIDI receiver and checked against its simulator)', 'the 01h program request jumps to RAM 0042h as in the DSP-256, so the editor reads programs from the whole-memory dump'],
+  'lexicon-lxp1': ['a hardware check (no LXP-1 or MRC is connected; mapped from the v1.06 image: the LXP-1 has no display, so names and value texts come from the display routines of the Lexicon MRC v4.00 remote firmware run for every fader step in a Z80 emulator; requests, dumps and parameter messages answered byte for byte as the LXP-1 firmware answers them in the emulator, checked against its simulator)', 'the MIDI channel and Omni are set on the panel only (no message reads or sets them)'],
+  'lexicon-lxp15': ['a hardware check (no LXP-15 is connected; mapped from the v2.00 image: every page of the five algorithms worked on the panel in a Z80 emulator, value texts from the display routines of the firmware, requests answered byte for byte as the firmware answers them, checked against its simulator)', 'the patch Scale and Offset texts in the units of the patch destination (the editor shows the no-destination percent)'],
+  'lexicon-lxp5': ['a hardware check (no LXP-5 or MRC is connected; mapped from the v1.12 image: the LXP-5 shows only a program number, so names and value texts come from the display routines of the Lexicon MRC v4.00 remote firmware run for every value and every delay coarse and FINE pair in a Z80 emulator; requests, dumps and parameter messages answered as the LXP-5 firmware answers them in the emulator, checked against its simulator)', 'parameters 41h and 43h-45h and the byte after the name have no name on any screen'],
   'viscount-efx10': ['a hardware check (no EFX-10 is connected; mapped from the v1.02 image: every edit page of the 27 algorithms and the MIDI EDIT EXC. parser run in an 8051 emulator, checked against its simulator; dumps start on the unit, no requests exist)'],
   'kurzweil-k2000': [
     'a Head Library translator for programs (layers, keymaps and the DSP algorithm to and from the shared model)',
     'program settings in the Head Library listed parameter by parameter, not by object',
   ],
-  'oberheim-matrix1000': [
-    'a hardware check (no Matrix-1000 was connected)',
-    'master bytes 0, 15-16, 21-30, 33 and 162-163 are kept without names; the doc should show the firmware never uses them',
-    'the velocity curve values 0-3 are numbers without the curves\' names',
-  ],
-  'roland-jp8000': [
-    'a hardware check (no JP-8000 was available)',
-    'system bytes 12h-16h are typed values: no menu of either firmware shows them (the owner\'s manual address map would name them)',
-  ],
-  'roland-jv2080': [
-    'preset and expansion-board rhythm sets cannot be chosen for part 10 (only the performance\'s own and the two user sets), and part 10 offers patches instead of rhythm sets',
-    'performance common 40h, part 14h-19h and system 28h-61h are labelled from the XP keyboards\' format with "Unknown" for several',
-    'wave lists offer boards and PCM cards that are not installed; board rhythm set names are not parsed from the board ROMs; data cards were never tested',
-  ],
-  'roland-vsynth-xt-vc2': [
-    'the modulator waves 0-127 have no names (what each number plays is unknown)',
-  ],
-  'novation-supernova2': [
-    'read-only bytes without a name (1E 9-12, panel button states, performance 16 and 19, 1B 5: the firmware evidence is in the doc), the Keyboard External Parts Tx option bits and stream bytes (docs/devices/novation-supernova2.md)',
-  ],
-  'novation-supernova': [
-    'a hardware check (no SuperNova was available; mapped from its OS 4.1 image)',
-    'the SuperNova II read-only bytes it shares (program panel states)',
-  ],
-  'novation-nova': [
-    'a hardware check (no Nova was available; mapped from its OS 4.1 image)',
-    'vocoder bytes 5 and 8-15 read-only without a name',
-  ],
-  'novation-nova2': [
-    'a hardware check (no Nova II was available; mapped from its Keyboard OS 2 image on the SuperNova II editor)',
-    'the SuperNova II open items it shares (read-only bytes, External Parts Tx option bits)',
-  ],
+  'novation-supernova2': ['the SuperNova II Keyboard MIDI stream: External Part bytes 14-15 (except 15 bit 0) and message 20 part-block bytes 19 and 21-32 are typed values; only the first stream byte is placed (NRPN 122 MSB 96/104 + part); the Rack ignores them'],
+  'novation-nova': ['vocoder bytes 5 and 8 (message 1B) read only without a name: sent as stored, no writer or reader found (bytes 9-15 are cleared by its transmitter)', 'a hardware check (validated in an emulator of its OS, not on hardware)'],
+  'novation-nova2': ['the MIDI stream bytes it shares with the SuperNova II Keyboard', 'a hardware check (validated in an emulator of its OS, not on hardware)'],
 };
 
 /** 'Full editor' | 'Mapped from firmware' | 'Generic MIDI' | 'No MIDI' for a registry device entry. */

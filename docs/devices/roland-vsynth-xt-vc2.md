@@ -76,6 +76,7 @@ put back as it was.
 Checked by the user (2026-11-25): `001 LargeChoir 1.p02` written by Save .p02 and copied onto the
 drive in USB storage mode loads on the VC-2.
 
-1. The modulator wave numbers 0-127 have no names: model 00 24 names the carrier's waves, and the
-   modulator's numbering is stored 46 places on from it in `.p02` files (what each number plays is
-   unknown).
+1. Done (2026-11-27): the modulator wave value v plays wave (v + 46) mod 128 (the `.p02` files store the
+   wave number; checked on 0, 82 and 83), and the VC-2's screen lists the modulator waves by wave number
+   from wave 1 ("LargeCho A S", then "LargeCho B S", seen on the unit by the user). The editor shows that
+   list with the names of model 00 24 (factory waves 1-54, user waves after Read wave names).

@@ -57,7 +57,7 @@ export function mainLibraryView(root, shell) {
 
   root.append(
     h('h1', 'Head Library'),
-    h('div.sub', 'Patches from every device in one place, each stored as a readable JSON file with its device, category and every setting. Sub-libraries open in any device\'s Branch Library; a patch loads into another model when a translator exists (JP-8080, JP-8000 and the V-Synth XT\'s V-Synth, VC-1 and VC-2 engines). With a device open, Send to puts patches into its editor, edit buffer or memory.'),
+    h('div.sub', 'Patches from every device in one place. A patch can be sent to its own device, or to another model through its translator.'),
     folderBox, subsBox, importBox, dedupBox,
     h('div.row.editor-split', h('div.grow', browseBox), detailBox));
 
@@ -122,7 +122,7 @@ export function mainLibraryView(root, shell) {
       folderStatus(lib, st.pending),
       h('div.small.muted', lib.state === 'none'
         ? 'Choose (or create) a folder for the Head Library. Every patch is saved there as a JSON file you can read, back up or share; samples as WAV files.'
-        : 'Every change is written to this folder as it happens. A copy is kept in the browser, so the library opens even before the browser allows the folder again.'));
+        : 'Changes are saved to this folder as you make them.'));
   }
 
   async function chooseFirst() {
@@ -137,7 +137,7 @@ export function mainLibraryView(root, shell) {
   async function changeLocation() {
     const how = await dialog('Change location', h('div.col',
       h('p', 'Move the library to another folder, or open a Head Library that is already in another folder.'),
-      h('p.small.muted', 'Moving copies every sub-library into the new folder; the old folder is left as it is. Opening another library replaces this list with the one in that folder (the sub-libraries here stay in their folder and can be opened again later).')), [
+      h('p.small.muted', 'Moving copies the library to the new folder and leaves the old one as it is.')), [
       { label: 'Cancel', value: null },
       { label: 'Open a library there', value: 'open' },
       { label: 'Move the library there', value: 'copy', primary: true },
@@ -328,7 +328,7 @@ export function mainLibraryView(root, shell) {
   }
   function renderImport() {
     renderImportControls();
-    const drop = h('div.dropzone', st.busy ? 'Importing...' : 'Drop files or folders here: .syx .mid .krz/.k25/.k26 .wav .json, JP-8000/8080 .pat .pfm .j8k, V-Synth XT .p00 .p02 .P10, .zip archives, and disk or CD images (.iso, .bin with its .cue, .img)');
+    const drop = h('div.dropzone', { title: 'SysEx (.syx, .mid), Kurzweil .krz/.k25/.k26, .wav, .json, JP-8000/8080 .pat .pfm .j8k, V-Synth XT .p00 .p02 .P10, .zip archives, and disk or CD images (.iso, .bin with its .cue, .img)' }, st.busy ? 'Importing...' : 'Drop patch files, folders, archives or disk images here');
     drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
     drop.addEventListener('dragleave', () => drop.classList.remove('over'));
     drop.addEventListener('drop', guard(async (e) => {
@@ -343,7 +343,7 @@ export function mainLibraryView(root, shell) {
       controls, drop,
       progressBox('import'),
       st.report ? h('div.col', h('b', st.report.title), importReportView(st.report.rows)) : null,
-      h('div.small.muted', 'Each patch, performance, program or sample becomes one JSON file with all its settings. SysEx that no editor reads yet is kept as a data entry, so nothing is lost. The two patches inside a JP performance are kept as patches of their own, linked from it.'));
+      h('div.small.muted', 'Each patch, performance, program or sample becomes one entry with all its settings; anything no editor reads is kept as data.'));
   }
 
   async function runImport(files, into, label = '') {

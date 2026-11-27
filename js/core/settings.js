@@ -92,3 +92,12 @@ export function rememberDevice(id) {
   const list = [id, ...recentDevices().filter((x) => x !== id)].slice(0, 8);
   store('midimaster.recent', list);
 }
+
+/** Forget the recently opened devices (the list on the front page and in the sidebar). */
+export function clearRecent() { store('midimaster.recent', []); }
+
+/** The last port scan (js/devices/identify.js): {at, devices: [...], silent, busy} or null. */
+export function connectedDevices() {
+  try { return JSON.parse(localStorage.getItem('midimaster.connected') || 'null'); } catch { return null; }
+}
+export function saveConnected(scan) { store('midimaster.connected', scan); }

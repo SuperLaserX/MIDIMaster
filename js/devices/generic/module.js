@@ -46,18 +46,29 @@ export class GenericContext extends Emitter {
     this.offs = [
       host.settings.on('change', () => this.client.setSettings(this.clientSettings())),
       this.client.on('busy', (n) => { if (!this.opBusy) host.setBusy(n); }),
-      this.transport.on('connection', () => this.renderStatus()),
+      // another port: what the connection carries may change (def.link), so pages redraw
+      // another port: its own pace (a speed measured on USB is not DIN's), and what it carries (def.link)
+      this.transport.on('connection', () => { this.client.setSettings(this.clientSettings()); this.renderStatus(); if (this.def?.link) this.emit('refresh'); }),
     ];
   }
 
   clientSettings() {
     const m = this.host.settings.value.midi;
     // a measured pace (Connect page, speedtest.js) replaces the global DIN-MIDI defaults for this
-    // device; the definition's own minimum (e.g. time to write EEPROM) still applies
-    const sp = this.host.device.value.speed;
+    // device, on the port it was measured on (USB and DIN differ); the definition's own minimum
+    // (e.g. time to write EEPROM) still applies
+    const sp = this.measuredSpeed();
     const gap = sp?.sendGap ?? m.sysexGap;
     const bps = sp?.sendBps || (sp?.receiveBps ? Math.max(m.bytesPerSecond, sp.receiveBps) : m.bytesPerSecond);
     return { deviceId: this.deviceId, minGap: this.demo ? 10 : Math.max(this.def?.minGap ?? 0, gap), timeout: m.replyTimeout, bytesPerSecond: bps };
+  }
+
+  /** The speed measured on the Connect page, when it was measured on the port open now (else null). */
+  measuredSpeed() {
+    const sp = this.host.device.value.speed;
+    if (!sp) return null;
+    const out = this.transport?.output?.name;
+    return !sp.port || !out || sp.port === out ? sp : null;
   }
 
   get channel() { return this.host.device.value.channel ?? 0; }
@@ -65,7 +76,38 @@ export class GenericContext extends Emitter {
   get deviceId() { return this.host.device.value.deviceId ?? this.def?.sysex?.deviceIdDefault ?? 0; }
   set deviceId(id) { this.host.device.update({ deviceId: id }); this.client.setSettings({ deviceId: id }); this.loadNameCache(); for (const o of this.def?.objects || []) this.emit('names', o.key); this.renderStatus(); }
   get connected() { return !!this.transport.output; }
-  get ctx() { return { channel: this.channel, deviceId: this.deviceId, entry: this.entry, data: this.objectData, names: this.slotNames, loaded: this.loadedKeys, settings: this.host.device.value }; }
+  get ctx() { return { channel: this.channel, deviceId: this.deviceId, entry: this.entry, data: this.objectData, names: this.slotNames, loaded: this.loadedKeys, settings: this.host.device.value, link: this.link }; }
+
+  // ------------------------------------------------------------ what the connection carries
+  // def.link({input, output, inputs, outputs}) -> {key, label, can: ['sysex', 'cc', 'nrpn', 'pc', 'notes', ...], note}
+  // (inputs / outputs: the names of every port available, e.g. to see that a device's own USB ports are there)
+  // from the open ports' names, for a device whose connections differ (the SYSTEM-8: SysEx only on its
+  // USB "CTRL" port; DIN MIDI and the plain USB port carry notes, controllers and program changes).
+  // def.linkNeeds: {[capability]: 'what gives it'} for the messages ('the USB connection (SYSTEM-8 CTRL)').
+  // Objects, actions, slots, sendAll and requests declare `needs` (a capability or a list): pages disable
+  // what the link cannot do and say which connection is needed. Without def.link everything is allowed.
+  get link() {
+    if (!this.def?.link || this.demo || !this.connected) return null;
+    let all = { inputs: [], outputs: [] };
+    try { const p = this.transport.ports?.(); if (p) all = { inputs: p.inputs.map((x) => x.name), outputs: p.outputs.map((x) => x.name) }; } catch { /* no port list */ }
+    try { return this.def.link({ input: this.transport.input?.name || '', output: this.transport.output?.name || '', ...all }) || null; } catch { return null; }
+  }
+
+  /** True when the current connection carries `needs` (a capability or a list; none: true). */
+  can(needs) {
+    const l = this.link;
+    if (!needs || !l?.can) return true;
+    return [].concat(needs).every((n) => l.can.includes(n));
+  }
+
+  /** Why `needs` is not available over the current connection, or null when it is. */
+  cannot(needs) {
+    if (this.can(needs)) return null;
+    const l = this.link;
+    const missing = [].concat(needs).filter((n) => !l.can.includes(n));
+    const how = [...new Set(missing.map((n) => this.def.linkNeeds?.[n] || `a connection that carries ${n}`))].join(' and ');
+    return `Not available over ${l.label}: this needs ${how}. Choose the ports on the Connect page.`;
+  }
 
   setObjectData(key, data) {
     this.objectData[key] = Uint8Array.from(data);
@@ -180,7 +222,9 @@ export class GenericContext extends Emitter {
   nav(page, params) { this.host.nav(page, params); }
 
   async connect(names) {
-    await this.host.connectPorts(names);
+    // def.ports: {input, output} regexes of the ports to use when none are remembered (a device with
+    // several USB ports, e.g. the SYSTEM-8 answers SysEx only on "SYSTEM-8 CTRL")
+    await this.host.connectPorts({ ...(names || {}), prefer: this.def?.ports || null });
     this.renderStatus();
     if (this.connected) this.identify().catch(() => {}).then(() => this.loadStandard());
     return this.connected;
@@ -203,7 +247,7 @@ export class GenericContext extends Emitter {
     const stop = () => this.destroyed || !this.connected || !!this.job;
     const failed = [];
     try {
-      for (const obj of objs.filter((o) => o.autoLoad && canFetch(o))) {
+      for (const obj of objs.filter((o) => o.autoLoad && canFetch(o) && this.can(o.needs))) {
         if (stop()) return;
         if (this.loadedKeys.has(obj.key) || this.loading.has(obj.key)) continue; // an open page read it
         this.loading.add(obj.key);
@@ -212,13 +256,13 @@ export class GenericContext extends Emitter {
       }
       for (const task of this.def.connectTasks || []) {
         if (stop()) return;
-        if (task.enabled && !task.enabled(this.ctx)) continue;
+        if ((task.enabled && !task.enabled(this.ctx)) || !this.can(task.needs)) continue;
         this.setBusy(1, task.label);
         try {
           await task.run(objectApi(this, objs[0], { quiet: true, refresh: () => this.emit('refresh') }));
         } catch (err) { failed.push(`${task.label} (${err.message})`); }
       }
-      for (const obj of objs) {
+      for (const obj of objs.filter((o) => this.can(o.slots?.needs ?? o.needs))) {
         for (const bank of obj.slots?.autoNames || []) {
           if (stop()) return;
           const banks = typeof obj.slots.banks === 'function' ? obj.slots.banks(this.ctx) : obj.slots.banks;
@@ -256,6 +300,8 @@ export class GenericContext extends Emitter {
     const items = [];
     if (this.connected) items.push(h('span.badge', `Ch ${this.channel + 1}`));
     if (this.def?.sysex) items.push(h('span.badge', `ID ${this.deviceId}`));
+    const link = this.link;
+    if (link) items.push(h('span.badge', { title: link.note || `Connected over ${link.label}: ${link.can.join(', ')}` }, link.short || link.label));
     this.host.setStatus(h('div.mem', items));
     this.host.setOnline(this.online || (this.connected && !!this.transport.input));
   }
@@ -269,8 +315,10 @@ export class GenericContext extends Emitter {
       // engine of the same instrument): use them, and read the device as usual. When they belong to
       // another instrument, the reads fail and say so ("No reply for ...").
       const open = this.transport.output?.name;
-      if (!d.input && !d.output && open) this.host.rememberPorts({ input: this.transport.input?.name || '', output: open });
-      if (d.input || d.output || open) this.connect().catch(() => {});
+      // ports the definition names (def.ports) come before the previous device's
+      const named = !d.input && !d.output && this.def?.ports && shell.real.ports().outputs.some((p) => this.def.ports.output?.test(p.name));
+      if (!d.input && !d.output && open && !named) this.host.rememberPorts({ input: this.transport.input?.name || '', output: open });
+      if (d.input || d.output || open || named) this.connect().catch(() => {});
     };
     if (shell.real.access) go();
     else { const off = shell.on('midi-ready', () => { off(); go(); }); this.offs.push(off); }

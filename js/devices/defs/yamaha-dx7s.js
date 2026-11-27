@@ -33,7 +33,7 @@ const def = buildDX7II({
     ams: 'Ams (DX7 voice)',
   },
   help: {
-    ams: 'The DX7 voice\'s amplitude modulation sensitivity (0-3), kept for DX7 compatibility: the DX7s has no page for it (its "A mod sens." page edits the additional data\'s Ams 0-7, 99F1).',
+    ams: 'The DX7 voice\'s amplitude modulation sensitivity (0-3), kept for DX7 compatibility: the DX7s has no page for it (its "A mod sens." page edits the additional Ams 0-7).',
     trnp: 'Middle C: the note middle C plays (C3 = none).',
   },
   texts: {
@@ -45,8 +45,8 @@ const def = buildDX7II({
   },
   // additional data (pages 9, 0Ah, 0Bh, 0Ch, 16h-19h: entries 9B50-9B7A, labels as above and E21A, E2F1, E2F9, E399, the FC page E3BA..)
   aced: {
-    op_scm: { label: 'Scal. mode', options: [[0, 'nomal'], [1, 'frac.']], help: 'Scal. mode: normal ("nomal" on the DX7s), or fractional scaling (D26C).' },
-    op_ams7: { label: 'A mod sens.', help: 'A mod sens. (0-7): the DX7s edits this byte of the additional data on its sensitivity page (99F1).' },
+    op_scm: { label: 'Scal. mode', options: [[0, 'nomal'], [1, 'frac.']], help: 'Scal. mode: normal ("nomal" on the DX7s), or fractional scaling.' },
+    op_ams7: { label: 'A mod sens.', help: 'A mod sens. (0-7): amplitude modulation sensitivity, as the DX7s edits it on its sensitivity page.' },
     pegr: { label: 'PEG range', options: [[0, '8oct'], [1, '2oct'], [2, '1oct'], [3, '1/2oct']] }, // E0E9
     vpsw: { label: 'PEG velocity', options: [[0, 'off'], [1, 'on']] },
     pgrs: { label: 'PEG scaling' },
@@ -57,19 +57,19 @@ const def = buildDX7II({
     pbr: { label: 'P-bend range' },
     pbs: { label: 'P-bend step' },
     pbm: { label: 'PB mode', options: [[0, 'Normal'], [1, 'Lowest'], [2, 'Highest'], [3, 'Key-on']] }, // E25F
-    porm: { label: 'Porta mode', help: 'Poly: "Sus-key p" retain or follow; mono: Fingerd porta or Full time porta (D8A3; no label of its own on the DX7s).' },
+    porm: { label: 'Porta mode', help: 'Poly: "Sus-key p" retain or follow; mono: Fingerd porta or Full time porta (no label of its own on the DX7s).' },
     pqnt: { label: 'Porta step' },
     pos: { label: 'Porta time' },
     ...Object.fromEntries([['mw', 'MW'], ['fc1', 'FC1'], ['bc', 'BC'], ['at', 'AT'], ['fc2', 'FC2'], ['mc', 'MC']].flatMap(([k, t]) => [
       [`${k}_pmod`, { label: `${t} PM depth` }], [`${k}_amod`, { label: `${t} AM depth` }], [`${k}_egbias`, { label: `${t} EG-bias` }],
       [`${k}_pbias`, { label: `${t} P-bias`, format: (v) => `${v > 50 ? '+' : ''}${v - 50}` }], [`${k}_vol`, { label: `${t} volume` }],
     ])),
-    fccs1: { label: 'FC1 -> CS1', options: [[0, 'off'], [1, 'on']], help: 'The page "FC1 -> CS1 :" (E3BA): foot controller 1 acts as continuous slider 1.' },
+    fccs1: { label: 'FC1 -> CS1', options: [[0, 'off'], [1, 'on']], help: 'The page "FC1 -> CS1 :": foot controller 1 acts as continuous slider 1.' },
   },
   pced: dx7sPced(MICRO_NAMES_DX7S),
   sysParams: dx7sSysParams,
   sysInit: SYS_INIT_DX7S,
-  coverage: 'The DX7II formats (voice with its additional data, performance, system setup, micro tuning, fractional scaling, Branch Library) with the DX7s v1.3 firmware\'s own page labels, value texts and ranges (the edit-page tables 9B1C / 9BCD and their screen texts); a performance plays voice A only, and the bytes the DX7s neither shows nor reads are kept read-only; its system setup as its MIDI and exclusive pages show it; 64 internal voices and the cartridge\'s in the slot list. Not yet checked on a DX7s.',
+  coverage: 'Edits the DX7s\'s voices, performances, system setup, micro tunings and fractional scaling. Every voice parameter with its additional settings, the performance, system setup, micro tuning, fractional scaling and the Branch Library, with the DX7s\'s own page names, value texts and ranges; a performance plays voice A only, and settings the DX7s neither shows nor uses are kept read-only; the system setup as its MIDI and exclusive pages show it; the 64 internal voices and the cartridge\'s in the slot list. Not yet checked on a DX7s.',
 });
 
 export default def;

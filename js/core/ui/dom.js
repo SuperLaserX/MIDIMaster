@@ -56,10 +56,47 @@ export function svg(tag, attrs = {}, ...children) {
   return el;
 }
 
+// ------------------------------------------------------------ badges
+// the app's badge kinds (the classes span.badge takes: live, ram, rom, warn) as Web Awesome badges
+const BADGE = { live: ['brand', 'accent'], ram: ['success', 'filled-outlined'], warn: ['warning', 'filled-outlined'], bad: ['danger', 'filled-outlined'], '': ['neutral', 'filled-outlined'] };
+
+/** A small label (wa-badge). kind: '' (neutral), live (accent), ram (green), warn, bad. */
+export function badge(text, kind = '', props = {}) {
+  const [variant, appearance] = BADGE[kind] || BADGE[''];
+  return h('wa-badge', { variant, appearance, pill: true, ...props }, text);
+}
+
 // ------------------------------------------------------------ toasts
+/**
+ * A note shown by its first sentence, with the rest behind "More": long explanations stay available
+ * but out of the way. Short notes are shown whole. cls: the element's classes ('small.muted').
+ */
+export function shortNote(text, cls = 'small.muted') {
+  if (!text) return null;
+  const t = String(text).trim();
+  if (t.length <= 170) return h(`div.${cls}`, t);
+  const m = t.match(/^([\s\S]{20,170}?[.!?])\s+(?=[A-Z(0-9"])/);
+  if (m) return h(`details.note-more.${cls}`, h('summary', m[1]), h('div', t.slice(m[0].length)));
+  // one long sentence: the start of it, and the whole text when opened
+  const cut = t.lastIndexOf(' ', 140);
+  return h(`details.note-more.cut.${cls}`, h('summary', h('span', `${t.slice(0, cut > 60 ? cut : 140).replace(/[,;:(]+$/, '')}…`)), h('div', t));
+}
+
+// kind -> Web Awesome variant and icon of a toast
+const TOAST_KIND = {
+  info: ['neutral', 'circle-info'], good: ['success', 'circle-check'], warn: ['warning', 'triangle-exclamation'], bad: ['danger', 'circle-exclamation'],
+};
+
+/** A short message in the corner (kind: info, good, warn, bad), gone after ms milliseconds. */
 export function toast(message, kind = 'info', ms = 4000) {
   const box = typeof document === 'undefined' ? null : document.getElementById('toasts');
   if (!box) return null;
+  if (box.tagName === 'WA-TOAST' && globalThis.customElements?.get('wa-toast-item')) {
+    const [variant, name] = TOAST_KIND[kind] || TOAST_KIND.info;
+    const item = h('wa-toast-item', { variant, duration: ms, class: `toast-${kind}` }, h('wa-icon', { slot: 'icon', name }), message);
+    box.append(item);
+    return item;
+  }
   const t = h('div.toast.' + kind, message);
   box.appendChild(t);
   setTimeout(() => t.remove(), ms);
@@ -67,20 +104,29 @@ export function toast(message, kind = 'info', ms = 4000) {
 }
 
 // ------------------------------------------------------------ dialogs
-export function dialog(title, body, buttons = [{ label: 'OK', value: true, primary: true }]) {
+/**
+ * A modal dialog (Web Awesome's wa-dialog) with buttons in its footer; resolves with the value of
+ * the button pressed (a function is called for it), or null when closed with Escape or the close
+ * button. opts.wide: a wider dialog (also chosen for bodies holding a table).
+ */
+export function dialog(title, body, buttons = [{ label: 'OK', value: true, primary: true }], opts = {}) {
   return new Promise((resolve) => {
-    const dlg = h('dialog', h('h2', title), body);
-    const actions = h('div.actions');
+    const dlg = h('wa-dialog.mm-dialog', { label: title }, body);
+    let done = false;
+    const finish = (v) => { if (!done) { done = true; resolve(v); } };
+    const actions = h('div.actions', { slot: 'footer' });
     for (const b of buttons) {
       actions.appendChild(h('button.btn' + (b.primary ? '.primary' : '') + (b.danger ? '.danger' : ''), {
-        onclick: () => { dlg.close(); resolve(typeof b.value === 'function' ? b.value() : b.value); },
+        onclick: () => { const v = typeof b.value === 'function' ? b.value() : b.value; finish(v); dlg.open = false; },
       }, b.label));
     }
     dlg.appendChild(actions);
-    dlg.addEventListener('cancel', () => resolve(null));
-    dlg.addEventListener('close', () => setTimeout(() => dlg.remove(), 0));
+    // Escape, the close button: like Cancel (events from controls inside bubble up too: only the dialog's own)
+    dlg.addEventListener('wa-hide', (ev) => { if (ev.target === dlg) finish(null); });
+    dlg.addEventListener('wa-after-hide', (ev) => { if (ev.target === dlg) dlg.remove(); });
+    if (opts.wide || body?.querySelector?.('table, .ml-pick, .wide')) dlg.classList.add('wide');
     document.body.appendChild(dlg);
-    dlg.showModal();
+    dlg.open = true;
   });
 }
 
@@ -103,7 +149,8 @@ export async function formDialog(title, fields, okLabel = 'OK', note = null) {
       inputs[f.key] = inp;
       return h('label.field', f.label, inp);
     }));
-  setTimeout(() => Object.values(inputs)[0]?.focus(), 30);
+  Object.values(inputs)[0]?.setAttribute('autofocus', ''); // the dialog focuses it when it opens
+  setTimeout(() => Object.values(inputs)[0]?.focus(), 60);
   return dialog(title, body, [
     { label: 'Cancel', value: null },
     {

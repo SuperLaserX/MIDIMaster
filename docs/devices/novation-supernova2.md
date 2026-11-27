@@ -92,6 +92,7 @@ the MSB. The editor shows every parameter with the label the SuperNova's menu us
 | 240-253 | arpeggiator (pattern bank/number, velocity, fill-in/ordering, quantize, octaves, **latch** 247 (CC 65), latch type, mute and notes-to bits in 249 (with the **vocoder input** of program mode in bit 1 and an OS 2 marker in bit 2), **arpeggiator on/off in program mode** 250 (NRPN 1 72/73 stored as sent, CFF4), real-time transpose, sync, OS 1 gate time) |
 | 254-285 | effects (distortion, EQ, comb filter, panning, reverb, chorus, delay, configuration): used when a part's Effects used is Program |
 | 1E 0-41 | OS 2: LFO slew, unison detune, FM / LFO fade / filter bypass bits, envelope key track, filter width, VCO drift, A-D repeat, sustain time/rate, level track/note, osc start phase, drum played as, overdrive curve (30), arp output channel, arp gate time, digital-input waves (33-35), digital vocoder input (36), env/LFO delay sync, LFO delay mode |
+| 1E 9-12, 1E 3 bit 6 | **Keyboard settings of program mode** (SuperNova II Keyboard, Nova II): 9 Keyboard octave (61-67 = -3..+3, Nova II to 68 = +4), 10 Kbd t-zone hi, 11 Kbd t-zone lo, 12 zone detune (signed), 3 bit 6 the transpose zone switch. In program mode NRPN 120 MSB 5 / 4 / 113 / 12 write them (in performance mode the same NRPNs write message 20 bytes 449 / 450 / 452 / 451). The new-program routine writes 64, 60, 36, 76 (Rack 1F4CE); the Rack receiver limits byte 9 to 67 (1CBEC) but the Rack has no keys and never reads them |
 | 1E 42-55 | reserved: the transmitter (1D410) clears them before every 1E dump |
 | 1E 56-75 | OS 2 effect settings (bypass, chorus types 4-5, distortion, comb, chorus LFO; 71 = digital pass to effects) |
 | 1E 76-87 | reserved: cleared by the transmitter |
@@ -115,10 +116,14 @@ Filter width itself (00-56) and DCO / VCO mode.
 | 17 | arpeggio speed (CC 9 in performance mode, shown + 64 b.p.m.) |
 | 18 | current part |
 | 20 + 44n | part n: program, bank, MIDI channel (0-15, 16 Omni, 17 Global), outputs, Sus/sw2, semitone, detune, velocity curve, key range, byte 10 (polyphony, MIDI filters, arpeggiator, effects used), part level; then its 32-byte effect block |
+| 16 | 2Fh: the transmitter ORs it in (1D696; bits 0-3, 5); a received performance without bit 5 gets its part effects converted (1CC50). **Bit 6 = part 8 mute** (below) |
+| 19 | **part mutes**: bit n = part n+1 muted (parts 1-7). Packed NRPN 113 = 63-70 mutes part 1-8, 55-62 un-mutes it (performance mode only, E8B2 / E9C2; the display says "Part muted" / "Part un-muted"); a muted part is silent when the performance loads (10812). Part 8's bit is bit 7 inside the SuperNova: the transmitter moves it to byte 16 bit 6 (1D644), the receiver back (1CC1C). The OS 4.1 SuperNova does the same (emulated) |
 | 1B 0 | 28h (format marker written by the transmitter 1D612) |
-| 1B 1-7 | vocoder input, insert, width, balance, sibilance level/type |
+| 1B 1-7 | vocoder input, insert, width, balance, sibilance level/type; byte 5 is cleared by the transmitter (1D68E) and read by nothing |
+| 1B 8 | sent as stored; no CC, NRPN or menu field writes it and only the receive, load and dump copies touch it (emulated Rack and Keyboard OS); shown read only |
+| 1B 9-15 | cleared by the transmitter (1D66A): never sent other than 0 |
 | 20 + 40n | part n OS 2 settings: 0-19 effect settings as in the program's 1E 56-75 (15 = digital pass to effects), 33 switches (pedal/breath, arp bank & pattern used from), **34/35 the part's own arp pattern bank and number** (used instead of the program's when byte 33 bit 6 is set: 15EC2), 36/37 Sw1/Sw3; 38-39 cleared by the transmitter (1D714) |
-| 20: 320-453 | SuperNova II **Keyboard** performance settings: External Parts 1-8 (16 bytes each: MIDI channel, Tx options, bank MSB/LSB, program, key range, velocity range, volume, semitone, wheel assignment, default velocity, MIDI stream), then byte 448, the arp transpose zone (449-452) and ext song select (453). Placed from the Keyboard OS 2.0 NRPN 120 MSB 16-111 and 122 MSB 64-87 handlers (tables 11FD2/12AFE there); the Rack keeps them but does not use them (it only reads 452 back, 1516C) |
+| 20: 320-453 | SuperNova II **Keyboard** performance settings: External Parts 1-8 (16 bytes each, table below), 448 Keyboard octave (61-67; applied when the performance loads, 25056), 449 Kbd t-zone hi, 450 Kbd t-zone lo, 451 bit 6 the transpose zone switch (NRPN 120 MSB 12) and bit 4 "Tx song select ?" (Yes = set: 115BA tests it before sending Song Select F3 with byte 453), 452 zone detune, 453 Song no. (NRPN 122 MSB 38). The Rack keeps them but does not use them (it only reads 452 back, 1516C) |
 | 20: 454-463 | reserved: cleared by the transmitter |
 
 The `multi` hook gives the MIDI channels page (bank/program, channel, polyphony, level, pan,
@@ -211,9 +216,7 @@ above. Their displays come from the Keyboard OS 2.0 menus (records 74A18-7830A t
 `re/novwork/menux.py`): Ext part MIDI ch (Off, 1-16), Ext bank MSB/LSB, program, volume (0-127),
 Ext lowest/highest note, Ext velocity min/max and Default velocity (1-127), transpose (4-124 shown
 signed), Mod wheel Tx CC, MIDI Stream byte (1-12), Kbd t-zone hi/lo (notes), zone detune (signed).
-The Tx option bits (menu "PBMWAVSN": prog change, bank change, mod wheel, pitch bend, aftertouch,
-volume, sustain, kbd notes), the stream bytes, byte 448 and the transpose zone switch stay typed
-values. The Nova II Keyboard (model 23, `novation-nova2.md`) uses these formats as well. Older OS versions (1.x) do not have messages 1B, 1C, 1E, 1F, 20, 21 or 15: the editor
+The Nova II Keyboard (model 23, `novation-nova2.md`) uses these formats as well. Older OS versions (1.x) do not have messages 1B, 1C, 1E, 1F, 20, 21 or 15: the editor
 still reads their 00/02/05/07/0F messages (the missing parts stay at their defaults).
 
 ## Translator
@@ -248,52 +251,98 @@ approximated. Categories map to the Head Library's.
   the captured 05 sent back; performance, program and global then equalled the captures byte for
   byte (`re/sn2/live/s2/mute_*.syx`). No memory writes; Memory protect untouched (still Off).
 
+- 2026-11-27 (part mute check, `tools/novation/sn2_partmute_check.py`): the port "2- SuperNova"
+  opened, but the unit answered nothing (identity requests with device 7F and 0F, the global and
+  current-performance requests; 6 s waits). Nothing but requests was sent, so nothing changed on the
+  unit. The check (back up, packed NRPN 113 = 63 / 55, read byte 19, restore, verify) is still to be
+  done; the part mutes are shown in the emulated Rack OS 2.0 (the image the unit runs).
+
+## Emulator (tools/novation/h8)
+
+Ghidra has no H8 language, so the remaining bytes were placed by running Novation's own operating
+systems: `tools/novation/h8/cpu.mjs` is an H8/300H core (advanced mode), `machine.mjs` the H8/3002
+peripherals the OS uses (SCI0 = MIDI at 31250 baud, ITU timers, A/D, interrupt controller, ports),
+`board.mjs` the external chips as far as the OS needs them (flash with Atmel-style 256-byte page
+writes, DSP56k host ports that answer "ready", a display buffer or an HD44780 on port A for OS 4.1),
+`novation.mjs` the models (memory map per OS image), snapshots, MIDI exchange, the front-panel switch
+matrix (port B row select, port A switches), knob events (the OS's panel event queue) and memory
+watches. It boots the SuperNova II Rack OS 2.0, SuperNova II Keyboard OS 2.0, Nova II Keyboard OS 2,
+SuperNova OS 4.1 and Nova OS 4.1 images; `factory()` loads Novation's factory files over MIDI as a
+user would (Memory protect off, then the banks), so that program changes select real sounds.
+Snapshots go to `re/novwork/h8/` (not in git). The Keyboard keybed (rows written to 300001, two
+contacts per key read at 300000) is driven by the experiment scripts.
+
+**The editor against the OS** (`node tools/novation/h8/check_editor.mjs`): the editor's own
+fetch / Send / Store / Recall functions run against each emulated OS through a fake MIDI client.
+Every editable parameter of the current program and performance is changed, sent to the edit
+buffer, read back; then stored into bank A slot 7, read back with a single request, recalled with
+bank select + program change and read back. Result (2026-11-27): byte for byte equal on the
+SuperNova II Rack OS 2.0 and Keyboard OS 2.0 (programs 346-351 parameters changed, performances
+608-798), the Nova II (except the part 7-8 slots its transmitter fills with copies of other
+parts), the SuperNova OS 4.1 and the Nova OS 4.1 (same exception), apart from the bytes the OS sets
+on every dump (format markers 238 bit 6 / 249 bit 2 / performance 16, the derived 209, cleared
+reserved bytes).
+
+## Panel selections (program bytes 18-21, 237)
+
+Found by pressing every switch of each emulated OS (96 Rack, 136 Keyboard, 128 Nova II, 128
+SuperNova) and reading the display and the program back; the knob each page drives was turned with a
+knob event to see which program byte it edits.
+
+| Bits | Panel | Values (what the display then shows) |
+|---|---|---|
+| 19 bits 0-2 | Osc page | 0 Pitch, 1 Width, 2 Sync, 3 Mix, 4 Harden ("Pitch level / Pitch mod." ... "Harden level / Harden mod."; the SuperNova shows "Soften"). Rack switches 27-31, Keyboard 96-100; restored at program load (2092C) |
+| 19 bits 3-5 | Osc mod. source | Env 2, Env 3, LFO 1, LFO 2, Wheel |
+| 20 bits 0-3 | Filter mod. page | SuperNova OS 4.1 only: its one "Filter mod." knob edits the Freq mods (0, switch 12) or the Res/width mods (1, switch 4): checked by turning the knob after each. The SuperNova II shows both ("Filter freq mod" / "Filter res mod"); no SuperNova II or Nova II switch sets these bits and their readers mask them off (20 & F0h) |
+| 20 bits 4-6 | Filter mod. source | LFO 1, LFO 2, Env 2, Env 3, Wheel |
+| 21 bits 0-1 | Tune page | SuperNova OS 4.1 only: its tune knob edits Fine tune (0, switch 41), Coarse tune (1, switch 33) or Octave (2, switch 25): checked with the knob. No SuperNova II or Nova II switch sets them; their readers mask them off |
+| 21 bits 2-3, 4-5 | Selected LFO, envelope | as before |
+| 237 bits 4-6 | Effects page | Nova and Nova II: which effect the effects knobs edit: 0 Distortion, 1 Reverb, 2 Chorus, 3 Delay, 4 Pan, 5 Fx config, 6 Vocoder (knob shows "Distortion drive", "Reverb send", "Chorus send", "Delay send", "Pan position", "Fx config", "Vocoder balance"; Nova II switches 22, 19, 20, 18, 23, 21, 63; read at program load, 24B14). The SuperNova II has a switch per effect page and neither sets nor reads it |
+
+## External Parts (SuperNova II Keyboard, Nova II: message 20 bytes 320 + 16 x part)
+
+Placed in the emulated Keyboard OS 2.0 by sending every NRPN 120 MSB (16 + 8 x field + part) and
+NRPN 122 MSB (64-111) and reading the performance back; labels are the Keyboard menus' (records
+77816-78340).
+
+| Byte | Contents |
+|---|---|
+| 0 | bits 0-3 MIDI channel - 1, bit 6 set while the part is on ("Ext part MIDI ch" Off, 1-16: NRPN 120 MSB 40), bit 4 "Tx ext velocity" (set = No; NRPN 122 MSB 64: 0 sets, 1 clears), bit 5 Kbd notes Tx (set = No; NRPN 120 MSB 64 = 14 / 15). With bit 5 set the emulated keys no longer play on the part's channel; with it clear they do |
+| 1 | Tx options "PBMWAVSN" with "Tx ?": bit 6 Prog change, 5 Bank change, 4 Mod wheel, 3 Pitch bend, 2 Aftertouch, 1 Volume, 0 Sustain; set = No. NRPN 120 MSB 64 = k sets the bit of menu option k (0-6), k + 7 clears it; Kbd notes, option 7, is byte 0 bit 5 (14 / 15) |
+| 2, 3, 4 | Ext bank MSB, bank LSB, program no. (NRPN 120 MSB 88, 80, 72) |
+| 5, 6 | Ext lowest / highest note (MSB 56, 48) |
+| 7, 8 | Ext velocity min / max (MSB 24, 32; the maximum is kept at or above the minimum). The earlier mapping had these two the other way round |
+| 9, 10, 11 | Ext volume level (MSB 96), transpose (MSB 16, 4-124 shown signed), Mod wheel Tx CC (MSB 104) |
+| 12, 13 | Default velocity (1-127, NRPN 122 MSB 72), MIDI Stream byte (1-12, NRPN 122 MSB 80) |
+| 14, 15 | MIDI stream: NRPN 122 MSB 104 + part writes the part's first stream byte (message 20 byte 20 + 40 x part) and sets 15 bit 0, MSB 96 + part writes it and clears the bit. The rest of the stream (menus "Send MIDI stream", "No of bytes", "Message byte", channeliser) is not traced: typed values |
+
 ## Not identified yet
 
-Searched in every image (SuperNova II Rack 1.3/1.5/2.0, Keyboard 1.5/2.0, Nova II Keyboard 2,
-SuperNova and Nova OS 4.1) for setters **and readers** (loads of the byte followed by a test of its
-bits, the edit-buffer and RAM-copy accesses, the new-program and dump routines), and in the factory
-sounds (SuperNova II Keyboard OS 2 zip: 1274 programs, 256 performances; the Nova `total.mid`).
-Scripts: `re/novwork/readers.py`, `blockrd.py`, `factory.py`. What was found:
-
-- **238 bits 0-1 = Polyphony (program mode)**: menu field "polyphony" (6E2E4, values 1-2 Mono/Poly).
-  The setter E590 writes them in program mode and a part's Part polyphony (part byte 10 bits 0-1) in
-  performance mode; Off and 3 are refused for a program; read at E63A, 104C0, 105AE. Now a named
-  parameter.
-- **Part byte 10 bit 5** is the Nova's Expression pedal (OS 4.1 setter B492, values 118/119); no
-  SuperNova II or Nova II OS sets or reads it: shown read-only with that note. Global 15 13 and 24-25
-  are the Nova's Headphones out and Trim1/Trim2 (table above).
-- **Panel state** (shown read-only as numbers, no display text exists): 19 bits 0-2, 20 bits 0-3 and
-  21 bits 0-1 are written by the front-panel button table (SuperNova OS 4.1: records 38BE8-38E68
-  call setters 1C998, 1CB9C, 1CA1E with a mask and a value: 19 bits 0-2 = 0-4 from buttons 0Eh-12h,
-  20 bits 0-3 = 0/1 from buttons 20h/21h, 21 bits 0-1 = 0-2 from buttons 0Bh-0Dh; the same table
-  gives the mod. source buttons in panel order LFO 1, LFO 2, Env 2, Env 3, Wheel). 237 bits 4-6 is
-  a remembered page of a panel section: the Nova OS 4.1 (1971A) and the Nova II (24B14) read it when a
-  program loads and index their page-pointer table (RAM 38E92 / 5F5A4) with it; the SuperNova II OS
-  only masks it off (and #0Fh). Factory values: 19 0-4, 20 0-1, 21 0-2, 237 bits 4-6 0-5.
-- **1E 9-12**: the new-program routine writes 64, 60, 36, 76 (Rack 1F4CE-1F4F6, Keyboard 23A62,
-  Nova II 235B8, the same in OS 1.5); the same four values initialise a RAM block (Rack 1.5 57F2F-
-  57F32, checked at 1F0A8) and a block at +1D0 of another structure (1F608). No reader was found
-  (the OS 2 block at 673E4 + 58h x part is reached through pointers; no absolute-indexed access to
-  these offsets in any image). Factory programs: 1E 9 = 61-66, 1E 10-12 = 60, 36, 76 in all. Read-only.
-- **0 in every factory sound and no setter or reader**: 1E 75, 249 bits 3-4, effect byte 21 bit 3,
-  1E 3 bit 6, 1E 41 bits 2-6, 1E 56 bits 2-6, 209 bit 4, 19 bit 6, 21 bit 6; 1B 8-15; part OS 2 block
-  19-32, block 0 bits 2-6 and block 33 bits 0-2 and 4-5. Whole bytes are shown read-only (group
-  Reserved); bits inside named bytes are kept by every edit.
-- **Performance 16** = 2Fh in every factory performance (SuperNova II and Nova); **19** is 0 or a
-  single bit (1, 2, 4, 8, 16, 64) in a few: perhaps the part mutes the manual says a performance
-  stores, but muting part 1 on the Rack (Sus/sw2 = Part mute, CC 64, edit buffer only) did not change
-  it. **1B 5** is 3 or 4 in the Nova's factory performances, 0 on the SuperNova II. All read-only.
-- **Keyboard External Parts**: the Keyboard NRPN 120 MSB 16-111 handlers are 12 field groups x 8
-  parts (MSB 16 + 8 x field + part); they share code by falling through, so the order of the Tx
-  option bits (menu "PBMWAVSN") and the stream bytes inside the 16-byte part is not placed yet: those
-  stay typed values, as do byte 448 and the transpose zone switch.
+1. **MIDI stream** (Keyboard, Nova II): bytes 14-15 of each External Part except 15 bit 0, and the
+   part-block bytes 19 and 21-32 of message 20 (0 in every factory performance; the Rack neither sets
+   nor reads them). Only menu fields reach them; tracing needs the menus driven in the emulator.
+2. **1B 8**: sent as stored, nothing writes or reads it apart from copies (read only).
+3. 0 in every factory sound with no setter or reader (unchanged): 1E 75, 249 bits 3-4, effect byte
+   21 bit 3, 1E 41 bits 2-6, 1E 56 bits 2-6, 209 bit 4, 19 bit 6, 21 bit 6, part OS 2 block 0 bits
+   2-6 and 33 bits 0-2 and 4-5; shown read only (group Reserved), kept by every edit.
 
 ## Open items
 
-1. Names for the read-only bytes above: 1E 9-12 (the voice engine's pointer-based reads of the OS 2
-   block are the next place to look), the panel states (need the panel layout), performance 16/19.
-2. The External Parts' Tx option bits and stream bytes (Keyboard), byte 448, the transpose zone
-   switch: typed values until the fall-through NRPN 120 handlers are traced field by field.
-3. SuperNova II units on OS 1.x are out of scope (the user's decision): the editor reads their
+1. The MIDI stream above (Keyboard and Nova II only; the Rack ignores it).
+2. SuperNova II units on OS 1.x are out of scope (the user's decision): the editor reads their
    messages, but nothing is done or checked for them.
+
+Part mutes checked on the SuperNova II Rack (2026-11-27, `tools/novation/sn2_partmute_check.py`, port "2- SuperNova",
+global channel 16): packed NRPN 113 = 63 set performance byte 19 bit 0 (part 1 muted) and changed no other byte; 113 = 55
+cleared it; the backed-up performance, program and global edit buffers were sent back and read back equal byte for
+byte (RESULT OK). Nothing was written to memory.
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- Polyphony: Program mode (menu "polyphony" 6E2E4, 1-2). The same setter (E590) writes the Part polyphony of a part in performance mode; Off and 3 are refused for a program
+- CC 65 (64-127 on); getter at 1396C
+- Format marker (2): Set by the SuperNova before it sends a program (1D3F2). Marks programs in the OS 4 value scale: the OS 4.1 converts a program without it (Nova 176D2), and 1DE84 here keeps the distortion drive of one with it
+- Expression pedal (Nova): Only the Nova OS 4.1 sets it (its Expression pedal, values 118/119, setter B492 there); no SuperNova II or Nova II OS sets or reads it. Kept so a backup restores exactly.
+- Global 15 24-25: The transmitter writes 40h; the receiver stores it in RAM 346AE-346AF, which nothing reads. It is the Nova's Trim${k - 23} (OS 4.1: 54-74 = -10..+10)

@@ -1,4 +1,4 @@
-// Alesis Wedge programs <-> the shared synth model (docs/HEAD_LIBRARY.md), effects section only.
+// Alesis Wedge programs <-> the shared synth model (intdocs/HEAD_LIBRARY.md), effects section only.
 //
 // toCommon: each effect of the configuration (its pages share a title: ROOM, CHORUS, DLY...) becomes
 //   effects.reverb {type, time, level, preDelay}, effects.delay {type, time, feedback, level} or

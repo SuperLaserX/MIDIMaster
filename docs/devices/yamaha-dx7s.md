@@ -65,3 +65,27 @@ never read. The system setup's bytes 1, 3, 6 and 19 have no page and no referenc
 B186: byte 19 = 1; program change table 0-63, B178). The editor shows the unused bytes read-only.
 
 Open: check on a DX7s.
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- (its "A mod sens." page edits the additional data's Ams 0-7, 99F1).
+- Scal. mode: normal ("nomal" on the DX7s), or fractional scaling (D26C).
+- A mod sens. (0-7): the DX7s edits this byte of the additional data on its sensitivity page (99F1).
+- The page "FC1 -> CS1 :" (E3BA): foot controller 1 acts as continuous slider 1.
+- Voice number= (E51B): I01-I64 internal, C01-C64 cartridge.
+- Key (E54D): shown for
+- FS : (E4AC): what the foot switch does (texts E4F2).
+- FS soft = (E4B1): the soft pedal range 0-7.
+- Key shift = (E529): 24 = none.
+- Trns ch = (E5FB): 1-16, or off (stored as 16; 8750, D9D1).
+- Recv ch = (E609): 1-16, or off (16).
+- IN control# = (E633): the control number
+- PC trns: (E66D, texts E6D5): no program change
+- (E6DB): off = no bulk dumps, requests or parameter changes.
+- Recv block: (E6F5): where a received 32-voice bulk goes.
+- Trns block: (E768 + E701): the 32 voices a bulk sends and a request answers.
+- Master tune = (E0FE): 64 = centre (sent as F0 43 1n 04 40 vv F7).
+- Set bank >VP >FS >MT (E1A7, E1C9): the cartridge bank
+- Program SW [ ] Trns # (E676, DA1D): the program number

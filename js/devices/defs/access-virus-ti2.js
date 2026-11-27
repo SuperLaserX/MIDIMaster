@@ -4,7 +4,8 @@
 //
 // USB ports: "Virus TI Synth" is the synth engine (every message below goes there and is answered
 // there); "Virus TI MIDI" is the MIDI DIN pass-through (USB <-> MIDI In/Out sockets): the synth
-// does not answer on it.
+// does not answer on it. Over DIN (a MIDI interface on the MIDI In/Out sockets) the same messages work
+// while the Virus's USB MIDI is off; see "connection" below (def.link) and the doc's "DIN and USB".
 //
 // SysEx F0 00 20 33 01 dd cc ... F7: 00 20 33 Access, 01 Virus, dd device ID (0-15, 10 = omni:
 // any unit answers; replies carry the unit's own ID), cc the command.
@@ -243,15 +244,15 @@ const flagText = (names) => (v) => { const on = [0, 1, 2, 3, 4, 5, 6].filter((b)
 function reservedByte(o) {
   const p = { key: `s${o}`, offset: o, group: 'Reserved bytes', section: 'reserved', min: 0, max: 127, input: 'number', readOnly: true };
   if (o === 0) return { ...p, label: 'Format', group: 'Single Patchmanagement', section: 'common', format: (v) => FORMATS[v] || `format ${v}`,
-    help: 'Internal parameter 0 of the OS (no screen shows it): 12 in every sound the OS 5 writes; a sound with format 8, 9 or 11 is converted when it arrives (Unison, Ring Modulator Volume and Arpeggiator Mode move, newer parameters get their defaults)' };
+    help: 'The sound\'s format (no screen shows it): 12 for sounds of the current system (OS 5). An older sound (format 8, 9 or 11) is converted when it arrives: Unison, Ring Modulator Volume and Arpeggiator Mode move, and newer parameters get their defaults.' };
   const old = OLD_POSITION[o];
   const cc = o < 128 ? OS.CC_NAMES[o] : '';
   if (old) return { ...p, label: `${old[1]} (formats 8-9)`,
-    help: `Page ${pageIndex(o)}: where formats 8 and 9 kept ${old[1]}${cc ? ` (the OS calls controller ${o} "${cc}")` : ''}; the OS copies it to byte ${old[0]} when such a sound arrives and leaves this byte as it was. No parameter in the OS 5.` };
+    help: `Page ${pageIndex(o)}: where older sounds (formats 8 and 9) kept ${old[1]}. The Virus moves the value to its current place when such a sound arrives and leaves this one as it was; not a setting of current sounds.` };
   if (o < 128 && (STANDARD_CC[o] || cc === '')) return { ...p, label: `Controller ${o}${cc ? ` (${cc})` : ''}`,
-    help: `Page A ${o} is MIDI controller ${o}${cc ? ` ("${cc}" in the OS's controller list)` : ''}: ${OS.SINGLE[o].length || STANDARD_CC[o] ? 'a performance control' : 'no parameter'}, not part of the sound. Older sounds stored the controller's value here (e.g. 127 for Expression); the OS keeps it as it is.` };
+    help: `Page A ${o} is MIDI controller ${o}${cc ? ` ("${cc}" on the Virus)` : ''}: ${OS.SINGLE[o].length || STANDARD_CC[o] ? 'a performance control' : 'not a setting'}, not part of the sound. Older sounds stored the controller's value here (e.g. 127 for Expression); the Virus keeps it as it is.` };
   return { ...p, label: `Reserved (${pageIndex(o)})`,
-    help: `Page ${pageIndex(o)}: no parameter in the TI2 OS (no screen, parameter messages ignored).${o === 128 ? ' The OS writes 64 here when it converts a format 8 or 9 sound.' : ''} 0 in OS 5 sounds; older sounds may carry a value, which the OS keeps.` };
+    help: `Page ${pageIndex(o)}: not a sound setting on the TI2 (no screen shows it and the Virus ignores changes to it).${o === 128 ? ' The Virus puts 64 here when it converts an older sound (format 8 or 9).' : ''} 0 in current sounds; older sounds may carry a value, which the Virus keeps.` };
 }
 
 function singleParams() {
@@ -266,7 +267,7 @@ function singleParams() {
       min: v0.min, max: v0.max, help: `${v0.key} (page ${'ABCD'[offset >> 7]} ${offset & 127})`, ...display(v0.key, v0.list, v0.min, v0.max),
     };
     if (PANEL.has(v0.key)) { p.group = 'Panel selections'; p.section = 'common'; p.label = `${v0.group} page`; }
-    if (v0.key === 'Single Patchmanagement/Flags') Object.assign(p, { label: 'Status', input: 'number', readOnly: true, options: undefined, min: 0, max: 127, format: flagText(SINGLE_FLAGS), help: 'Status bits the OS keeps (internal parameter 1, no screen): bit 0 edited, 1 compare on, 2 sound loaded (by SysEx, from memory or a multi), 3 multi loading, 4 loaded as a part of a multi, 5 only in older sounds (the OS clears it), 6 not used. Storing writes 0; a parameter message cannot set it' });
+    if (v0.key === 'Single Patchmanagement/Flags') Object.assign(p, { label: 'Status', input: 'number', readOnly: true, options: undefined, min: 0, max: 127, format: flagText(SINGLE_FLAGS), help: 'Status flags the Virus keeps (no screen shows them), named in the value: edited, compare on, sound loaded (by SysEx, from memory or a multi), multi loading, loaded as part of a multi, a flag of older sounds (the Virus clears it), unused. Storing writes 0; it cannot be changed from here.' });
     if (/^Arpeggiator User Pattern\/Step \d+ Bitfield$/.test(v0.key)) Object.assign(p, { options: [[0, 'Off'], [1, 'On']], help: `${v0.key} (page D ${offset & 127}): "Bitfield" is also the TI's own display name; Virus Control edits it with the step's on/off button (1 in nearly every factory sound)` });
     if (v0.key === 'Single Patchmanagement/Original Bank') Object.assign(p, { readOnly: true, help: 'The bank this sound was loaded from (0 RAM A ... 29 ROM Z), written by the Virus' });
     if (v0.key === 'Single Patchmanagement/Original Patch') Object.assign(p, { input: 'number', readOnly: true, options: undefined, format: (v) => slotNumber(v), help: 'The slot this sound was loaded from, written by the Virus' });
@@ -334,8 +335,8 @@ export function multiParams({ parts = 16, T = TABLES, names = () => unit.partNam
     const [offset, key, label, group, min, max, , list] = r;
     if (group === 'Multi Patch Name') continue;
     const p = { key: `m${offset}`, offset, label, group: 'Multi', section: 'common', min, max, help: key, ...display(key, list, min, max, T), ...(group === 'Multi Patchmanagement' ? { input: 'number', readOnly: true } : {}) };
-    if (offset === 1) Object.assign(p, { label: 'Status', options: undefined, min: 0, max: 127, format: flagText(MULTI_FLAGS), help: 'Status bits the OS keeps (internal parameter 345h, no screen): bit 0 set by a multi parameter edit, bit 2 when a multi arrives by SysEx (01h after an edit, 05h after a dump, checked on the unit); a parameter message cannot set it' });
-    if (offset === 3) Object.assign(p, { options: undefined, format: (v) => slotNumber(v), help: 'The slot this multi was loaded from (internal parameter 346h), written by the Virus' });
+    if (offset === 1) Object.assign(p, { label: 'Status', options: undefined, min: 0, max: 127, format: flagText(MULTI_FLAGS), help: 'Status flags the Virus keeps (no screen shows them): edited, and loaded by SysEx. Shown for information; it cannot be changed from here.' });
+    if (offset === 3) Object.assign(p, { options: undefined, format: (v) => slotNumber(v), help: 'The slot this multi was loaded from, written by the Virus' });
     out.push(p);
   }
   for (let part = 0; part < parts; part++) {
@@ -351,7 +352,7 @@ export function multiParams({ parts = 16, T = TABLES, names = () => unit.partNam
     // the single the part holds (its edit buffer), named from the arrangement read with the multi
     const at = partAt(33, part);
     out.push({ key: `p${part}_sound`, offset: at, label: 'Sound', group: g, section: `part${part}`, min: 0, max: 127, readOnly: true, part,
-      help: 'The single in this part\'s edit buffer (read with the multi by the arrangement request 34 00); in sequencer mode it can differ from Bank and Patch',
+      help: 'The single this part holds now (read with the multi); in sequencer mode it can differ from Bank and Patch',
       dynamic: (d) => ({ options: [[d[at], names(d)[part] ?? '(not read)']] }) });
   }
   // bytes and bits the OS has no multi parameter for (tools/virus/os_tables.py: page 72 indexes 0, 2, 14, 16-28,
@@ -361,14 +362,14 @@ export function multiParams({ parts = 16, T = TABLES, names = () => unit.partNam
     if (known.has(o) || (o >= 4 && o <= 13) || (o >= 240 && o - 240 < parts)) continue;
     const page = o >= 32 ? 32 + ((o - 32) >> 4) : o;
     const beyond = o >= 240 ? o - 240 : o >= 32 ? (o - 32) & 15 : -1;
-    const what = beyond >= parts ? { label: o >= 240 ? `Part ${beyond + 1} switches` : `Part ${beyond + 1} (page ${page})`, help: `${o >= 240 ? 'Switch bits' : `Multi page ${page}`} of part ${beyond + 1}: this model has ${parts} parts and its OS refuses parameter messages for the others; kept as the dump brings it` }
-      : o === 0 ? { label: 'Format', format: (v) => `format ${v}`, help: 'First byte of every multi (2 in all multis read); no parameter in the OS' }
-      : o >= 32 ? { label: `Part ${((o - 32) & 15) + 1} reserved (page ${page})`, help: `Multi page ${page} for part ${((o - 32) & 15) + 1}: no parameter in the OS (no screen, parameter messages ignored)${page === 44 ? '; 79 in every multi read' : ''}` }
-        : { label: `Reserved (multi ${o})`, help: `Multi byte ${o}: no parameter in the OS (no screen, parameter messages ignored)` };
+    const what = beyond >= parts ? { label: o >= 240 ? `Part ${beyond + 1} switches` : `Part ${beyond + 1} (page ${page})`, help: `${o >= 240 ? 'Switch bits' : `Multi page ${page}`} of part ${beyond + 1}: this model has ${parts} parts and ignores changes for the others; kept as the Virus sends it` }
+      : o === 0 ? { label: 'Format', format: (v) => `format ${v}`, help: 'The multi\'s format (2 in every multi read); not a setting' }
+      : o >= 32 ? { label: `Part ${((o - 32) & 15) + 1} reserved (page ${page})`, help: `Multi page ${page} for part ${((o - 32) & 15) + 1}: not a setting (no screen shows it and the Virus ignores changes to it)${page === 44 ? '; 79 in every multi read' : ''}` }
+        : { label: `Reserved (multi ${o})`, help: `Multi byte ${o}: not a setting (no screen shows it and the Virus ignores changes to it)` };
     out.push({ key: `m${o}`, offset: o, group: 'Reserved bytes', section: 'reserved', min: 0, max: 127, input: 'number', readOnly: true, ...what });
   }
   for (let part = 0; part < parts; part++) {
-    out.push({ key: `p${part}_b4`, offset: 240 + part, shift: 4, bits: 1, label: `Part ${part + 1} switch bit 4`, group: 'Reserved bytes', section: 'reserved', min: 0, max: 1, input: 'number', readOnly: true, help: 'Multi page 76 (bit 4 of the part switches): no parameter in the OS, parameter messages ignored' });
+    out.push({ key: `p${part}_b4`, offset: 240 + part, shift: 4, bits: 1, label: `Part ${part + 1} switch bit 4`, group: 'Reserved bytes', section: 'reserved', min: 0, max: 1, input: 'number', readOnly: true, help: 'Multi page 76 (bit 4 of the part switches): not a setting; the Virus ignores changes to it' });
   }
   return out;
 }
@@ -504,25 +505,25 @@ function templateParams() {
   const out = [];
   const nameAt = 32 * TEMPLATE_NAME_RECORD;
   out.push({ key: 't_name', offset: nameAt, label: 'Name', group: 'Template', section: 'template', min: 0, max: 127, readOnly: true,
-    help: 'Record 16 of the template (16 characters; request 38 tt 20). Change it with "Rename template..."', dynamic: (d) => ({ options: [[d[nameAt], templateNameOf(d) || '(empty)']] }) });
+    help: 'The template name (16 characters). Change it with "Rename template..."', dynamic: (d) => ({ options: [[d[nameAt], templateNameOf(d) || '(empty)']] }) });
   out.push({ key: 't_channel', offset: nameAt + 16, label: 'MIDI channel', group: 'Template', section: 'template', min: 0, max: 1,
     options: [[0, 'As in the MIDI strings'], [1, 'Remote Channel (global)']],
-    help: 'Byte 16 of the name record: 1 replaces the channel of every channel message in the knobs\' strings by the global Remote Channel (host OS 6255 / DB95); Virus Control\'s "MIDI Channel Behaviour"' });
+    help: 'Remote Channel: the knobs send their channel messages on the global Remote Channel instead of the channel in their strings (Virus Control\'s "MIDI Channel Behaviour").' });
   for (const [section, , knobs] of PANEL_AREAS) for (const k of knobs) {
     const g = knobTitle(k);
     const at = 32 * k;
     const { soft, funcs } = panelKnob(k);
     const what = soft ? `soft knob ${soft} under the display (outside Remote mode it follows the global Soft Knob ${soft} settings)` : `outside Remote mode it edits ${funcs.join(', ')} (the panel selection picks one)`;
     out.push({ key: `k${k}_name`, offset: at, label: 'Name', group: g, section, min: 0, max: 127, readOnly: true,
-      help: `Record ${k}, bytes 0-9 (request 38 tt ${hex2(k)}): the name the display shows when the knob is turned in Remote mode. Panel knob ${k}: ${what}. Change it with "Edit knob..."`,
+      help: `The name the display shows when this knob is turned in Remote mode. Panel knob ${k}: ${what}. Change it with "Edit knob..."`,
       dynamic: (d) => ({ options: [[d[at], textAt(d, at, 10) || '(empty)']] }) });
     out.push({ key: `k${k}_range`, offset: at + 10, label: 'Value range', group: g, section, min: 0, max: 255,
       options: OS.KNOB_RANGES.map((_, n) => [n, knobRangeText(n)]),
-      help: 'Byte 10: the OS\'s knob range type (0-77, its table in bank 1): the values the knob sends over its travel. Virus Control sends its own older numbering unconverted (its 52 "Bipolar -64 - +63" is the OS\'s 64; the OS reads 52 as 0-12)' });
+      help: 'The knob\'s range type (0-77): the values the knob sends over its travel. Virus Control sends its own older numbers unconverted (its 52, "Bipolar -64 - +63", is the Virus\'s 64; the Virus reads 52 as 0-12).' });
     out.push({ key: `k${k}_vc`, offset: at + 11, label: 'Byte 11', group: g, section, min: 0, max: 255, input: 'number',
-      help: 'Not read by the OS; Virus Control writes 1 (sometimes 0 or 13) in its template files, the OS\'s initial templates hold FFh' });
+      help: 'Not used by the Virus; Virus Control writes 1 (sometimes 0 or 13) in its template files, the Virus\'s own initial templates hold 255 (FFh).' });
     out.push({ key: `k${k}_midi`, offset: at + 12, label: 'MIDI string', group: g, section, min: 0, max: 255, readOnly: true,
-      help: 'Bytes 12-31: the MIDI bytes the knob sends; * (FFh) is the knob\'s value, FEh ends the string. Change it with "Edit knob..."',
+      help: 'The MIDI bytes the knob sends; * (FFh) is the knob\'s value, FEh ends the string. Change it with "Edit knob..."',
       dynamic: (d) => ({ options: [[d[at + 12], midiStringText(d, at + 12)]] }) });
   }
   return out;
@@ -743,6 +744,74 @@ function simulate() {
   };
 }
 
+// ------------------------------------------------------------------ connection: USB or DIN (def.link)
+// Where the Virus listens and answers (host OS, common code; listings in re/virusti/din/, doc "DIN and USB"):
+//   MIDI In socket   UART0, received at 2CFA. USB: the USB controller (TI "tusb037", its own firmware in F060) on
+//                    UART1 (3288): USB-MIDI packets with their cable number, the 9th bit marking each first byte.
+//   USB MIDI mode    bit 24h: set while global 82 "USB MidiPort active" is not No (its handler, bank 2 A835; Virus
+//                    Control's initialisation sets it to 1) and in the MIDI REMOTE play mode (05F7); cleared when 82
+//                    goes back to No (05C8, 6387). The start-up code writes 82 = No (535B), and the USB controller sends
+//                    73 52 00 when its USB state changes (F060 code 038E).
+//     set            the MIDI In bytes go only to the computer, as USB cable 0 (23B9 -> 22B0: the input "Virus TI
+//                    MIDI"), not to the synth; all the Virus sends (dumps 3A84 / 45B3, parameter messages 6561,
+//                    remote strings DB95, all through 1FD9) goes over USB on the cable of global 58 (1 = "Virus TI
+//                    Synth"), not to the MIDI Out socket
+//     clear          the MIDI In bytes go to the synth (the parser's ring 277C and both DSPs) and, with Soft Thru On,
+//                    on to the MIDI Out (24FE); all the Virus sends leaves its MIDI Out socket (1FD9 -> 28E7 -> 281B)
+//   USB cable 0 ("Virus TI MIDI" out) always goes to the MIDI Out socket (281B), cable 1 ("Virus TI Synth") to the
+//   parser and the DSPs (2988). The parser (3AE4, one ring for every source) never checks where a byte came from:
+//   requests 30-3B, dumps 10 / 11 / 13 and parameter messages 6E-74 are taken alike from the MIDI In and from USB,
+//   and Receive Dump (global 99: 3F4A, 4238) gates dumps from both. So over DIN everything works while the USB MIDI
+//   is off, and nothing reaches the synth while it is on.
+export const SYNTH_PORT = /Virus TI.*Synth/i;
+export const MIDI_PORT = /Virus TI.*MIDI/i;
+/** What a connection can carry: the generic kinds, and 'reply' = the Virus's answers reach the editor (reads, requests). */
+export const LINK_ALL = ['sysex', 'cc', 'nrpn', 'pc', 'notes', 'reply'];
+const LINK_SEND = LINK_ALL.filter((c) => c !== 'reply');
+const REACH = 'the output "Virus TI Synth" (USB), or a MIDI interface on the Virus\'s MIDI In (DIN, its USB MIDI off)';
+export const LINK_NEEDS = {
+  sysex: REACH, cc: REACH, nrpn: REACH, pc: REACH, notes: REACH,
+  reply: 'the Virus\'s answers: the input "Virus TI Synth" (USB), or the interface input cabled to its MIDI Out (DIN)',
+};
+/** Reading and requests: the message goes out and the answer comes back. */
+export const READ = ['sysex', 'reply'];
+const linkState = { din: false };
+/** The connection from the open ports' names (GenericContext.link): USB "Virus TI Synth", the Virus's own "Virus TI MIDI" (its sockets), or DIN through any other interface. */
+export function tiLink({ input = '', output = '' } = {}) {
+  let l;
+  if (SYNTH_PORT.test(output)) {
+    l = SYNTH_PORT.test(input)
+      ? { key: 'usb', label: 'USB ("Virus TI Synth")', short: 'USB', can: LINK_ALL, note: 'USB: the Virus takes every message on "Virus TI Synth" and answers there (not in the play mode Remote, which Virus Control uses: the Virus then ignores that port).' }
+      : { key: 'usb-out', label: 'USB ("Virus TI Synth") without its input', short: 'USB, answers not read', can: LINK_SEND, note: `Messages reach the Virus on "Virus TI Synth", but it answers on the input "Virus TI Synth"${input ? `, not on "${input}"` : ''}: reading needs that input.` };
+  } else if (MIDI_PORT.test(output)) {
+    l = { key: 'thru', label: '"Virus TI MIDI" (the Virus\'s MIDI Out socket)', short: 'Not the synth', can: [],
+      note: '"Virus TI MIDI" is the Virus\'s MIDI In and Out sockets used as a USB MIDI interface: what is sent to it leaves the MIDI Out socket and never reaches the synth. Choose "Virus TI Synth" as input and output.' };
+  } else {
+    const answers = !!input && !SYNTH_PORT.test(input) && !MIDI_PORT.test(input);
+    l = answers
+      ? { key: 'din', label: `DIN MIDI ("${output}")`, short: 'DIN', can: LINK_ALL, note: 'DIN: a MIDI interface on the Virus\'s MIDI In and Out. The Virus takes messages there and answers at its MIDI Out only while its USB MIDI is off (USB MidiPort active No, play mode not Remote).' }
+      : { key: 'din-out', label: `DIN MIDI ("${output}") without an input for the answers`, short: 'DIN, answers not read', can: LINK_SEND,
+        note: `DIN: a MIDI interface on the Virus's MIDI In. Over DIN the Virus answers at its MIDI Out socket${input ? `, not on "${input}"` : ''}: reading needs the interface input cabled to it.` };
+  }
+  linkState.din = l.key.startsWith('din');
+  return l;
+}
+/** What a DIN connection needs of the Virus's global settings (the editor cannot read them: no global request). */
+export function dinWarning(ctx, { remote = true } = {}) {
+  if (!ctx?.link?.key?.startsWith('din')) return '';
+  return `Over DIN the Virus takes the editor's messages at its MIDI In and answers at its MIDI Out only while its USB MIDI is off: global "USB MidiPort active" No${remote ? ', play mode not Remote' : ''}. It is No after the Virus is switched on without a computer; with its USB connected to a computer it is usually on (Virus Control turns it on): the Virus then passes its MIDI In to the computer (port "Virus TI MIDI") and answers over USB only, so use the port "Virus TI Synth". Sending and storing sounds also need "Receive Dump" Enable (Disable refuses dumps; To Bank A-D, To Edit Buffer and Verify change where they go). Set "Soft Thru" Off: On sends everything the editor sends back out to the interface.`;
+}
+/**
+ * The DIN warning on an object page. The generic page shows any `warning` it finds (also when the function returns
+ * nothing), so the property is there only while the connection last worked out (tiLink) is DIN.
+ */
+export function withDinWarning(obj, opts) {
+  Object.defineProperty(obj, 'warning', { get: () => (linkState.din ? (ctx) => dinWarning(ctx, opts) : undefined), enumerable: false, configurable: true });
+  return obj;
+}
+/** The connection part of a TI-family definition: def.link, linkNeeds, requestNeeds and the ports to pick first. */
+export const TI_CONNECTION = { link: tiLink, linkNeeds: LINK_NEEDS, requestNeeds: READ, ports: { input: SYNTH_PORT, output: SYNTH_PORT } };
+
 // ------------------------------------------------------------------ objects
 const PART_TARGET = {
   label: 'Edit buffer', title: 'Which edit buffer the page reads and edits: the single of single mode, or a part of the multi',
@@ -753,9 +822,10 @@ const partSections = Array.from({ length: 16 }, (_, i) => ({ key: `part${i}`, la
 const findMulti = (part, ci) => multiParams_.find((p) => p.part === part && p.page === ci);
 
 const DEF = {
-  coverage: 'Singles (all 388 parameters Virus Control describes: 3 oscillators with the HyperSaw, wavetable and grain/formant models, filters, 4 envelopes, 3 LFOs, 6 assign slots, effects, arpeggiator with its user pattern, vocoder and inputs), the multi (16 parts with bank, patch, channel, key range, volume, pan, output and switches; MIDI channels page) and the global settings (sent only: the OS has no global request), read and sent over the "Virus TI Synth" USB port as Virus Control describes them. RAM and ROM single banks with names from one bank request each (older ROM sounds shown converted as the OS plays them), the RAM multis, store to RAM (checked on RAM A 001), the 32 remote templates (each record named after the panel knob it belongs to; knob names, value ranges, MIDI strings and the channel switch edited, Virus Control .vrt files imported with their knob behaviours converted, written with message 13; every record in the complete dump), Branch Library, translator for the Head Library. Value lists show the TI2 screen texts in its order and range (its display lists, reordering tables and range routines). Bytes the OS has no parameter for are read-only reserved entries with the OS evidence.',
+  coverage: 'Edits the Virus\'s singles, multis, global settings and remote templates. Singles have all 388 parameters (3 oscillators with the HyperSaw, wavetable and grain / formant models, filters, 4 envelopes, 3 LFOs, 6 assign slots, effects, arpeggiator with its user pattern, vocoder and inputs); the multi has 16 parts (bank, patch, channel, key range, volume, pan, output and switches) and a MIDI channels page; the global settings can be sent but not read. RAM and ROM single banks with their names (older ROM sounds shown as the Virus plays them), the RAM multis, Store to RAM, the 32 remote templates (knob names, value ranges, MIDI strings and channel switch; Virus Control .vrt files can be imported), the Branch Library and Head Library. Value lists show the TI2\'s own screen texts in its order. Values the Virus has no setting for are kept read-only, so a backup restores exactly.',
   sysex: { manufacturer: [0x00, 0x20, 0x33], model: 0x01, deviceIdDefault: OMNI },
   minGap: 20,
+  ...TI_CONNECTION,
   describe,
   simulate,
   libraryItems,
@@ -764,14 +834,14 @@ const DEF = {
   isOwn,
   prefer,
   objects: [
-    {
-      key: 'single', page: 'Single', icon: '◆', label: 'Single', size: SINGLE_SIZE, autoLoad: true,
+    withDinWarning({
+      key: 'single', page: 'Single', icon: '◆', label: 'Single', size: SINGLE_SIZE, autoLoad: true, needs: READ,
       init: initSingle, params: singleParams_, name: nameOf, cols: 3,
       fetch: (api) => fetchSingle(api, 0, unit.part),
       target: PART_TARGET,
       sections: SINGLE_SECTIONS,
       groupInfo: {
-        'Reserved bytes': { note: 'Bytes the TI2 OS has no sound parameter for (its own parameter tables): no screen shows them and parameter messages to them are ignored. Some hold the format 8/9 places of parameters the OS moves when an older sound arrives, or controller values older sounds stored. Kept so a backup restores exactly (docs/devices/access-virus-ti2.md, "Reserved bytes").', table: true, wide: true },
+        'Reserved bytes': { note: 'Values that are not sound settings on the TI2: no screen shows them and the Virus ignores changes to them. Some hold where older sounds kept settings the Virus now keeps elsewhere, or controller values older sounds stored. Kept so a backup restores exactly.', table: true, wide: true },
         'Panel selections': { note: 'Which page of a front-panel section is shown; the Virus keeps it with the sound.' },
         'Arpeggiator User Pattern': {
           wide: true,
@@ -788,8 +858,8 @@ const DEF = {
       },
       sendParam: (p, _v, data, ctx) => sendSingleParam(ctx, p.offset, data[p.offset]),
       receive: singleReceiver(() => unit.part),
-      note: 'Each change is sent as a SysEx parameter (pages A-D) to the edit buffer chosen above, so it is heard at once. Store writes the single into a RAM slot.',
-      sendAll: { label: 'Send to Virus', title: 'Send the whole single into the chosen edit buffer (message 10)', build: (data, ctx) => msg.single(ctx, 0, unit.part, data) },
+      note: 'Each change is sent to the edit buffer chosen above, so it is heard at once. Store writes the single into a RAM slot.',
+      sendAll: { label: 'Send to Virus', title: 'Send the whole single into the chosen edit buffer', needs: 'sysex', build: (data, ctx) => msg.single(ctx, 0, unit.part, data) },
       toSyx: (data, ctx) => [msg.single(ctx, 0, SINGLE_PART, data)],
       fromSyx: (msgs) => { const m = msgs.find((x) => cmdOf(x) === 0x10); return m ? upgradeSingle(singleFrom(m)) : null; },
       toCommon: (d) => TR.singleToCommon(d),
@@ -798,7 +868,7 @@ const DEF = {
       setCategory: (d, id) => TR.singleSetCategory(d, id),
       setName: (d, name) => setName(d, 240, name),
       slots: {
-        label: 'Singles', banks: [...RAM_BANKS, ...ROM_BANKS], count: 128,
+        label: 'Singles', banks: [...RAM_BANKS, ...ROM_BANKS], count: 128, needs: READ, recallNeeds: READ, storeNeeds: 'sysex',
         slotLabel: (bank, i) => `${bankName(bank).slice(-1)}${slotNumber(i)}`, name: nameOf,
         fetch: (api, bank, i) => fetchSingle(api, bank, i),
         play: async (api, bank, i) => { const d = await fetchSingle(api, bank, i); api.send(msg.single(api.ctx, 0, unit.part, d)); },
@@ -806,18 +876,18 @@ const DEF = {
         namesOnOpen: true, // a bank's names are read the first time it is shown (about 2 minutes, in the background)
         store: (bank, i, ctx, data) => msg.single(ctx, bank, i, data),
         writable: (bank) => bank >= 1 && bank <= 4,
-        note: (bank) => `Play reads the single and sends it into the edit buffer chosen above. Read names asks for the whole bank (message 32): the Virus sends about one single a second, so a bank takes some two minutes.${bank > 4 ? ' ROM banks cannot be written.' : ' Store writes into this RAM slot (Memory Protect must be Disabled).'}`,
+        note: (bank) => `Play reads the single and sends it into the edit buffer chosen above. Read names reads the whole bank: the Virus sends about one single a second, so a bank takes some two minutes.${bank > 4 ? ' ROM banks cannot be written.' : ' Store writes into this RAM slot (Memory Protect must be Disabled).'}`,
       },
-    },
-    {
-      key: 'multi', page: 'Multi', icon: '▦', label: 'Multi', size: MULTI_SIZE, autoLoad: false,
+    }),
+    withDinWarning({
+      key: 'multi', page: 'Multi', icon: '▦', label: 'Multi', size: MULTI_SIZE, autoLoad: false, needs: READ,
       init: () => initMulti(), params: multiParams_, name: multiNameOf, cols: 3,
       fetch: (api) => fetchArrangement(api),
       sections: [{ key: 'common', label: 'Common' }, ...partSections, { key: 'reserved', label: 'Reserved bytes' }],
-      groupInfo: { 'Reserved bytes': { note: 'Multi bytes and part switch bits the TI2 OS has no parameter for (no screen; parameter messages ignored). Kept so a backup restores exactly (docs/devices/access-virus-ti2.md).', table: true, wide: true } },
+      groupInfo: { 'Reserved bytes': { note: 'Multi values and part switch bits that are not settings on the TI2 (no screen shows them; the Virus ignores changes to them). Kept so a backup restores exactly.', table: true, wide: true } },
       sendParam: (p, _v, data, ctx) => (p.part === undefined ? msg.param(ctx, 0x72, 0, p.offset, data[p.offset]) : msg.param(ctx, 0x72, p.part, p.page, readParam(data, p))),
-      note: 'Each change is sent as a multi parameter (message 72). A part plays the single of its Bank and Patch on its MIDI channel; in multi mode the parts\' sounds are in their part edit buffers (Single page, Edit buffer: Multi part n).',
-      sendAll: { label: 'Send to Virus', title: 'Send the multi into the multi edit buffer (message 11 00 7F)', build: (data, ctx) => msg.multi(ctx, 0, 0x7f, data) },
+      note: 'Each change is sent at once. A part plays the single of its Bank and Patch on its MIDI channel; in multi mode the parts\' sounds are in their part edit buffers (Single page, Edit buffer: Multi part n).',
+      sendAll: { label: 'Send to Virus', title: 'Send the multi into the Virus\'s multi edit buffer', needs: 'sysex', build: (data, ctx) => msg.multi(ctx, 0, 0x7f, data) },
       toSyx: (data, ctx) => [msg.multi(ctx, 0, 0x7f, data)],
       fromSyx: (msgs) => { const m = msgs.find((x) => cmdOf(x) === 0x11); return m ? multiFrom(m) : null; },
       toCommon: (d) => TR.multiToCommon(d),
@@ -836,29 +906,29 @@ const DEF = {
           { label: 'Transpose', params: ['Part Transpose'] },
         ],
         on: (i, d) => readParam(d, findMulti(i, 72)) === 1,
-        note: 'Each part plays the single in its edit buffer (Sound) on its MIDI channel; Part enable switches it on. Get from device reads the multi and the 16 part singles (arrangement request, about 17 seconds). Changes go to the multi edit buffer; store the multi to keep them.',
+        note: 'Each part plays the single in its edit buffer (Sound) on its MIDI channel; Part enable switches it on. Get from device reads the multi and the 16 part singles (about 17 seconds). Changes go to the multi edit buffer; store the multi to keep them.',
       },
       slots: {
-        label: 'Multis', banks: [[1, 'RAM multis']], count: 128,
+        label: 'Multis', banks: [[1, 'RAM multis']], count: 128, needs: READ, storeNeeds: 'sysex',
         slotLabel: (_bank, i) => slotNumber(i), name: multiNameOf,
         fetch: (api, bank, i) => fetchMulti(api, bank, i),
         scanBank: scanBank(0x11),
         namesOnOpen: true,
         store: (_bank, i, ctx, data) => msg.multiStore(ctx, i, data),
         writable: () => true,
-        note: () => 'Read names asks for all 128 multis (message 33, about one a second). Store writes the multi into its slot (Memory Protect must be Disabled).',
+        note: () => 'Read names reads all 128 multis (about one a second). Store writes the multi into its slot (Memory Protect must be Disabled).',
       },
-    },
-    {
-      key: 'global', page: 'Global', icon: '⚙', label: 'Global', size: GLOBAL_SIZE,
+    }),
+    withDinWarning({
+      key: 'global', page: 'Global', icon: '⚙', label: 'Global', size: GLOBAL_SIZE, needs: 'sysex',
       init: () => initGlobal(), params: globalParams_, cols: 3,
       sections: [{ key: 'global', label: 'Settings' }],
       sendParam: (p, _v, data, ctx) => msg.param(ctx, 0x73, 0, p.offset, data[p.offset]),
-      note: 'The Virus TI cannot send its global settings (its OS has no global request), so the values shown are Virus Control\'s defaults until you change them here; each change is sent at once (message 73). Memory Protect is shown Disabled, the usual setting.',
-    },
-    {
+      note: 'The Virus TI cannot send its global settings, so the page shows the factory defaults (as Virus Control has them) until you change them here; each change is sent at once. Memory Protect is shown Disabled, the usual setting.',
+    }),
+    withDinWarning({
       // key 'setup': the remote templates are device settings, not sounds (no Head Library translator)
-      key: 'setup', page: 'Remote templates', icon: '◎', label: 'Remote template', size: TEMPLATE_SIZE, autoLoad: false, notLive: true, // sent with Write to the Virus
+      key: 'setup', page: 'Remote templates', icon: '◎', label: 'Remote template', size: TEMPLATE_SIZE, autoLoad: false, notLive: true, needs: READ, // sent with Write to the Virus
       init: () => initTemplate(unit.template), params: templateParams_, name: templateNameOf, cols: 4,
       fetch: (api) => fetchTemplate(api, unit.template),
       target: {
@@ -866,22 +936,22 @@ const DEF = {
         options: () => REMOTE_TEMPLATES.map((tt) => [tt, templateLabel(tt)]), value: () => unit.template, set: (v) => { unit.template = Number(v); },
       },
       sections: [{ key: 'template', label: 'Template' }, ...PANEL_AREAS.map(([key, label]) => ({ key, label }))],
-      note: 'In Remote mode each panel knob sends its record\'s MIDI string (* = the knob\'s value) over its value range and the display shows its name; Master Volume stays the volume (its record holds the template name). Get from device reads the chosen template (32 requests, one at a time). Changes stay in the editor until "Write to the Virus" sends the 32 records into the chosen template (the unit\'s template memory).',
+      note: 'In Remote mode each panel knob sends its record\'s MIDI string (* = the knob\'s value) over its value range and the display shows its name; Master Volume stays the volume (its record holds the template name). Get from device reads the chosen template (a few seconds). Changes stay in the editor until "Write to the Virus" sends the 32 knob records into the chosen template on the Virus.',
       toSyx: (d, ctx) => templateWrite(ctx, unit.template, d),
       fromSyx: (msgs) => templateFromFile(msgs, unit.template),
       actions: [
         { label: 'Edit knob...', title: 'Change a knob\'s name and MIDI string (the value range and byte 11 are changed in the cards)', run: (api) => editTemplateKnob(api) },
         { label: 'Rename template...', title: 'Change the template name (16 characters)', run: (api) => renameTemplate(api) },
-        { label: 'Import .vrt...', title: 'Load a Virus Control remote template file (*.vrt); its knob behaviours are converted to the OS\'s range types', run: (api) => importVrt(api) },
-        { label: 'Write to the Virus', title: 'Send the 32 records (13 tt kk) into the chosen template of the unit', run: (api) => writeTemplate(api) },
+        { label: 'Import .vrt...', title: 'Load a Virus Control remote template file (*.vrt); its knob behaviours are converted to the Virus\'s own range types', run: (api) => importVrt(api) },
+        { label: 'Write to the Virus', title: 'Send the 32 knob records into the chosen template on the Virus', needs: 'sysex', run: (api) => writeTemplate(api) },
       ],
-    },
+    }),
   ],
   // The TI sends one dump a second whatever is asked (a bank, or slots one by one: it keeps only the
   // latest request), so a bank takes 128 s; each step ends as soon as its expected dumps are in.
   // Remote template records: the TI answers each in about 0.11 s (measured: 126 ms a record at the
   // measured 20 ms pace, 150 ms at the DIN default of 150 ms). ROM banks: 26 x 128 s, optional but ticked.
-  fullDumpPace: 'The Virus itself sends one dump a second whatever the link (its OS times them; measured over USB), so the banks take the same time on any connection. The request pace only shortens the 1024 template records a little (the Virus takes about 0.11 s for each).',
+  fullDumpPace: 'The Virus sends one sound a second whatever the connection, so the banks take the same time over USB or DIN. A faster request pace only shortens the 1024 template records a little (the Virus takes about 0.11 s for each).',
   // accept: each step records only its own replies (a knob turned meanwhile, or a late dump, is not
   // counted: the steps after it would shift)
   fullDump: [

@@ -85,7 +85,7 @@ export function startCompleteDump(g, steps) {
   const job = begin(g, {
     kind: 'dump', title: 'Complete dump', started: Date.now(), count: 0, bytes: 0, last: '',
     step: { i: 0, n: steps.length, label: steps[0]?.label || '' }, percent: 0, left: timed ? total : null,
-    text: `Requests go out ${g.client.s.minGap} ms apart (${g.host.device.value.speed ? 'measured on the Connect page' : 'the default pace; Measure speed on the Connect page'}); the ${model} sends its replies at its own pace.`,
+    text: '',
     busy: () => `Complete dump ${job.step.i + 1}/${job.step.n}${job.left != null ? `, ${durationText(job.left)} left` : ''}`,
     stop: (save = false) => { keep = save; cancel = true; abort.abort(); },
   });
@@ -169,4 +169,59 @@ export function startCapture(g, { requestBytes = null, name = null, notes = '', 
   }
   if (requestBytes) for (const m of splitSysex ? splitSysex(requestBytes) : [requestBytes]) g.client.send(m).catch((err) => g.error(err, 'Dump request'));
   return job;
+}
+
+/**
+ * A long transfer to the device (e.g. a SYSTEM-8 PLUG-OUT install: 4096 SysEx records with flow control),
+ * run by the definition's own `run(io)` as a background job with exclusive use of the port: while it
+ * runs, requests are refused (client.hold) and sendOut sends nothing else (job.exclusive).
+ *   io.send(bytes)                 sends at once (no queue); Web MIDI keeps the order
+ *   io.waitFor(match, ms)          the next incoming SysEx that match(raw) takes, or null after ms
+ *   io.progress(done, total, text) progress (bytes or records)
+ *   io.signal                      aborted when the user stops it or leaves the device
+ * opts: {title, text, warning (shown on the Branch Library page while it runs)}. Resolves with run()'s
+ * result; a thrown error is shown (with run's own words: e.g. "power-cycle the unit") and never retried.
+ */
+export function startTransfer(g, { title, text = '', warning = '', run }) {
+  const abort = new AbortController();
+  const t0 = performance.now();
+  const job = begin(g, {
+    kind: 'transfer', title, text: [text, warning].filter(Boolean).join(' '), started: Date.now(), count: 0, bytes: 0, last: '',
+    step: { i: 0, n: 1, label: '' }, percent: 0, left: null, exclusive: true,
+    busy: () => `${title}: ${job.percent ?? 0} %`,
+    stop: () => abort.abort(),
+  });
+  g.client.hold = `${title} is running: nothing else can be sent to the ${g.entry.model} until it ends.`;
+  const offClose = g.on('destroyed', () => abort.abort());
+  const io = {
+    signal: abort.signal,
+    send: (bytes) => { if (abort.signal.aborted) throw new Error('Stopped.'); g.transport.send(Uint8Array.from(bytes)); job.count++; job.bytes += bytes.length; },
+    waitFor: (match, ms) => new Promise((resolve, reject) => {
+      let timer = null;
+      const done = (v) => { clearTimeout(timer); off(); abort.signal.removeEventListener('abort', onAbort); resolve(v); };
+      const onAbort = () => { clearTimeout(timer); off(); reject(new Error('Stopped.')); };
+      const off = g.transport.on('sysex', (d) => { try { if (match(d)) done(Uint8Array.from(d)); } catch { /* not this one */ } });
+      timer = setTimeout(() => done(null), ms);
+      abort.signal.addEventListener('abort', onAbort);
+    }),
+    progress: (doneN, total, label = '') => {
+      const spent = (performance.now() - t0) / 1000;
+      update(g, job, { step: { i: Math.min(doneN, total - 1), n: total, label }, percent: Math.round((doneN / Math.max(1, total)) * 100), left: doneN ? Math.max(0, (spent / doneN) * (total - doneN)) : null });
+    },
+  };
+  return (async () => {
+    try {
+      const r = await run(io);
+      toast(`${g.entry.model}: ${title} done (${elapsedText(performance.now() - t0)}).`, 'good', 10000);
+      return r;
+    } catch (err) {
+      if (abort.signal.aborted) toast(`${g.entry.model}: ${title} stopped.`, 'warn', 8000);
+      else g.error(err, title);
+      return null;
+    } finally {
+      offClose?.();
+      g.client.hold = null;
+      end(g, job);
+    }
+  })();
 }

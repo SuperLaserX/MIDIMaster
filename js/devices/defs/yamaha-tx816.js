@@ -54,11 +54,11 @@ function fnParams() {
     reads: (o) => READS.has(o),
     extra: (o) => (o === 0 || o === 30 ? { options: Array.from({ length: 128 }, (_, i) => [i, i < 32 ? `I${String(i + 1).padStart(2, '0')}` : String(i)]), help: 'The voice this function data belongs to (I01-I32); the TF1 selects voices by program change.' } : {}),
     group: (o) => (o < 30 ? (READS.has(o) ? 'Channel A' : 'Channel A (sent, not read)') : o < 60 ? 'Channel B (read when Single channel is B)' : o < 64 ? 'Key assign' : 'Name'),
-    readOnlyHelp: (o) => (o >= 64 ? 'The TF1 writes the voice number and name here.' : o >= 30 && o < 60 ? 'The TF1 sends channel A again here and reads it only as noted.' : `The TF1 sends ${FIXED[o] ?? 0} here and never reads it (D7F0).`),
+    readOnlyHelp: (o) => (o >= 64 ? 'The TF1 writes the voice number and name here.' : o >= 30 && o < 60 ? 'The TF1 sends channel A again here and reads it only as noted.' : `The TF1 sends ${FIXED[o] ?? 0} here and does not use it.`),
   });
   ps.push(
-    { key: 'lo', label: 'Key limit low', offset: LO, size: 4, min: 0, max: 127, group: 'Key limits', options: noteOpts, get: (d) => readLimit(d, LO, 0), set: (d, v) => writeLimit(d, LO, v), help: 'Kept in the name as "Lo:" text (the TF1 reads it back, D980); also sent as group 4 number 5.', send: (v, ctx) => paramChange(ctx?.channel ?? 0, 4, 133, v) },
-    { key: 'hi', label: 'Key limit high', offset: HI, size: 4, min: 0, max: 127, group: 'Key limits', options: noteOpts, get: (d) => readLimit(d, HI, 127), set: (d, v) => writeLimit(d, HI, v), help: 'Kept in the name as "Hi:" text; also sent as group 4 number 6.', send: (v, ctx) => paramChange(ctx?.channel ?? 0, 4, 134, v) },
+    { key: 'lo', label: 'Key limit low', offset: LO, size: 4, min: 0, max: 127, group: 'Key limits', options: noteOpts, get: (d) => readLimit(d, LO, 0), set: (d, v) => writeLimit(d, LO, v), help: 'Kept in the name as "Lo:" text, where the TF1 reads it back; also sent to the module as you change it.', send: (v, ctx) => paramChange(ctx?.channel ?? 0, 4, 133, v) },
+    { key: 'hi', label: 'Key limit high', offset: HI, size: 4, min: 0, max: 127, group: 'Key limits', options: noteOpts, get: (d) => readLimit(d, HI, 127), set: (d, v) => writeLimit(d, HI, v), help: 'Kept in the name as "Hi:" text; also sent to the module as you change it.', send: (v, ctx) => paramChange(ctx?.channel ?? 0, 4, 134, v) },
   );
   return ps;
 }
@@ -127,14 +127,14 @@ function moduleParams() {
       options: Array.from({ length: 16 }, (_, c) => [c, String(c + 1)]),
       set: (d, v) => { d[b + 7] = d[b]; d[b] = v; },
       send: (v, _ctx, d) => paramChange(d[b + 7], 1, 1, v + 1),
-      help: 'The channel the module listens on (its panel MIDI CH). A change is sent on the old channel as group 1 number 1 (EB44).',
+      help: 'The channel the module listens on (its panel MIDI CH). A change is sent to the module on its old channel.',
     });
-    P(1, 'Voice', 31, { options: Array.from({ length: 32 }, (_, i) => [i, `I${String(i + 1).padStart(2, '0')}`]), send: (v, _ctx, d) => [0xc0 | d[b], v], help: 'Program change 1-32 (CD9A), which also recalls the voice\'s function memory.' });
+    P(1, 'Voice', 31, { options: Array.from({ length: 32 }, (_, i) => [i, `I${String(i + 1).padStart(2, '0')}`]), send: (v, _ctx, d) => [0xc0 | d[b], v], help: 'Selects voice 1-32 (by program change), which also recalls the voice\'s function memory.' });
     P(2, 'Key limit low', 127, { options: noteOpts, send: (v, _ctx, d) => paramChange(d[b], 4, 133, v) });
     P(3, 'Key limit high', 127, { options: noteOpts, send: (v, _ctx, d) => paramChange(d[b], 4, 134, v) });
-    P(4, 'Master tune', 127, { format: (v) => `${v > 64 ? '+' : ''}${v - 64}`, send: (v, _ctx, d) => paramChange(d[b], 1, 64, v), help: 'Group 1 number 64 (the DX7 function number of master tune); 64 = 0 (53FB).' });
-    P(5, 'Attenuation', 7, { send: (v, _ctx, d) => paramChange(d[b], 1, 26, v), help: 'Function data byte 26 (group 1 number 26).' });
-    P(6, 'Memory protect', 1, { options: opts(['off', 'on']), send: (v, _ctx, d) => paramChange(d[b], 4, 135, v ? 127 : 0), help: 'Group 4 number 7 (0 off, 7Fh on). Keep it off to send voices.' });
+    P(4, 'Master tune', 127, { format: (v) => `${v > 64 ? '+' : ''}${v - 64}`, send: (v, _ctx, d) => paramChange(d[b], 1, 64, v), help: 'Master tune of the module: 64 = 0.' });
+    P(5, 'Attenuation', 7, { send: (v, _ctx, d) => paramChange(d[b], 1, 26, v), help: 'The module\'s output attenuation (also on the Function data page).' });
+    P(6, 'Memory protect', 1, { options: opts(['off', 'on']), send: (v, _ctx, d) => paramChange(d[b], 4, 135, v ? 127 : 0), help: 'Memory protect of the module. Keep it off to send voices.' });
     P(7, 'Last channel sent', 15, { hidden: true });
   }
   return ps;
@@ -181,7 +181,7 @@ const def = buildDX({
   functionParams: null,
   formats: [1, 2, 0x7d],
   bankNote: 'The module\'s memory protect must be off (Modules page).',
-  coverage: 'Each TF1 module of the rack reached by its MIDI channel: the DX7 voice (labels from the DX7 v1.8 firmware, the TF1 has no display), its 32 voices, the function data (the DX5\'s names for the 94 bytes, the bytes the TF1 reads editable, key limits kept in the name as the TF1 does) and the Modules page (channel, voice, key limits, master tune, attenuation, memory protect per module) with a MIDI channels page; Find modules asks each channel for its 7Dh answer. The function memories (format 2, the DX5 64-byte packing, sent twice) are split by the Branch Library and read and written back per module from the Function data page\'s slot list. Not yet checked on a TX816.',
+  coverage: 'Edits each of the TX816\'s TF1 modules: voices, function data and module settings. Each module is reached on its own MIDI channel: the DX7 voice (with the DX7\'s names, as the TF1 has no display), its 32 voices, the function data (with the DX5\'s names; the settings the TF1 uses are editable, key limits kept in the name as the TF1 does) and the Modules page (channel, voice, key limits, master tune, attenuation, memory protect per module) with a MIDI channels page; Find modules looks for a module on each channel. The function memories are read and written back per module from the Function data page\'s slot list (and the Branch Library). Not yet checked on a TX816.',
   notes: { voice: 'Each TF1 module answers on its own channel: set the channel (top bar) to the module you edit, or use the Modules page.' },
   moreRequests: [
     { label: 'Function data', bytes: (ctx) => dumpRequest(ctx?.channel ?? 0, 1) },
@@ -216,13 +216,13 @@ const def = buildDX({
       match: isFn,
       decode: (raw) => Uint8Array.from(parseBulk(raw).data),
       name: (d) => String.fromCharCode(...d.subarray(NAME + 3, NAME + 13)).trim(),
-      note: 'The module\'s function data for its current voice (the DX1/DX5 performance format, channel A). Changes are parameter changes (group 1, number = byte); the key limits go as group 4 numbers 5-6 and live in the name\'s "Lo: / Hi:" text.',
+      note: 'The module\'s function data for its current voice (laid out like a DX1/DX5 performance). Each change is sent as you make it; the key limits are kept in the name as "Lo: / Hi:" text.',
       sendParam: (p, _v, d, ctx) => (SENT.has(p.offset) ? paramChange(ch(ctx), 1, p.offset, d[p.offset]) : bulk(ch(ctx), 1, d)),
-      sendAll: { label: 'Send', title: 'Send the function data (format 1)', build: (d, ctx) => bulk(ch(ctx), 1, d) },
+      sendAll: { label: 'Send', title: 'Send the function data to the module', build: (d, ctx) => bulk(ch(ctx), 1, d) },
       toSyx: (d, ctx) => bulk(ch(ctx), 1, d),
       fromSyx: (msgs) => { const m = msgs.find(isFn); return m ? Uint8Array.from(parseBulk(m).data) : null; },
       // the module's 32 function memories (format 2, D347; received by D151: half A, or B in single mode on B)
-      slots: fmemSlots({ label: 'Function memories', count: 32, twice: true, perVoice: true, perChannel: true, name: (d) => `${d[2] ? 'Mono' : 'Poly'}, PB rng ${d[3]}`, recall: (c, i) => [0xc0 | c, i], note: 'memory n belongs to voice n (Play selects the voice, which recalls its function memory, CD9A); one copy per module (channel)' }),
+      slots: fmemSlots({ label: 'Function memories', count: 32, twice: true, perVoice: true, perChannel: true, name: (d) => `${d[2] ? 'Mono' : 'Poly'}, PB rng ${d[3]}`, recall: (c, i) => [0xc0 | c, i], note: 'memory n belongs to voice n (Play selects the voice, which recalls its function memory); one copy per module (channel)' }),
       toCommon: fnToCommon,
       fromCommon: (c) => fnFromCommon(c),
     });
@@ -230,10 +230,10 @@ const def = buildDX({
       key: 'modules', page: 'Modules', icon: '▤', label: 'Modules', size: 8 * MOD,
       init: initRack, params: moduleParams(), cols: 3,
       sections: Array.from({ length: 8 }, (_, m) => ({ key: `m${m}`, label: `Module ${m + 1}` })),
-      note: 'The eight TF1 modules: each listens on its own MIDI channel. Find modules asks every channel for its status (7Dh); with the modules\' MIDI OUTs merged, each one answers. Changes go to each module on its own channel.',
+      note: 'The eight TF1 modules: each listens on its own MIDI channel. Find modules asks every channel for a module; with the modules\' MIDI OUTs merged, each one answers. Changes go to each module on its own channel.',
       actions: [
         {
-          label: 'Find modules', title: 'Ask channels 1-16 for a TF1 status message (7Dh) and fill the module channels in the order they answer',
+          label: 'Find modules', title: 'Ask channels 1-16 for a TF1 module and fill in the module channels in the order they answer',
           run: async (api) => {
             const g = api.g;
             const found = [];

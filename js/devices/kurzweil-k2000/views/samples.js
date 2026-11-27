@@ -78,7 +78,7 @@ export function samplesView(root, app, params = {}) {
           ram ? h('button.btn', { onclick: renameBlock }, 'Rename') : null,
           ram ? h('button.btn', { onclick: downloadAll }, b.stereo ? 'Download stereo WAV' : 'Download WAV') : null,
           ram ? h('button.btn', { onclick: () => uploadWav(b.id) }, 'Replace with WAV...') : null,
-          ram && b.headers.length > 1 ? h('button.btn', { onclick: splitBlock, title: 'Hidden K2000 command 0x79' }, 'Split into single samples...') : null,
+          ram && b.headers.length > 1 ? h('button.btn', { onclick: splitBlock, title: 'Make one new soundblock from each sub-sample. The K2000 has no front-panel button for this; the original stays.' }, 'Split into single samples...') : null,
           ram ? h('button.btn.danger', { onclick: deleteBlock }, 'Delete') : null),
         !ram ? h('p.small.muted', 'Factory ROM samples are copy protected: the K2000 does not dump them and their headers cannot be changed.') : null),
       h('div.section-title', 'Sub-samples'),

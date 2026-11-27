@@ -98,3 +98,12 @@ Voice page and Internal voices as on the DX7, but read by request (Get from devi
 names). Function data page: the fields above, sent as group 1 parameter changes, read and sent as
 format 1. Head Library: voices load natively into the DX7 and back; function data translates as a
 one-part performance (voice number, poly/mono, bend range, portamento).
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- Performance name character; the TX7 always sends " YAMAHA  TX7  FUNCTION  DATA  " (C87C).
+- MASTER TUNE: shown -64..+63 (D38A); sent as group 1 number 40h (E004). Not in the 7Dh answer: the page shows what was sent.
+- Data entry (control change 6, and 60h / 61h increment / decrement) received; turning it on turns D.ENTRY VOL off (DF94).
+- Flag 7B6E: set when a program change selected an internal voice (0-31), clear for a cartridge voice (D9CE); the TX7 then loads the voice's function memory (D3B6).

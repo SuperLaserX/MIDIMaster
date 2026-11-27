@@ -21,6 +21,7 @@ class XMem:
         self.reads = {}
         self.writes = []
         self.logging = False
+        self.ack = 0
         self.keys = set()      # pressed keys as (column bit 4-7, row bit 0-3)
 
     def rbank(self):
@@ -32,6 +33,10 @@ class XMem:
                 return self.ram[self.rbank()][a]
             return self.ram[0][a]
         self.reads[a] = self.reads.get(a, 0) + 1
+        if a == 0x801b:
+            # ASIC status: bit 0 answers each write to 8017 (handshake), bit 2 set and bits 1 / 4 clear
+            # (otherwise the firmware reports BAD SAMPLE CLOCK)
+            return 0x04 | self.ack
         return self.io.get(a, 0xff)
 
     def __setitem__(self, a, v):
@@ -50,6 +55,8 @@ class XMem:
                     rows &= ~(1 << row)
             p1 = self.cpu.ram[0x90]
             self.cpu.ram[0x90] = (p1 & 0xf0) | rows
+        if a == 0x8017:
+            self.ack ^= 1
         if a == 0x8008:
             self.bank = v & 1
             self.cpu.c = self.img[0x10000:] if self.bank else self.img[:0x10000]

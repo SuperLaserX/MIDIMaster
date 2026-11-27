@@ -57,6 +57,12 @@ JP-8080 uses for it (see "Labels and displays").
 (0-127), value = high × 128 + low. They are the performance's Indiv Trig Source Note
 (0-128, where 128 = ALL) and TEMPO, and all 75 Control and Velocity depths in the patch
 (0-254, where 127 = 0). The editor treats each pair as one parameter and sends both bytes.
+The combined range and initial value of each pair come from the per-id table at `8D30C` (12 bytes
+an id: min, max, init, ...; the table also holds the single-byte ranges, which all equal the SysEx
+table's): Trig Source Note 0-128 (init 128, ALL), TEMPO 20-250 (init 120), depths 0-254 (init 127),
+except OSC2 Range 77-177 and OSC2 Fine/Wide 27-227 (patch 62h/64h, B4h/B6h). The JP-8000 OS has
+the same values in its table (`53E8C`), and its receiver keeps the old value when a DT1 sends one
+outside them (checked in its emulator, see roland-jp8000.md).
 
 ## Labels and displays
 
@@ -152,7 +158,9 @@ Some bytes appear on no JP-8080 screen. Each takes its name from the best source
   - System 09: Remote Ctrl CH (always 17).
   - System 0D: Motion Set, list 18: SET A, SET B. The address map lists it as a JP-8080 setting
     too.
-  - System 12h-16h: no menu in either firmware.
+  - System 12h-16h: no menu in either firmware; Roland's JP-8000 address map names them: Factory
+    Preset Menu, Bulk Dump Menu, Keyboard Shift (-2 to +2 octaves), Ribbon Relative, Ribbon Hold
+    (see roland-jp8000.md). The JP-8080 table allows only 0 for 12h and 13h.
   - Performance 1Ch: Pedal Assign, list 4: OFF, MODULATION, PANPOT, EXPRESSION, the 40 knobs,
     RIBBON UP, RIBBON DOWN.
 - **Patch F0h** is reserved and always 0.
@@ -332,7 +340,8 @@ OS 1.04 has no SysEx for patterns:
 - The Bulk Dump menu has no pattern entry, and Roland's address map lists only Motion Control
   Data.
 
-Patterns move only to and from a memory card.
+Patterns move only to and from a memory card. (The JP-8000's OS 1.05 does read and write them at
+08 nn 00 00: see roland-jp8000.md.)
 ## Checked on the unit
 
 - The identity reply, and RQ1 of every block: `re/jp8080/live/baseline.txt`.
@@ -376,4 +385,10 @@ FLT RESONANCE spread over the whole 10368 ticks (drawn before the editor showed 
 
 ## Open items
 
-None for the JP-8080. (JP-8000: system 12h-16h and a hardware check, see its doc.)
+None for the JP-8080. (JP-8000: see its doc.)
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- OSC2 external input switch: ON: OSC2 plays the external input (OSC2 Control shows EXTERNAL INPUT, label table 5E140).

@@ -67,3 +67,9 @@ voice bits set to the slot) and sending all 64 records (taken by D151 into 5080h
 sends program change n, which recalls voice n with its function memory (CD9A).
 
 Open: the module's omni switch (panel only) and its status byte 14 (5407h) are not named.
+
+## Firmware references from the editor's former page texts
+
+The page texts were rewritten in plain language (2026-11-27); these details they held are kept here.
+
+- The channel the module listens on (its panel MIDI CH). A change is sent on the old channel as group 1 number 1 (EB44).

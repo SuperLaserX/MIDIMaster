@@ -191,7 +191,7 @@ test('JV-2080 patch, performance and rhythm set: exact within the family, other 
   assertInRange(po, rp.data, 'M1 combination → JV-2080 performance');
   const FPm = (s, l) => readParam(rp.data, jv.perfBuilt.params.find((p) => p.section === s && p.label === l));
   assert.deepEqual([FPm('p0', 'Receive channel'), FPm('p1', 'Receive channel'), FPm('p2', 'Receive channel')], [0, 1, 2]);
-  assert.equal(FPm('p1', 'Octave shift') - 3, 1, 'timbre 2 transposed an octave');
+  assert.equal(FPm('p1', 'Coarse tune') - 48, 12, 'timbre 2 transposed an octave (coarse tune; the part octave shift is not stored by the JV-2080)');
 
   // rhythm set: exact; the notes through the shared model
   const { obj: ro } = await objOf('roland-jv2080', 'rhythm');

@@ -99,3 +99,11 @@ test('complete dump: a step counts only its own replies (a stray dump does not s
   c.hold = 'A complete dump is running';
   await assert.rejects(c.request(Uint8Array.of(0xf0, 0xf7), { match: () => true }), /complete dump is running/, 'other pages wait');
 });
+
+test('complete dump: step.record keeps the step\'s own messages first (a bank select before the bank)', async () => {
+  const transport = new Emitter();
+  const client = { send: async () => { setTimeout(() => transport.emit('sysex', Uint8Array.of(0xf0, 0x10, 0x01, 0xf7)), 2); } };
+  const step = { bytes: () => [[0xf0, 0x10, 0x0a, 0x03, 0xf7], [0xf0, 0x10, 0x04, 0xf7]], expect: 1, timeout: 1000, record: (m) => m[2] === 0x0a };
+  const got = await requestAndRecord({ transport, client, ctx: {} }, step);
+  assert.deepEqual(got.map((m) => Array.from(m)), [[0xf0, 0x10, 0x0a, 0x03, 0xf7], [0xf0, 0x10, 0x01, 0xf7]]);
+});

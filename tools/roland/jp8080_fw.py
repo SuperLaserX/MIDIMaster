@@ -116,13 +116,29 @@ for rows in out.values():
     for r in rows:
         if len(r) > 4 and r[5] == 4:
             counts[r[6]] = max(counts.get(r[6], 0), r[2] + 1)
-counts[11] = max(counts.get(11, 0), 97)  # CC list (Tx/Rx setting)
+CC_LIST = 10 if JP8000 else 11  # CC list (Tx/Rx setting): list 10 in the JP-8000 OS, 11 in the JP-8080 OS
+counts[CC_LIST] = max(counts.get(CC_LIST, 0), 97)
 for r in out['PATCH']:  # OSC2 RANGE: its list holds -WIDE/+WIDE (JP-8080 format 1Ch list 30, JP-8000 format 13h list 23)
     if len(r) > 6 and r[5] in (0x1C, 0x13):
         counts[r[6]] = 2
 counts[4] = max(counts.get(4, 0), 46)  # Pedal Assign targets (performance 1Ch, a JP-8000 setting)
-counts[18] = max(counts.get(18, 0), 2)  # SET A / SET B (system 0Dh, Motion Set)
+counts[18] = max(counts.get(18, 0), 2)  # SET A / SET B (system 0Dh, Motion Set; JP-8080 list 18)
+if JP8000:  # system 12h / 13h: the Initialize and Bulk Dump pages' lists (menu records 6EB20 / 6EB4C)
+    counts[16] = max(counts.get(16, 0), 14)
+    counts[17] = max(counts.get(17, 0), 18)
 LISTS = {n: optlist(n, c) for n, c in sorted(counts.items())}
+
+# Two-byte values (sub 1/2): their combined range and initial value are in the per-id table (cc):
+# [min, max, init, ...], e.g. TEMPO 20-250 (init 120), Trig Source Note 0-128 (128 = ALL), depths
+# 0-254 (127 = 0) with the OSC2 range / fine depths narrower. Keyed by block and high-byte offset.
+RANGES2 = {}
+for name, ranges in BLOCKS.items():
+    for off0, i0, n in ranges:
+        for j in range(n):
+            iid, sub, mn, mx = SX[i0 + j]
+            if sub == 1:
+                e = D[CFG['cc'] + 12 * iid:CFG['cc'] + 12 * iid + 12]
+                RANGES2.setdefault(name, {})[off0 + j] = [e[0], e[1], e[2]]
 
 PATCH_CC = []
 for i in range(0x4A):
@@ -137,6 +153,8 @@ for name, rows in out.items():
 js.append(f'export const LISTS = {json.dumps({str(k): v for k, v in LISTS.items()})};')
 js.append('// Patch bytes 0-49h: [init value, 1 = knob / 0 = switch, MODE2 factory CC, MODE1 CC (96 = none), Tx/Rx slot (-1 = none)]')
 js.append(f'export const PATCH_CC = {json.dumps(PATCH_CC)};')
+js.append('// Two-byte values: [min, max, init] of the combined value (high byte x 128 + low), by block and high-byte offset.')
+js.append(f'export const RANGES2 = {json.dumps({k: {str(o): r for o, r in v.items()} for k, v in RANGES2.items()})};')
 name16 = lambda a: D[a:a + 16].decode('latin1').rstrip()
 (pa, ps, p0, pn, pb), (fa, fs, f0, fn, fb) = CFG['presets']
 PRESET_PATCHES = [[name16(pa + ps * (p0 + pn * b + i)) for i in range(pn)] for b in range(pb)]

@@ -1,4 +1,4 @@
-// Alesis Quadraverb programs <-> the shared synth model (docs/HEAD_LIBRARY.md), effects section only.
+// Alesis Quadraverb programs <-> the shared synth model (intdocs/HEAD_LIBRARY.md), effects section only.
 //
 // toCommon: the configuration's effects become effects.reverb {type, time, preDelay, level},
 //   effects.delay {type, time, feedback, level} and effects.modulation {type, rate, depth, level}
